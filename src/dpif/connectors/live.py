@@ -86,7 +86,14 @@ class LiveDatabricksConnector(DatabricksConnector):
                 timeout=self.timeout,
             )
             if resp.status_code == 200:
-                data = resp.json()
+                try:
+                    data = resp.json()
+                except (ValueError, TypeError) as e:
+                    logger.warning("Databricks API returned malformed JSON at %s", endpoint)
+                    raise DatabricksApiError(
+                        f"Malformed JSON response from Databricks API at {endpoint}",
+                        status_code=200,
+                    ) from e
                 if isinstance(data, dict):
                     return {**data, "_connector": "live-api"}
                 return {"result": data, "_connector": "live-api"}
@@ -99,11 +106,8 @@ class LiveDatabricksConnector(DatabricksConnector):
                     endpoint,
                     resp.status_code,
                 )
-                clean_text = (
-                    resp.text.replace(self._token, "[MASKED]") if self._token else resp.text
-                )
                 raise DatabricksApiError(
-                    f"Authentication/Permission failure ({resp.status_code}): {clean_text}",
+                    f"Authentication/Permission failure ({resp.status_code}) at {endpoint}",
                     status_code=resp.status_code,
                 )
             elif resp.status_code == 429:

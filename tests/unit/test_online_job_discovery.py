@@ -286,8 +286,85 @@ def test_m5b_api_unavailable_503():
     assert job_item.error.status_code == 503
 
 
+def test_m5b_malformed_json_response_handling():
+    """1. Test HTTP 200 with invalid/malformed JSON returns MALFORMED_RESPONSE."""
+    mock_session = MagicMock(spec=requests.Session)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.side_effect = ValueError("Expecting value: line 1 column 1 (char 0)")
+    mock_session.request.return_value = mock_resp
+
+    conn = LiveDatabricksConnector(
+        host="https://mock.cloud.databricks.com",
+        token="dapi_mock_token_123",
+        session=mock_session,
+    )
+    provider = DatabricksEvidenceProvider(connector=conn)
+    evidence = provider.acquire_pipeline_evidence(pipeline_id="p1", job_id=1001)
+
+    job_item = evidence.items[EvidenceCategory.JOB.value]
+    assert job_item.is_available is False
+    assert job_item.payload is None
+    assert job_item.error is not None
+    assert job_item.error.error_code == AcquisitionErrorCode.MALFORMED_RESPONSE
+    assert job_item.error.status_code == 200
+
+
+def test_m5b_security_no_raw_response_leakage_401_403():
+    """2 & 3. Test 401/403 errors never leak raw bodies or sensitive JSON secrets."""
+    mock_session = MagicMock(spec=requests.Session)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 401
+    mock_resp.text = (
+        '{"error": "Unauthorized", "password": "super_secret_pass", "token": "dapi_secret_99"}'
+    )
+    mock_session.request.return_value = mock_resp
+
+    conn = LiveDatabricksConnector(
+        host="https://mock.cloud.databricks.com",
+        token="dapi_mock_token_123",
+        session=mock_session,
+    )
+    provider = DatabricksEvidenceProvider(connector=conn)
+    evidence = provider.acquire_pipeline_evidence(pipeline_id="p1", job_id=1001)
+
+    job_item = evidence.items[EvidenceCategory.JOB.value]
+    assert job_item.is_available is False
+    assert job_item.error is not None
+    msg = job_item.error.message
+    assert "super_secret_pass" not in msg
+    assert "dapi_secret_99" not in msg
+    assert '{"error": "Unauthorized"' not in msg
+
+
+def test_m5b_string_sanitization_pattern_hardening():
+    """3. Test mask_sensitive_credentials regex pattern matching JSON and key-value formats."""
+    from dpif.providers.base import mask_sensitive_credentials
+
+    test_inputs = [
+        ("password=super_secret", "password=[MASKED_SECRET]"),
+        ("password: super_secret", "password: [MASKED_SECRET]"),
+        ('"password": "super_secret"', '"password": [MASKED_SECRET]'),
+        ("token=abc_token_123", "token=[MASKED_SECRET]"),
+        ('"token": "abc_token_123"', '"token": [MASKED_SECRET]'),
+        ("secret=shh_secret", "secret=[MASKED_SECRET]"),
+        ('"secret": "shh_secret"', '"secret": [MASKED_SECRET]'),
+        ("api_key=key_xyz", "api_key=[MASKED_SECRET]"),
+        ('"api_key": "key_xyz"', '"api_key": [MASKED_SECRET]'),
+        ("authorization: Bearer secret_bearer_tok", "authorization: Bearer [MASKED_SECRET]"),
+        (
+            '"authorization": "Bearer secret_bearer_tok"',
+            '"authorization": "Bearer [MASKED_SECRET]"',
+        ),
+    ]
+
+    for raw, expected in test_inputs:
+        sanitized = mask_sensitive_credentials(raw)
+        assert sanitized == expected, f"Failed for {raw}: got {sanitized}"
+
+
 def test_m5b_malformed_api_response():
-    """H. Test handling of malformed or unexpected API error status codes."""
+    """H. Test handling of unexpected server error status codes."""
     mock_session = MagicMock(spec=requests.Session)
     mock_resp = MagicMock()
     mock_resp.status_code = 500

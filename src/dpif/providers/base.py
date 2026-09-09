@@ -152,9 +152,11 @@ def mask_sensitive_credentials(text: str, token: str | None = None) -> str:
         clean = clean.replace(token.strip(), "[MASKED_TOKEN]")
     import re
 
+    bearer_pattern = r"(?i)(bearer\s+)([^\s;&,#\"']+)"
+    clean = re.sub(bearer_pattern, r"\1[MASKED_SECRET]", clean)
     pattern = (
-        r"(?i)(bearer\s+|token[=:]\s*|password[=:]\s*|secret[=:]\s*|api[_-]?key[=:]\s*)"
-        r"([^\s;&,#]+)"
+        r'(?i)("?(?:password|token|secret|api[_-]?key)"?\s*[:=]\s*)'
+        r'("?[^\s;&,#"\']+"?)'
     )
     clean = re.sub(pattern, r"\1[MASKED_SECRET]", clean)
     return clean
@@ -250,7 +252,7 @@ class DatabricksEvidenceProvider:
                         is_available=True,
                     )
             except DatabricksApiError as e:
-                err_code = self._map_status_code(e.status_code)
+                err_code = self._map_status_code(e.status_code, str(e))
                 clean_msg = mask_sensitive_credentials(str(e), token)
                 acq_err = AcquisitionError(
                     category=cat,
@@ -357,7 +359,9 @@ class DatabricksEvidenceProvider:
         return evidence
 
     @staticmethod
-    def _map_status_code(status_code: int | None) -> AcquisitionErrorCode:
+    def _map_status_code(status_code: int | None, message: str = "") -> AcquisitionErrorCode:
+        if "malformed json" in message.lower() or status_code == 200:
+            return AcquisitionErrorCode.MALFORMED_RESPONSE
         if status_code == 401:
             return AcquisitionErrorCode.AUTHENTICATION_FAILURE
         if status_code == 403:
