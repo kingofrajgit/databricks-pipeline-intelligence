@@ -26,7 +26,7 @@ def _repo_root(start: Path) -> Path:
 def resolve_safe_path(
     raw_path: str | None,
     base_dir: Path,
-    root_dir: Path | None = None,
+    root_dir: Path,
 ) -> tuple[Path | None, str | None]:
     """Safely resolve relative or absolute paths guarding against path traversal attacks.
 
@@ -42,35 +42,29 @@ def resolve_safe_path(
 
     normalized_slash = clean_raw.replace("\\", "/")
 
+    # Reject Windows drive-letter paths cross-platform (e.g. C:\..., C:/..., C:foo, Z:/...)
+    if len(clean_raw) >= 2 and clean_raw[0].isalpha() and clean_raw[1] == ":":
+        return None, f"Windows drive letter path not allowed: '{clean_raw}'"
+
     # Reject UNC paths (e.g. //server/share or \\server\share)
     if clean_raw.startswith(("\\\\", "//")):
         return None, f"UNC path not allowed: '{clean_raw}'"
 
-    # Reject Windows drive letter absolute paths if they attempt to escape root_dir
     # Path traversal detection: check for '..' components in path
     parts = [p for p in normalized_slash.split("/") if p]
     if ".." in parts:
         return None, f"Path traversal ('..') not allowed: '{clean_raw}'"
 
     path_obj = Path(clean_raw)
-    effective_root = (root_dir or _repo_root(base_dir)).resolve()
+    effective_root = root_dir.resolve()
 
     if path_obj.is_absolute():
         resolved = path_obj.resolve()
     else:
-        # First try relative to base_dir (directory containing manifest)
-        cand1 = (base_dir / path_obj).resolve()
-        if cand1.exists():
-            resolved = cand1
-        else:
-            # Fallback to repo root or base_dir resolved
-            cand2 = (effective_root / path_obj).resolve()
-            if cand2.exists():
-                resolved = cand2
-            else:
-                resolved = cand1
+        # Resolve relative to base_dir (directory containing manifest)
+        resolved = (base_dir / path_obj).resolve()
 
-    # Security check: ensure path does not escape effective_root
+    # Security check: ensure resolved path (and symlink target) does not escape effective_root
     try:
         resolved.relative_to(effective_root)
     except ValueError:
@@ -90,14 +84,15 @@ def load_and_validate_manifest(
     manifest_path: str | Path,
     allowed_root: Path | None = None,
 ) -> tuple[list[PipelineSubmission], list[PipelineValidationResult]]:
-    """Parse and validate a multi-pipeline CSV manifest.
+    """Parse and validate a multi-pipeline CSV manifest strictly.
 
     Returns:
         tuple of (valid_submissions, invalid_results)
     """
     path = Path(manifest_path)
     base_dir = path.parent.resolve()
-    root_dir = allowed_root.resolve() if allowed_root else _repo_root(base_dir)
+    # Explicit allowed_root or fall back deterministically to base_dir (directory containing manifest)
+    root_dir = allowed_root.resolve() if allowed_root is not None else base_dir
 
     valid_submissions: list[PipelineSubmission] = []
     invalid_results: list[PipelineValidationResult] = []
@@ -136,8 +131,7 @@ def load_and_validate_manifest(
         )
         return valid_submissions, invalid_results
 
-    lines = [line.strip() for line in content.splitlines() if line.strip()]
-    if not lines:
+    if not content.strip():
         err_sub = PipelineSubmission(
             pipeline_id="MANIFEST_ERROR",
             developer="UNKNOWN",
@@ -153,9 +147,47 @@ def load_and_validate_manifest(
         )
         return valid_submissions, invalid_results
 
-    reader = csv.DictReader(lines)
-    fieldnames = reader.fieldnames or []
-    present_headers = {h.strip() for h in fieldnames if h}
+    # Use csv.reader in strict mode over original content lines (preserving quotes)
+    content_lines = content.splitlines()
+    strict_reader = csv.reader(content_lines, strict=True)
+
+    try:
+        raw_headers = next(strict_reader, None)
+    except csv.Error as e:
+        err_sub = PipelineSubmission(
+            pipeline_id="MANIFEST_ERROR",
+            developer="UNKNOWN",
+            contract_path=str(manifest_path),
+            code_path="",
+        )
+        invalid_results.append(
+            PipelineValidationResult(
+                submission=err_sub,
+                processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+                errors=[f"CSV header syntax error: {e}"],
+            )
+        )
+        return valid_submissions, invalid_results
+
+    if raw_headers is None:
+        err_sub = PipelineSubmission(
+            pipeline_id="MANIFEST_ERROR",
+            developer="UNKNOWN",
+            contract_path=str(manifest_path),
+            code_path="",
+        )
+        invalid_results.append(
+            PipelineValidationResult(
+                submission=err_sub,
+                processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+                errors=["Manifest CSV is empty"],
+            )
+        )
+        return valid_submissions, invalid_results
+
+    header_list = [h.strip() for h in raw_headers]
+    header_count = len(header_list)
+    present_headers = set(header_list)
 
     missing_headers = REQUIRED_HEADERS - present_headers
     if missing_headers:
@@ -197,8 +229,50 @@ def load_and_validate_manifest(
 
     seen_pipeline_ids: set[str] = set()
 
-    for idx, row in enumerate(reader, start=2):
-        cleaned_row = {k.strip(): (v.strip() if v else "") for k, v in row.items() if k}
+    for idx, line_text in enumerate(content_lines[1:], start=2):
+        if not line_text.strip():
+            continue  # Skip blank lines safely
+
+        try:
+            row_fields = next(csv.reader([line_text], strict=True))
+        except csv.Error as e:
+            err_sub = PipelineSubmission(
+                pipeline_id=f"ROW_{idx}",
+                developer="UNKNOWN",
+                contract_path=str(manifest_path),
+                code_path="",
+                line_number=idx,
+            )
+            invalid_results.append(
+                PipelineValidationResult(
+                    submission=err_sub,
+                    processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+                    errors=[f"Row {idx}: malformed CSV syntax - {e}"],
+                )
+            )
+            continue
+
+        if len(row_fields) != header_count:
+            err_sub = PipelineSubmission(
+                pipeline_id=f"ROW_{idx}",
+                developer="UNKNOWN",
+                contract_path=str(manifest_path),
+                code_path="",
+                line_number=idx,
+            )
+            invalid_results.append(
+                PipelineValidationResult(
+                    submission=err_sub,
+                    processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+                    errors=[
+                        f"Row {idx}: expected {header_count} columns, received {len(row_fields)}"
+                    ],
+                )
+            )
+            continue
+
+        row_dict = dict(zip(header_list, row_fields))
+        cleaned_row = {k: v.strip() for k, v in row_dict.items()}
 
         pipeline_id = cleaned_row.get("pipeline_id", "")
         developer = cleaned_row.get("developer", "")
@@ -271,9 +345,11 @@ def load_and_validate_manifest(
                 sub.resolved_historical_path = str(resolved_hist)
 
         if row_errors:
-            # Check if it's missing input vs invalid submission
+            # Distinguish missing file vs invalid/unsafe submission
             status = PipelineProcessingStatus.INVALID_SUBMISSION
-            if any("File not found" in e for e in row_errors):
+            if any("File not found" in e for e in row_errors) and not any(
+                ("security violation" in e or "not allowed" in e) for e in row_errors
+            ):
                 status = PipelineProcessingStatus.MISSING_INPUT
 
             invalid_results.append(

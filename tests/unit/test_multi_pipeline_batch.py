@@ -63,7 +63,7 @@ def test_batch_validation_result_recompute():
 
 def test_load_manifest_non_existent(tmp_path: Path):
     missing_csv = tmp_path / "non_existent.csv"
-    valid, invalid = load_and_validate_manifest(missing_csv)
+    valid, invalid = load_and_validate_manifest(missing_csv, allowed_root=tmp_path)
     assert len(valid) == 0
     assert len(invalid) == 1
     assert invalid[0].processing_status == PipelineProcessingStatus.MISSING_INPUT
@@ -72,7 +72,7 @@ def test_load_manifest_non_existent(tmp_path: Path):
 def test_load_manifest_empty(tmp_path: Path):
     empty_csv = tmp_path / "empty.csv"
     empty_csv.write_text("", encoding="utf-8")
-    valid, invalid = load_and_validate_manifest(empty_csv)
+    valid, invalid = load_and_validate_manifest(empty_csv, allowed_root=tmp_path)
     assert len(valid) == 0
     assert len(invalid) == 1
     assert invalid[0].processing_status == PipelineProcessingStatus.INVALID_SUBMISSION
@@ -82,7 +82,7 @@ def test_load_manifest_empty(tmp_path: Path):
 def test_load_manifest_missing_headers(tmp_path: Path):
     bad_csv = tmp_path / "bad_headers.csv"
     bad_csv.write_text("pipeline_id,developer\nP001,DevA\n", encoding="utf-8")
-    valid, invalid = load_and_validate_manifest(bad_csv)
+    valid, invalid = load_and_validate_manifest(bad_csv, allowed_root=tmp_path)
     assert len(valid) == 0
     assert len(invalid) == 1
     assert "Missing required CSV header" in invalid[0].errors[0]
@@ -102,7 +102,7 @@ def test_load_manifest_duplicate_pipeline_id(tmp_path: Path):
     manifest_csv = tmp_path / "dup_manifest.csv"
     manifest_csv.write_text(csv_content, encoding="utf-8")
 
-    valid, invalid = load_and_validate_manifest(manifest_csv)
+    valid, invalid = load_and_validate_manifest(manifest_csv, allowed_root=tmp_path)
     assert len(valid) == 1
     assert len(invalid) == 1
     assert "duplicate pipeline_id" in invalid[0].errors[0]
@@ -116,7 +116,7 @@ def test_load_manifest_missing_files(tmp_path: Path):
     manifest_csv = tmp_path / "missing_files.csv"
     manifest_csv.write_text(csv_content, encoding="utf-8")
 
-    valid, invalid = load_and_validate_manifest(manifest_csv)
+    valid, invalid = load_and_validate_manifest(manifest_csv, allowed_root=tmp_path)
     assert len(valid) == 0
     assert len(invalid) == 1
     assert invalid[0].processing_status == PipelineProcessingStatus.MISSING_INPUT
@@ -263,6 +263,163 @@ def test_path_traversal_unc(tmp_path: Path):
     assert "UNC path not allowed" in invalid[0].errors[0]
 
 
+def test_windows_drive_letter_paths(tmp_path: Path):
+    c = tmp_path / "c.yaml"
+    c.write_text("name: c", encoding="utf-8")
+    code = tmp_path / "code.py"
+    code.write_text("print('test')", encoding="utf-8")
+
+    bad_paths = [
+        r"C:\secret\file",
+        "C:/secret/file",
+        r"D:\data\contract.yaml",
+        "Z:/workspace/code.py",
+        "C:relative",
+    ]
+    for bp in bad_paths:
+        csv_content = (
+            "pipeline_id,developer,contract_path,code_path\n"
+            f"P001,DevA,{bp},{code.name}\n"
+        )
+        manifest_csv = tmp_path / "win_drive.csv"
+        manifest_csv.write_text(csv_content, encoding="utf-8")
+        valid, invalid = load_and_validate_manifest(manifest_csv, allowed_root=tmp_path)
+        assert len(valid) == 0, f"Expected rejection for {bp}"
+        assert len(invalid) == 1
+        assert "Windows drive letter path not allowed" in invalid[0].errors[0]
+
+
+def test_csv_structural_validation(tmp_path: Path):
+    c = tmp_path / "c.yaml"
+    c.write_text("name: c", encoding="utf-8")
+    code = tmp_path / "code.py"
+    code.write_text("print('test')", encoding="utf-8")
+
+    # 1. Too many columns
+    csv_content1 = (
+        "pipeline_id,developer,contract_path,code_path\n"
+        f"P001,DevA,{c.name},{code.name},extra_val\n"
+    )
+    m1 = tmp_path / "m1.csv"
+    m1.write_text(csv_content1, encoding="utf-8")
+    v1, inv1 = load_and_validate_manifest(m1, allowed_root=tmp_path)
+    assert len(v1) == 0 and len(inv1) == 1
+    assert "Row 2: expected 4 columns, received 5" in inv1[0].errors[0]
+
+    # 2. Too few columns
+    csv_content2 = (
+        "pipeline_id,developer,contract_path,code_path\n"
+        "P001,DevA,only_3_fields\n"
+    )
+    m2 = tmp_path / "m2.csv"
+    m2.write_text(csv_content2, encoding="utf-8")
+    v2, inv2 = load_and_validate_manifest(m2, allowed_root=tmp_path)
+    assert len(v2) == 0 and len(inv2) == 1
+    assert "Row 2: expected 4 columns, received 3" in inv2[0].errors[0]
+
+    # 3. Unterminated quote / malformed syntax
+    csv_content3 = (
+        "pipeline_id,developer,contract_path,code_path\n"
+        f'P001,"DevA,{c.name},{code.name}\n'
+    )
+    m3 = tmp_path / "m3.csv"
+    m3.write_text(csv_content3, encoding="utf-8")
+    v3, inv3 = load_and_validate_manifest(m3, allowed_root=tmp_path)
+    assert len(v3) == 0 and len(inv3) == 1
+    assert "Row 2: malformed CSV syntax" in inv3[0].errors[0]
+
+
+def test_approved_root_boundaries(tmp_path: Path):
+    app_root = tmp_path / "app_root"
+    app_root.mkdir()
+    sibling_dir = tmp_path / "sibling_dir"
+    sibling_dir.mkdir()
+
+    c_inside = app_root / "c.yaml"
+    c_inside.write_text("name: c", encoding="utf-8")
+    code_inside = app_root / "c.py"
+    code_inside.write_text("p", encoding="utf-8")
+
+    c_outside = sibling_dir / "c_out.yaml"
+    c_outside.write_text("name: out", encoding="utf-8")
+
+    manifest = app_root / "manifest.csv"
+
+    # File inside approved root -> allowed
+    manifest.write_text(
+        f"pipeline_id,developer,contract_path,code_path\nP001,DevA,{c_inside.name},{code_inside.name}\n",
+        encoding="utf-8",
+    )
+    v, inv = load_and_validate_manifest(manifest, allowed_root=app_root)
+    assert len(v) == 1 and len(inv) == 0
+
+    # Sibling directory outside root -> rejected
+    manifest.write_text(
+        f"pipeline_id,developer,contract_path,code_path\nP001,DevA,../sibling_dir/c_out.yaml,{code_inside.name}\n",
+        encoding="utf-8",
+    )
+    v, inv = load_and_validate_manifest(manifest, allowed_root=app_root)
+    assert len(v) == 0 and len(inv) == 1
+    assert "Path traversal" in inv[0].errors[0]
+
+
+def test_symlink_security_boundaries(tmp_path: Path):
+    app_root = tmp_path / "app_root"
+    app_root.mkdir()
+    outside_dir = tmp_path / "outside_dir"
+    outside_dir.mkdir()
+
+    outside_file = outside_dir / "secret.yaml"
+    outside_file.write_text("secret: true", encoding="utf-8")
+
+    code_inside = app_root / "c.py"
+    code_inside.write_text("p", encoding="utf-8")
+
+    symlink_file = app_root / "link.yaml"
+    try:
+        symlink_file.symlink_to(outside_file)
+    except (OSError, NotImplementedError):
+        return  # Skip if system permissions do not allow symlink creation in test environment
+
+    manifest = app_root / "manifest.csv"
+    manifest.write_text(
+        f"pipeline_id,developer,contract_path,code_path\nP001,DevA,link.yaml,{code_inside.name}\n",
+        encoding="utf-8",
+    )
+
+    v, inv = load_and_validate_manifest(manifest, allowed_root=app_root)
+    assert len(v) == 0 and len(inv) == 1
+    assert "escapes root" in inv[0].errors[0]
+
+
+def test_pipeline_isolation(tmp_path: Path):
+    c1 = tmp_path / "c1.yaml"
+    c1.write_text("name: c1", encoding="utf-8")
+    code1 = tmp_path / "code1.py"
+    code1.write_text("p1", encoding="utf-8")
+
+    c3 = tmp_path / "c3.yaml"
+    c3.write_text("name: c3", encoding="utf-8")
+    code3 = tmp_path / "code3.py"
+    code3.write_text("p3", encoding="utf-8")
+
+    csv_content = (
+        "pipeline_id,developer,contract_path,code_path\n"
+        f"P001,DevA,{c1.name},{code1.name}\n"
+        "P002,DevB,missing_contract.yaml,missing_code.py\n"
+        f"P003,DevC,{c3.name},{code3.name}\n"
+    )
+    manifest = tmp_path / "isolation.csv"
+    manifest.write_text(csv_content, encoding="utf-8")
+
+    v, inv = load_and_validate_manifest(manifest, allowed_root=tmp_path)
+    assert len(v) == 2
+    assert [s.pipeline_id for s in v] == ["P001", "P003"]
+    assert len(inv) == 1
+    assert inv[0].submission.pipeline_id == "P002"
+    assert inv[0].processing_status == PipelineProcessingStatus.MISSING_INPUT
+
+
 def test_valid_nested_relative_path(tmp_path: Path):
     sub_dir = tmp_path / "contracts"
     sub_dir.mkdir()
@@ -302,4 +459,5 @@ def test_blank_optional_evidence_paths(tmp_path: Path):
     assert len(invalid) == 0
     assert valid[0].metadata_profile is None
     assert valid[0].resolved_metadata_path is None
+
 
