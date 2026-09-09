@@ -136,10 +136,170 @@ def test_load_manifest_valid(tmp_path: Path):
     manifest_csv = tmp_path / "valid_manifest.csv"
     manifest_csv.write_text(csv_content, encoding="utf-8")
 
-    valid, invalid = load_and_validate_manifest(manifest_csv)
+    valid, invalid = load_and_validate_manifest(manifest_csv, allowed_root=tmp_path)
     assert len(valid) == 1
     assert len(invalid) == 0
     assert valid[0].pipeline_id == "P001"
     assert valid[0].developer == "DevA"
     assert valid[0].resolved_contract_path == str(contract_file.resolve())
     assert valid[0].resolved_code_path == str(code_file.resolve())
+
+
+def test_load_manifest_valid_multi_row(tmp_path: Path):
+    c1 = tmp_path / "c1.yaml"
+    c1.write_text("name: c1", encoding="utf-8")
+    code1 = tmp_path / "code1.py"
+    code1.write_text("p1", encoding="utf-8")
+
+    c2 = tmp_path / "c2.yaml"
+    c2.write_text("name: c2", encoding="utf-8")
+    code2 = tmp_path / "code2.py"
+    code2.write_text("p2", encoding="utf-8")
+
+    csv_content = (
+        "pipeline_id,developer,contract_path,code_path\n"
+        f"P001,DevA,{c1.name},{code1.name}\n"
+        f"P002,DevB,{c2.name},{code2.name}\n"
+    )
+    manifest_csv = tmp_path / "multi_manifest.csv"
+    manifest_csv.write_text(csv_content, encoding="utf-8")
+
+    valid, invalid = load_and_validate_manifest(manifest_csv, allowed_root=tmp_path)
+    assert len(valid) == 2
+    assert len(invalid) == 0
+    assert valid[0].pipeline_id == "P001"
+    assert valid[0].developer == "DevA"
+    assert valid[1].pipeline_id == "P002"
+    assert valid[1].developer == "DevB"
+
+
+def test_load_manifest_extra_header(tmp_path: Path):
+    bad_csv = tmp_path / "extra_header.csv"
+    bad_csv.write_text(
+        "pipeline_id,developer,contract_path,code_path,foo_bar\nP001,DevA,c.yaml,c.py,val\n",
+        encoding="utf-8",
+    )
+    valid, invalid = load_and_validate_manifest(bad_csv, allowed_root=tmp_path)
+    assert len(valid) == 0
+    assert len(invalid) == 1
+    assert "Unknown CSV header" in invalid[0].errors[0]
+
+
+def test_load_manifest_empty_pipeline_id(tmp_path: Path):
+    c = tmp_path / "c.yaml"
+    c.write_text("name: c", encoding="utf-8")
+    code = tmp_path / "c.py"
+    code.write_text("p", encoding="utf-8")
+
+    csv_content = (
+        "pipeline_id,developer,contract_path,code_path\n"
+        f",DevA,{c.name},{code.name}\n"
+    )
+    manifest_csv = tmp_path / "empty_pid.csv"
+    manifest_csv.write_text(csv_content, encoding="utf-8")
+
+    valid, invalid = load_and_validate_manifest(manifest_csv, allowed_root=tmp_path)
+    assert len(valid) == 0
+    assert len(invalid) == 1
+    assert "missing required column 'pipeline_id'" in invalid[0].errors[0]
+
+
+def test_load_manifest_missing_evidence_files(tmp_path: Path):
+    c = tmp_path / "c.yaml"
+    c.write_text("name: c", encoding="utf-8")
+    code = tmp_path / "c.py"
+    code.write_text("p", encoding="utf-8")
+
+    csv_content = (
+        "pipeline_id,developer,contract_path,code_path,metadata_profile,runtime_run,historical_runs\n"
+        f"P001,DevA,{c.name},{code.name},missing_meta.json,missing_rt.json,missing_hist.json\n"
+    )
+    manifest_csv = tmp_path / "missing_evidence.csv"
+    manifest_csv.write_text(csv_content, encoding="utf-8")
+
+    valid, invalid = load_and_validate_manifest(manifest_csv, allowed_root=tmp_path)
+    assert len(valid) == 0
+    assert len(invalid) == 1
+    assert invalid[0].processing_status == PipelineProcessingStatus.MISSING_INPUT
+    err_str = " ".join(invalid[0].errors)
+    assert "metadata_profile error" in err_str
+    assert "runtime_run error" in err_str
+    assert "historical_runs error" in err_str
+
+
+def test_path_traversal_dotdot(tmp_path: Path):
+    c = tmp_path / "c.yaml"
+    c.write_text("name: c", encoding="utf-8")
+    code = tmp_path / "c.py"
+    code.write_text("p", encoding="utf-8")
+
+    csv_content = (
+        "pipeline_id,developer,contract_path,code_path\n"
+        f"P001,DevA,../{c.name},{code.name}\n"
+    )
+    manifest_csv = tmp_path / "traversal.csv"
+    manifest_csv.write_text(csv_content, encoding="utf-8")
+
+    valid, invalid = load_and_validate_manifest(manifest_csv, allowed_root=tmp_path)
+    assert len(valid) == 0
+    assert len(invalid) == 1
+    assert "Path traversal ('..') not allowed" in invalid[0].errors[0]
+
+
+def test_path_traversal_unc(tmp_path: Path):
+    c = tmp_path / "c.yaml"
+    c.write_text("name: c", encoding="utf-8")
+
+    csv_content = (
+        "pipeline_id,developer,contract_path,code_path\n"
+        f"P001,DevA,//server/share/c.yaml,{c.name}\n"
+    )
+    manifest_csv = tmp_path / "unc.csv"
+    manifest_csv.write_text(csv_content, encoding="utf-8")
+
+    valid, invalid = load_and_validate_manifest(manifest_csv, allowed_root=tmp_path)
+    assert len(valid) == 0
+    assert len(invalid) == 1
+    assert "UNC path not allowed" in invalid[0].errors[0]
+
+
+def test_valid_nested_relative_path(tmp_path: Path):
+    sub_dir = tmp_path / "contracts"
+    sub_dir.mkdir()
+    c = sub_dir / "c.yaml"
+    c.write_text("name: c", encoding="utf-8")
+    code = tmp_path / "c.py"
+    code.write_text("p", encoding="utf-8")
+
+    csv_content = (
+        "pipeline_id,developer,contract_path,code_path\n"
+        f"P001,DevA,contracts/c.yaml,{code.name}\n"
+    )
+    manifest_csv = tmp_path / "nested.csv"
+    manifest_csv.write_text(csv_content, encoding="utf-8")
+
+    valid, invalid = load_and_validate_manifest(manifest_csv, allowed_root=tmp_path)
+    assert len(valid) == 1
+    assert len(invalid) == 0
+    assert valid[0].resolved_contract_path == str(c.resolve())
+
+
+def test_blank_optional_evidence_paths(tmp_path: Path):
+    c = tmp_path / "c.yaml"
+    c.write_text("name: c", encoding="utf-8")
+    code = tmp_path / "c.py"
+    code.write_text("p", encoding="utf-8")
+
+    csv_content = (
+        "pipeline_id,developer,contract_path,code_path,metadata_profile,runtime_run,historical_runs\n"
+        f"P001,DevA,{c.name},{code.name},,,  \n"
+    )
+    manifest_csv = tmp_path / "blank_opt.csv"
+    manifest_csv.write_text(csv_content, encoding="utf-8")
+
+    valid, invalid = load_and_validate_manifest(manifest_csv, allowed_root=tmp_path)
+    assert len(valid) == 1
+    assert len(invalid) == 0
+    assert valid[0].metadata_profile is None
+    assert valid[0].resolved_metadata_path is None
+

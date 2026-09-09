@@ -40,38 +40,42 @@ def resolve_safe_path(
     if not clean_raw:
         return None, None
 
-    # Path traversal detection
-    if ".." in clean_raw.replace("\\", "/").split("/"):
-        # Check if resolved path stays within base_dir or root_dir
-        pass
+    normalized_slash = clean_raw.replace("\\", "/")
+
+    # Reject UNC paths (e.g. //server/share or \\server\share)
+    if clean_raw.startswith(("\\\\", "//")):
+        return None, f"UNC path not allowed: '{clean_raw}'"
+
+    # Reject Windows drive letter absolute paths if they attempt to escape root_dir
+    # Path traversal detection: check for '..' components in path
+    parts = [p for p in normalized_slash.split("/") if p]
+    if ".." in parts:
+        return None, f"Path traversal ('..') not allowed: '{clean_raw}'"
 
     path_obj = Path(clean_raw)
-    resolved: Path | None = None
+    effective_root = (root_dir or _repo_root(base_dir)).resolve()
 
     if path_obj.is_absolute():
-        resolved = path_obj
+        resolved = path_obj.resolve()
     else:
         # First try relative to base_dir (directory containing manifest)
         cand1 = (base_dir / path_obj).resolve()
         if cand1.exists():
             resolved = cand1
         else:
-            # Fallback to repo root or cwd
-            r = root_dir or _repo_root(base_dir)
-            cand2 = (r / path_obj).resolve()
+            # Fallback to repo root or base_dir resolved
+            cand2 = (effective_root / path_obj).resolve()
             if cand2.exists():
                 resolved = cand2
             else:
-                # Store resolved path for error reporting
                 resolved = cand1
 
-    # Security check: ensure path does not escape root_dir / base_dir if strictly constrained
-    if root_dir:
-        try:
-            resolved.relative_to(root_dir.resolve())
-        except ValueError:
-            msg = f"Path traversal security violation: '{clean_raw}' outside root"
-            return None, msg
+    # Security check: ensure path does not escape effective_root
+    try:
+        resolved.relative_to(effective_root)
+    except ValueError:
+        msg = f"Path traversal security violation: '{clean_raw}' escapes root '{effective_root}'"
+        return None, msg
 
     if not resolved.exists():
         return None, f"File not found: '{clean_raw}'"
@@ -167,6 +171,25 @@ def load_and_validate_manifest(
                 processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
                 errors=[
                     f"Missing required CSV header(s): {', '.join(sorted(missing_headers))}"
+                ],
+            )
+        )
+        return valid_submissions, invalid_results
+
+    unknown_headers = present_headers - ALL_HEADERS
+    if unknown_headers:
+        err_sub = PipelineSubmission(
+            pipeline_id="MANIFEST_ERROR",
+            developer="UNKNOWN",
+            contract_path=str(manifest_path),
+            code_path="",
+        )
+        invalid_results.append(
+            PipelineValidationResult(
+                submission=err_sub,
+                processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+                errors=[
+                    f"Unknown CSV header(s): {', '.join(sorted(unknown_headers))}"
                 ],
             )
         )
