@@ -269,17 +269,31 @@ def validate_single_pipeline_submission(
         )
 
     except ConfigurationError as ce:
+        safe_msg = sanitize_error_message(str(ce))
+        logger.error(
+            "Configuration error validating pipeline %s [%s]: %s",
+            submission.pipeline_id,
+            type(ce).__name__,
+            safe_msg,
+        )
         return PipelineValidationResult(
             submission=submission,
             processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
-            errors=[sanitize_error_message(f"Configuration error: {ce}")],
+            errors=[f"Configuration error: {safe_msg}"],
         )
     except Exception as e:
-        logger.exception("Pipeline validation exception for %s: %s", submission.pipeline_id, e)
+        safe_msg = sanitize_error_message(str(e))
+        logger.error(
+            "Pipeline validation exception for %s [%s]: %s",
+            submission.pipeline_id,
+            type(e).__name__,
+            safe_msg,
+            exc_info=False,
+        )
         return PipelineValidationResult(
             submission=submission,
             processing_status=PipelineProcessingStatus.PROCESSING_ERROR,
-            errors=[sanitize_error_message(f"Processing exception: {e}")],
+            errors=[f"Processing exception: {safe_msg}"],
         )
 
 
@@ -326,13 +340,18 @@ def run_batch_validation(
         try:
             res = validate_single_pipeline_submission(sub, environment=environment)
         except Exception as e:
-            logger.exception(
-                "Unhandled exception validating pipeline %s: %s", sub.pipeline_id, e
+            safe_msg = sanitize_error_message(str(e))
+            logger.error(
+                "Unhandled exception validating pipeline %s [%s]: %s",
+                sub.pipeline_id,
+                type(e).__name__,
+                safe_msg,
+                exc_info=False,
             )
             res = PipelineValidationResult(
                 submission=sub,
                 processing_status=PipelineProcessingStatus.PROCESSING_ERROR,
-                errors=[sanitize_error_message(f"Unhandled exception: {e}")],
+                errors=[f"Unhandled exception: {safe_msg}"],
             )
         all_results.append(res)
 

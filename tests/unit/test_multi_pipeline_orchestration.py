@@ -666,8 +666,14 @@ def test_m3_duplicate_pipeline_ids_rejection(tmp_path: Path):
 
     assert batch_res.total_submissions == 2
     assert len(batch_res.pipeline_results) == 2
-    assert batch_res.pipeline_results[0].processing_status == PipelineProcessingStatus.VALIDATION_COMPLETE
-    assert batch_res.pipeline_results[1].processing_status == PipelineProcessingStatus.INVALID_SUBMISSION
+    assert (
+        batch_res.pipeline_results[0].processing_status
+        == PipelineProcessingStatus.VALIDATION_COMPLETE
+    )
+    assert (
+        batch_res.pipeline_results[1].processing_status
+        == PipelineProcessingStatus.INVALID_SUBMISSION
+    )
     assert "Duplicate pipeline_id 'P_DUP'" in batch_res.pipeline_results[1].errors[0]
 
 
@@ -712,8 +718,11 @@ def test_m3_result_mutation_isolation(tmp_path: Path):
     assert "MUTATED" not in r2.assessment_dict
 
 
-def test_m3_secret_redaction_in_error_messages(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
-    """M3 Requirements L, 11: Secret and credential redaction from error diagnostics."""
+def test_m3_secret_redaction_in_error_messages(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+):
+    """M3 Requirements L, 11: Secret and credential redaction."""
+    caplog.set_level("DEBUG")
     c_valid, code_valid = _create_pipeline_files(tmp_path, "sec_red")
 
     p1 = PipelineSubmission(
@@ -728,24 +737,66 @@ def test_m3_secret_redaction_in_error_messages(tmp_path: Path, monkeypatch: pyte
 
     from dpif.orchestration import batch as batch_module
 
+    secret_err_text = (
+        "Failed DB connection: password=supersecret token=abc123 api_key=xyz789 bearer SECRET_TOKEN"
+    )
+
     def mock_load_with_secrets(path):
-        raise RuntimeError(
-            "Failed DB connection: password=supersecret123 token=abc999xyz api_key=key_val_456 bearer my_secret_bearer_token"
-        )
+        raise RuntimeError(secret_err_text)
 
     monkeypatch.setattr(batch_module, "load_contract_file", mock_load_with_secrets)
 
+    # Test A: validate_single_pipeline_submission
+    caplog.clear()
     res = run_batch_validation([p1])
     p_res = res.pipeline_results[0]
 
     assert p_res.processing_status == PipelineProcessingStatus.PROCESSING_ERROR
     err_msg = p_res.errors[0]
 
-    assert "supersecret123" not in err_msg
-    assert "abc999xyz" not in err_msg
-    assert "key_val_456" not in err_msg
-    assert "my_secret_bearer_token" not in err_msg
+    assert "supersecret" not in err_msg
+    assert "abc123" not in err_msg
+    assert "xyz789" not in err_msg
+    assert "SECRET_TOKEN" not in err_msg
     assert "[REDACTED]" in err_msg
+
+    logged_text = caplog.text
+    assert "supersecret" not in logged_text
+    assert "abc123" not in logged_text
+    assert "xyz789" not in logged_text
+    assert "SECRET_TOKEN" not in logged_text
+    assert "P_SEC" in logged_text
+    assert "RuntimeError" in logged_text
+    assert "[REDACTED]" in logged_text
+
+    # Test B: run_batch_validation outer exception handler path
+    caplog.clear()
+
+    def mock_val_outer_secrets(sub, environment=None):
+        raise ValueError(secret_err_text)
+
+    monkeypatch.setattr(batch_module, "validate_single_pipeline_submission", mock_val_outer_secrets)
+
+    res_b = run_batch_validation([p1])
+    p_res_b = res_b.pipeline_results[0]
+
+    assert p_res_b.processing_status == PipelineProcessingStatus.PROCESSING_ERROR
+    err_msg_b = p_res_b.errors[0]
+
+    assert "supersecret" not in err_msg_b
+    assert "abc123" not in err_msg_b
+    assert "xyz789" not in err_msg_b
+    assert "SECRET_TOKEN" not in err_msg_b
+    assert "[REDACTED]" in err_msg_b
+
+    logged_text_b = caplog.text
+    assert "supersecret" not in logged_text_b
+    assert "abc123" not in logged_text_b
+    assert "xyz789" not in logged_text_b
+    assert "SECRET_TOKEN" not in logged_text_b
+    assert "P_SEC" in logged_text_b
+    assert "ValueError" in logged_text_b
+    assert "[REDACTED]" in logged_text_b
 
 
 def test_m3_100_pipelines_single_failure_isolation(
