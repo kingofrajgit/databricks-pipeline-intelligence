@@ -37,12 +37,14 @@ class LiveDatabricksConnector(DatabricksConnector):
         host: str | None = None,
         token: str | None = None,
         timeout_seconds: float = 15.0,
+        session: requests.Session | None = None,
     ) -> None:
         self.host = (host or os.environ.get("DATABRICKS_HOST", "")).strip().rstrip("/")
         if self.host and not self.host.startswith(("http://", "https://")):
             self.host = f"https://{self.host}"
         self._token = (token or os.environ.get("DATABRICKS_TOKEN", "")).strip()
         self.timeout = timeout_seconds
+        self._session = session
 
     @property
     def is_configured(self) -> bool:
@@ -74,7 +76,8 @@ class LiveDatabricksConnector(DatabricksConnector):
 
         url = f"{self.host}/{endpoint.lstrip('/')}"
         try:
-            resp = requests.request(
+            requester = self._session.request if self._session else requests.request
+            resp = requester(
                 method=method,
                 url=url,
                 headers=self._headers(),

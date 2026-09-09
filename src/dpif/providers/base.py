@@ -148,7 +148,7 @@ def mask_sensitive_credentials(text: str, token: str | None = None) -> str:
     if not text:
         return text
     clean = text
-    if token and token.strip():
+    if isinstance(token, str) and token.strip():
         clean = clean.replace(token.strip(), "[MASKED_TOKEN]")
     import re
 
@@ -158,6 +158,27 @@ def mask_sensitive_credentials(text: str, token: str | None = None) -> str:
     )
     clean = re.sub(pattern, r"\1[MASKED_SECRET]", clean)
     return clean
+
+
+def sanitize_job_payload(payload: Any, token: str | None = None) -> Any:
+    """Recursively sanitize sensitive credential fields in Databricks Job API payload."""
+    if isinstance(payload, dict):
+        sanitized: dict[str, Any] = {}
+        for k, v in payload.items():
+            lower_k = k.lower()
+            if any(
+                sens in lower_k
+                for sens in ("password", "secret", "token", "api_key", "authorization")
+            ):
+                sanitized[k] = "[REDACTED_SECRET]"
+            else:
+                sanitized[k] = sanitize_job_payload(v, token)
+        return sanitized
+    elif isinstance(payload, list):
+        return [sanitize_job_payload(item, token) for item in payload]
+    elif isinstance(payload, str):
+        return mask_sensitive_credentials(payload, token)
+    return payload
 
 
 class DatabricksEvidenceProvider:
@@ -221,10 +242,11 @@ class DatabricksEvidenceProvider:
                         ),
                     )
                 else:
+                    clean_res = sanitize_job_payload(res, token)
                     evidence.items[cat.value] = NormalizedEvidenceItem(
                         category=cat,
                         provenance=prov,
-                        payload=res,
+                        payload=clean_res,
                         is_available=True,
                     )
             except DatabricksApiError as e:

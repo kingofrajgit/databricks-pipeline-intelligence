@@ -161,16 +161,16 @@ Every finding contains `rule_id`, `category`, `severity`, `status`, `title`,
 `DatabricksConnector` (`src/dpif/connectors/base.py`) is the single seam for
 Databricks access. The framework supports `OfflineDatabricksConnector` and `LiveDatabricksConnector`.
 
-### Online Evidence Acquisition Architecture (M5A)
+### Online Evidence Acquisition Architecture (M5A / M5B)
 
 ```text
-Databricks Workspace
+Databricks Workspace (Jobs API /api/2.1/jobs/get)
         ↓
-LiveDatabricksConnector (REST API 2.0 / 2.1)
+LiveDatabricksConnector
         ↓
-DatabricksEvidenceProvider (Evidence Boundary)
+DatabricksEvidenceProvider / Job Discovery
         ↓
-Normalized Pipeline Evidence & Provenance
+Normalized JOB Evidence & Provenance
         ↓
 Existing Validation Engine (CP-001..CP-024)
         ↓
@@ -178,10 +178,11 @@ Production Readiness & Reports
 ```
 
 Key Principles:
+- **Job Discovery (M5B)**: Direct online Job configuration acquisition (`job_id -> Databricks Jobs API -> Normalized JOB evidence`) preserving tasks, task types (notebook, python, SQL), schedule, cluster references, and timeouts.
 - **Evidence Acquisition != Validation**: Online mode acquires evidence via `DatabricksEvidenceProvider` without embedding validation rule logic.
 - **Evidence Provenance**: Every payload carries full provenance (`LIVE_API` vs `FIXTURE`, `acquired_at`, workspace reference).
-- **Strict UNKNOWN Semantics**: If Databricks API cannot provide a required piece of evidence (or returns 404), the category remains `UNKNOWN` / insufficient evidence. It is never converted to PASS or fabricated.
-- **Credential Security**: Credentials (`DATABRICKS_TOKEN`, Bearer tokens) are masked at the API seam and never recorded in logs, errors, findings, or reports.
+- **Strict UNKNOWN Semantics**: If Job API returns 404 or fails, `is_available` is set to `False` with a structured `AcquisitionError`. The category remains `UNKNOWN` / insufficient evidence downstream.
+- **Credential Security**: Credentials (`DATABRICKS_TOKEN`, Bearer tokens, secrets, passwords) are masked/sanitized at the API seam and never recorded in logs, errors, findings, or reports.
 - **Connector Mode Seam**: `connector_mode` supports both `offline` fixture mode and `live` (`live-api`) online mode seamlessly downstream.
 
 Synthetic metadata fixtures (`tests/fixtures/metadata/`, JSON, metadata only —

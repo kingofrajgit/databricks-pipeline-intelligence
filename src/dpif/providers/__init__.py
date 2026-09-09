@@ -9,6 +9,7 @@ from dpif.providers.base import (
     NormalizedEvidenceItem,
     NormalizedPipelineEvidence,
     mask_sensitive_credentials,
+    sanitize_job_payload,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "NormalizedEvidenceItem",
     "NormalizedPipelineEvidence",
     "mask_sensitive_credentials",
+    "sanitize_job_payload",
 ]
