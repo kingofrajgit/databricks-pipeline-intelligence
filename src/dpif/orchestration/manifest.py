@@ -42,7 +42,8 @@ def resolve_safe_path(
 
     normalized_slash = clean_raw.replace("\\", "/")
 
-    # Reject Windows drive-letter paths cross-platform (e.g. C:\..., C:/..., C:foo, Z:/...)
+    # Explicit cross-platform check for Windows drive-letter forms:
+    # C:\secret\file, C:/secret/file, D:\data\file, Z:/workspace/file, C:foo
     if len(clean_raw) >= 2 and clean_raw[0].isalpha() and clean_raw[1] == ":":
         return None, f"Windows drive letter path not allowed: '{clean_raw}'"
 
@@ -55,10 +56,11 @@ def resolve_safe_path(
     if ".." in parts:
         return None, f"Path traversal ('..') not allowed: '{clean_raw}'"
 
+    # Reject Unix absolute paths if they attempt to escape root_dir
     path_obj = Path(clean_raw)
     effective_root = root_dir.resolve()
 
-    if path_obj.is_absolute():
+    if clean_raw.startswith("/"):
         resolved = path_obj.resolve()
     else:
         # Resolve relative to base_dir (directory containing manifest)
@@ -91,7 +93,8 @@ def load_and_validate_manifest(
     """
     path = Path(manifest_path)
     base_dir = path.parent.resolve()
-    # Explicit allowed_root or fall back deterministically to base_dir (directory containing manifest)
+    # Explicit allowed_root or fall back deterministically to base_dir
+    # (the directory containing the manifest)
     root_dir = allowed_root.resolve() if allowed_root is not None else base_dir
 
     valid_submissions: list[PipelineSubmission] = []
@@ -114,7 +117,7 @@ def load_and_validate_manifest(
         return valid_submissions, invalid_results
 
     try:
-        content = path.read_text(encoding="utf-8")
+        f = path.open("r", encoding="utf-8", newline="")
     except Exception as e:
         err_sub = PipelineSubmission(
             pipeline_id="MANIFEST_ERROR",
@@ -131,235 +134,220 @@ def load_and_validate_manifest(
         )
         return valid_submissions, invalid_results
 
-    if not content.strip():
-        err_sub = PipelineSubmission(
-            pipeline_id="MANIFEST_ERROR",
-            developer="UNKNOWN",
-            contract_path=str(manifest_path),
-            code_path="",
-        )
-        invalid_results.append(
-            PipelineValidationResult(
-                submission=err_sub,
-                processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
-                errors=["Manifest CSV is empty"],
-            )
-        )
-        return valid_submissions, invalid_results
-
-    # Use csv.reader in strict mode over original content lines (preserving quotes)
-    content_lines = content.splitlines()
-    strict_reader = csv.reader(content_lines, strict=True)
-
-    try:
-        raw_headers = next(strict_reader, None)
-    except csv.Error as e:
-        err_sub = PipelineSubmission(
-            pipeline_id="MANIFEST_ERROR",
-            developer="UNKNOWN",
-            contract_path=str(manifest_path),
-            code_path="",
-        )
-        invalid_results.append(
-            PipelineValidationResult(
-                submission=err_sub,
-                processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
-                errors=[f"CSV header syntax error: {e}"],
-            )
-        )
-        return valid_submissions, invalid_results
-
-    if raw_headers is None:
-        err_sub = PipelineSubmission(
-            pipeline_id="MANIFEST_ERROR",
-            developer="UNKNOWN",
-            contract_path=str(manifest_path),
-            code_path="",
-        )
-        invalid_results.append(
-            PipelineValidationResult(
-                submission=err_sub,
-                processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
-                errors=["Manifest CSV is empty"],
-            )
-        )
-        return valid_submissions, invalid_results
-
-    header_list = [h.strip() for h in raw_headers]
-    header_count = len(header_list)
-    present_headers = set(header_list)
-
-    missing_headers = REQUIRED_HEADERS - present_headers
-    if missing_headers:
-        err_sub = PipelineSubmission(
-            pipeline_id="MANIFEST_ERROR",
-            developer="UNKNOWN",
-            contract_path=str(manifest_path),
-            code_path="",
-        )
-        invalid_results.append(
-            PipelineValidationResult(
-                submission=err_sub,
-                processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
-                errors=[
-                    f"Missing required CSV header(s): {', '.join(sorted(missing_headers))}"
-                ],
-            )
-        )
-        return valid_submissions, invalid_results
-
-    unknown_headers = present_headers - ALL_HEADERS
-    if unknown_headers:
-        err_sub = PipelineSubmission(
-            pipeline_id="MANIFEST_ERROR",
-            developer="UNKNOWN",
-            contract_path=str(manifest_path),
-            code_path="",
-        )
-        invalid_results.append(
-            PipelineValidationResult(
-                submission=err_sub,
-                processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
-                errors=[
-                    f"Unknown CSV header(s): {', '.join(sorted(unknown_headers))}"
-                ],
-            )
-        )
-        return valid_submissions, invalid_results
-
-    seen_pipeline_ids: set[str] = set()
-
-    for idx, line_text in enumerate(content_lines[1:], start=2):
-        if not line_text.strip():
-            continue  # Skip blank lines safely
+    with f:
+        strict_reader = csv.reader(f, strict=True)
 
         try:
-            row_fields = next(csv.reader([line_text], strict=True))
+            raw_headers = next(strict_reader, None)
         except csv.Error as e:
             err_sub = PipelineSubmission(
-                pipeline_id=f"ROW_{idx}",
+                pipeline_id="MANIFEST_ERROR",
                 developer="UNKNOWN",
                 contract_path=str(manifest_path),
                 code_path="",
-                line_number=idx,
             )
             invalid_results.append(
                 PipelineValidationResult(
                     submission=err_sub,
                     processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
-                    errors=[f"Row {idx}: malformed CSV syntax - {e}"],
+                    errors=[f"CSV header syntax error: {e}"],
                 )
             )
-            continue
+            return valid_submissions, invalid_results
 
-        if len(row_fields) != header_count:
+        if raw_headers is None:
             err_sub = PipelineSubmission(
-                pipeline_id=f"ROW_{idx}",
+                pipeline_id="MANIFEST_ERROR",
                 developer="UNKNOWN",
                 contract_path=str(manifest_path),
                 code_path="",
-                line_number=idx,
+            )
+            invalid_results.append(
+                PipelineValidationResult(
+                    submission=err_sub,
+                    processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+                    errors=["Manifest CSV is empty"],
+                )
+            )
+            return valid_submissions, invalid_results
+
+        header_list = [h.strip() for h in raw_headers]
+        header_count = len(header_list)
+        present_headers = set(header_list)
+
+        missing_headers = REQUIRED_HEADERS - present_headers
+        if missing_headers:
+            err_sub = PipelineSubmission(
+                pipeline_id="MANIFEST_ERROR",
+                developer="UNKNOWN",
+                contract_path=str(manifest_path),
+                code_path="",
             )
             invalid_results.append(
                 PipelineValidationResult(
                     submission=err_sub,
                     processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
                     errors=[
-                        f"Row {idx}: expected {header_count} columns, received {len(row_fields)}"
+                        f"Missing required CSV header(s): {', '.join(sorted(missing_headers))}"
                     ],
                 )
             )
-            continue
+            return valid_submissions, invalid_results
 
-        row_dict = dict(zip(header_list, row_fields))
-        cleaned_row = {k: v.strip() for k, v in row_dict.items()}
-
-        pipeline_id = cleaned_row.get("pipeline_id", "")
-        developer = cleaned_row.get("developer", "")
-        contract_path = cleaned_row.get("contract_path", "")
-        code_path = cleaned_row.get("code_path", "")
-        metadata_profile = cleaned_row.get("metadata_profile") or None
-        runtime_run = cleaned_row.get("runtime_run") or None
-        historical_runs = cleaned_row.get("historical_runs") or None
-
-        sub = PipelineSubmission(
-            pipeline_id=pipeline_id or f"ROW_{idx}",
-            developer=developer or "UNKNOWN",
-            contract_path=contract_path,
-            code_path=code_path,
-            metadata_profile=metadata_profile,
-            runtime_run=runtime_run,
-            historical_runs=historical_runs,
-            line_number=idx,
-        )
-
-        row_errors: list[str] = []
-
-        if not pipeline_id:
-            row_errors.append(f"Row {idx}: missing required column 'pipeline_id'")
-        elif pipeline_id in seen_pipeline_ids:
-            row_errors.append(f"Row {idx}: duplicate pipeline_id '{pipeline_id}' in manifest")
-        else:
-            seen_pipeline_ids.add(pipeline_id)
-
-        if not developer:
-            row_errors.append(f"Row {idx}: missing required column 'developer'")
-
-        if not contract_path:
-            row_errors.append(f"Row {idx}: missing required column 'contract_path'")
-        else:
-            resolved_contract, err = resolve_safe_path(contract_path, base_dir, root_dir)
-            if err:
-                row_errors.append(f"Row {idx} contract_path error: {err}")
-            elif resolved_contract:
-                sub.resolved_contract_path = str(resolved_contract)
-
-        if not code_path:
-            row_errors.append(f"Row {idx}: missing required column 'code_path'")
-        else:
-            resolved_code, err = resolve_safe_path(code_path, base_dir, root_dir)
-            if err:
-                row_errors.append(f"Row {idx} code_path error: {err}")
-            elif resolved_code:
-                sub.resolved_code_path = str(resolved_code)
-
-        if metadata_profile:
-            resolved_meta, err = resolve_safe_path(metadata_profile, base_dir, root_dir)
-            if err:
-                row_errors.append(f"Row {idx} metadata_profile error: {err}")
-            elif resolved_meta:
-                sub.resolved_metadata_path = str(resolved_meta)
-
-        if runtime_run:
-            resolved_rt, err = resolve_safe_path(runtime_run, base_dir, root_dir)
-            if err:
-                row_errors.append(f"Row {idx} runtime_run error: {err}")
-            elif resolved_rt:
-                sub.resolved_runtime_path = str(resolved_rt)
-
-        if historical_runs:
-            resolved_hist, err = resolve_safe_path(historical_runs, base_dir, root_dir)
-            if err:
-                row_errors.append(f"Row {idx} historical_runs error: {err}")
-            elif resolved_hist:
-                sub.resolved_historical_path = str(resolved_hist)
-
-        if row_errors:
-            # Distinguish missing file vs invalid/unsafe submission
-            status = PipelineProcessingStatus.INVALID_SUBMISSION
-            if any("File not found" in e for e in row_errors) and not any(
-                ("security violation" in e or "not allowed" in e) for e in row_errors
-            ):
-                status = PipelineProcessingStatus.MISSING_INPUT
-
+        unknown_headers = present_headers - ALL_HEADERS
+        if unknown_headers:
+            err_sub = PipelineSubmission(
+                pipeline_id="MANIFEST_ERROR",
+                developer="UNKNOWN",
+                contract_path=str(manifest_path),
+                code_path="",
+            )
             invalid_results.append(
                 PipelineValidationResult(
-                    submission=sub,
-                    processing_status=status,
-                    errors=row_errors,
+                    submission=err_sub,
+                    processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+                    errors=[
+                        f"Unknown CSV header(s): {', '.join(sorted(unknown_headers))}"
+                    ],
                 )
             )
-        else:
-            valid_submissions.append(sub)
+            return valid_submissions, invalid_results
+
+        seen_pipeline_ids: set[str] = set()
+        idx = 1
+
+        while True:
+            idx += 1
+            try:
+                row_fields = next(strict_reader, None)
+            except csv.Error as e:
+                err_sub = PipelineSubmission(
+                    pipeline_id=f"ROW_{idx}",
+                    developer="UNKNOWN",
+                    contract_path=str(manifest_path),
+                    code_path="",
+                    line_number=idx,
+                )
+                invalid_results.append(
+                    PipelineValidationResult(
+                        submission=err_sub,
+                        processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+                        errors=[f"Row {idx}: malformed CSV syntax - {e}"],
+                    )
+                )
+                continue
+
+            if row_fields is None:
+                break
+
+            # Check for structural row error or field count mismatch
+            if len(row_fields) != header_count:
+                err_sub = PipelineSubmission(
+                    pipeline_id=f"ROW_{idx}",
+                    developer="UNKNOWN",
+                    contract_path=str(manifest_path),
+                    code_path="",
+                    line_number=idx,
+                )
+                msg = f"Row {idx}: expected {header_count} columns, received {len(row_fields)}"
+                invalid_results.append(
+                    PipelineValidationResult(
+                        submission=err_sub,
+                        processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+                        errors=[msg],
+                    )
+                )
+                continue
+
+            row_dict = dict(zip(header_list, row_fields, strict=False))
+            cleaned_row = {k: v.strip() for k, v in row_dict.items()}
+
+            pipeline_id = cleaned_row.get("pipeline_id", "")
+            developer = cleaned_row.get("developer", "")
+            contract_path = cleaned_row.get("contract_path", "")
+            code_path = cleaned_row.get("code_path", "")
+            metadata_profile = cleaned_row.get("metadata_profile") or None
+            runtime_run = cleaned_row.get("runtime_run") or None
+            historical_runs = cleaned_row.get("historical_runs") or None
+
+            sub = PipelineSubmission(
+                pipeline_id=pipeline_id or f"ROW_{idx}",
+                developer=developer or "UNKNOWN",
+                contract_path=contract_path,
+                code_path=code_path,
+                metadata_profile=metadata_profile,
+                runtime_run=runtime_run,
+                historical_runs=historical_runs,
+                line_number=idx,
+            )
+
+            row_errors: list[str] = []
+
+            if not pipeline_id:
+                row_errors.append(f"Row {idx}: missing required column 'pipeline_id'")
+            elif pipeline_id in seen_pipeline_ids:
+                row_errors.append(f"Row {idx}: duplicate pipeline_id '{pipeline_id}' in manifest")
+            else:
+                seen_pipeline_ids.add(pipeline_id)
+
+            if not developer:
+                row_errors.append(f"Row {idx}: missing required column 'developer'")
+
+            if not contract_path:
+                row_errors.append(f"Row {idx}: missing required column 'contract_path'")
+            else:
+                resolved_contract, err = resolve_safe_path(contract_path, base_dir, root_dir)
+                if err:
+                    row_errors.append(f"Row {idx} contract_path error: {err}")
+                elif resolved_contract:
+                    sub.resolved_contract_path = str(resolved_contract)
+
+            if not code_path:
+                row_errors.append(f"Row {idx}: missing required column 'code_path'")
+            else:
+                resolved_code, err = resolve_safe_path(code_path, base_dir, root_dir)
+                if err:
+                    row_errors.append(f"Row {idx} code_path error: {err}")
+                elif resolved_code:
+                    sub.resolved_code_path = str(resolved_code)
+
+            if metadata_profile:
+                resolved_meta, err = resolve_safe_path(metadata_profile, base_dir, root_dir)
+                if err:
+                    row_errors.append(f"Row {idx} metadata_profile error: {err}")
+                elif resolved_meta:
+                    sub.resolved_metadata_path = str(resolved_meta)
+
+            if runtime_run:
+                resolved_rt, err = resolve_safe_path(runtime_run, base_dir, root_dir)
+                if err:
+                    row_errors.append(f"Row {idx} runtime_run error: {err}")
+                elif resolved_rt:
+                    sub.resolved_runtime_path = str(resolved_rt)
+
+            if historical_runs:
+                resolved_hist, err = resolve_safe_path(historical_runs, base_dir, root_dir)
+                if err:
+                    row_errors.append(f"Row {idx} historical_runs error: {err}")
+                elif resolved_hist:
+                    sub.resolved_historical_path = str(resolved_hist)
+
+            if row_errors:
+                # Distinguish missing file vs invalid/unsafe submission
+                status = PipelineProcessingStatus.INVALID_SUBMISSION
+                if any("File not found" in e for e in row_errors) and not any(
+                    ("security violation" in e or "not allowed" in e) for e in row_errors
+                ):
+                    status = PipelineProcessingStatus.MISSING_INPUT
+
+                invalid_results.append(
+                    PipelineValidationResult(
+                        submission=sub,
+                        processing_status=status,
+                        errors=row_errors,
+                    )
+                )
+            else:
+                valid_submissions.append(sub)
 
     return valid_submissions, invalid_results

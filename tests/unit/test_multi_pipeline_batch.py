@@ -461,3 +461,70 @@ def test_blank_optional_evidence_paths(tmp_path: Path):
     assert valid[0].resolved_metadata_path is None
 
 
+def test_csv_advanced_quoting_and_multiline(tmp_path: Path):
+    c = tmp_path / "contract.yaml"
+    c.write_text("name: c", encoding="utf-8")
+    code = tmp_path / "code.py"
+    code.write_text("p", encoding="utf-8")
+
+    # Quoted field containing comma, escaped quote, whitespace inside quotes, and multiline field
+    csv_content = (
+        'pipeline_id,developer,contract_path,code_path\n'
+        f'P001,"Developer, A",{c.name},{code.name}\n'
+        f'P002,"Dev ""Special"" B",{c.name},{code.name}\n'
+        f'P003,"  DevC  ",{c.name},{code.name}\n'
+        f'P004,"Dev\nLine2",{c.name},{code.name}\n'
+    )
+    manifest_csv = tmp_path / "quoting.csv"
+    manifest_csv.write_text(csv_content, encoding="utf-8")
+
+    valid, invalid = load_and_validate_manifest(manifest_csv, allowed_root=tmp_path)
+    assert len(invalid) == 0
+    assert len(valid) == 4
+    assert valid[0].developer == "Developer, A"
+    assert valid[1].developer == 'Dev "Special" B'
+    assert valid[2].developer == "DevC"  # strip on individual parsed fields
+    assert "Dev" in valid[3].developer and "Line2" in valid[3].developer
+
+
+def test_security_extended_paths(tmp_path: Path):
+    c = tmp_path / "c.yaml"
+    c.write_text("name: c", encoding="utf-8")
+    code = tmp_path / "c.py"
+    code.write_text("p", encoding="utf-8")
+
+    # Unix absolute path escaping root
+    csv_content_unix = (
+        "pipeline_id,developer,contract_path,code_path\n"
+        f"P001,DevA,/etc/passwd,{code.name}\n"
+    )
+    m_unix = tmp_path / "unix_abs.csv"
+    m_unix.write_text(csv_content_unix, encoding="utf-8")
+    v_u, inv_u = load_and_validate_manifest(m_unix, allowed_root=tmp_path)
+    assert len(v_u) == 0 and len(inv_u) == 1
+    assert "escapes root" in inv_u[0].errors[0]
+
+    # Symlink directory escape
+    outside_dir = tmp_path.parent / "outside_dir_sec"
+    outside_dir.mkdir(exist_ok=True)
+    outside_file = outside_dir / "secret.yaml"
+    outside_file.write_text("secret: true", encoding="utf-8")
+
+    symlink_dir = tmp_path / "dir_link"
+    try:
+        symlink_dir.symlink_to(outside_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        return
+
+    csv_content_sym_dir = (
+        "pipeline_id,developer,contract_path,code_path\n"
+        f"P001,DevA,dir_link/secret.yaml,{code.name}\n"
+    )
+    m_sym_dir = tmp_path / "sym_dir.csv"
+    m_sym_dir.write_text(csv_content_sym_dir, encoding="utf-8")
+    v_sd, inv_sd = load_and_validate_manifest(m_sym_dir, allowed_root=tmp_path)
+    assert len(v_sd) == 0 and len(inv_sd) == 1
+    assert "escapes root" in inv_sd[0].errors[0]
+
+
+
