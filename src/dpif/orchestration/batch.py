@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
@@ -27,6 +28,24 @@ from dpif.scoring.engine import readiness_label, score_checkpoints
 
 logger = setup_logging()
 
+_SECRET_PATTERNS = [
+    re.compile(r"(?i)(password|passwd|token|api_key|secret|credential|auth_key)\s*[:=]\s*['\"]?([^\s'\",;&]+)['\"]?"),
+    re.compile(r"(?i)(bearer)\s+([a-zA-Z0-9_\-\.=]+)"),
+]
+
+
+def sanitize_error_message(msg: str) -> str:
+    """Sanitize error messages to remove sensitive information such as secrets or tokens."""
+    sanitized = msg
+    for pattern in _SECRET_PATTERNS:
+        def _redact(match: re.Match[str]) -> str:
+            if len(match.groups()) >= 2:
+                key = match.group(1)
+                return f"{key}=[REDACTED]"
+            return "[REDACTED]"
+        sanitized = pattern.sub(_redact, sanitized)
+    return sanitized
+
 
 def validate_single_pipeline_submission(
     submission: PipelineSubmission,
@@ -37,11 +56,32 @@ def validate_single_pipeline_submission(
     Failure isolation: Any exception during execution is caught and returned
     as a PipelineValidationResult with PROCESSING_ERROR or MISSING_INPUT status.
     """
+    # Defensive check for malformed submission object
+    if not submission.pipeline_id or not submission.pipeline_id.strip():
+        return PipelineValidationResult(
+            submission=submission,
+            processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+            errors=["Malformed submission: missing required pipeline_id"],
+        )
+
     contract_path = submission.resolved_contract_path or submission.contract_path
     code_path = submission.resolved_code_path or submission.code_path
     metadata_path = submission.resolved_metadata_path or submission.metadata_profile
     runtime_path = submission.resolved_runtime_path or submission.runtime_run
     historical_path = submission.resolved_historical_path or submission.historical_runs
+
+    if not contract_path:
+        return PipelineValidationResult(
+            submission=submission,
+            processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+            errors=["Malformed submission: missing contract_path"],
+        )
+    if not code_path:
+        return PipelineValidationResult(
+            submission=submission,
+            processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+            errors=["Malformed submission: missing code_path"],
+        )
 
     try:
         if not Path(contract_path).exists():
@@ -232,14 +272,14 @@ def validate_single_pipeline_submission(
         return PipelineValidationResult(
             submission=submission,
             processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
-            errors=[f"Configuration error: {ce}"],
+            errors=[sanitize_error_message(f"Configuration error: {ce}")],
         )
     except Exception as e:
         logger.exception("Pipeline validation exception for %s: %s", submission.pipeline_id, e)
         return PipelineValidationResult(
             submission=submission,
             processing_status=PipelineProcessingStatus.PROCESSING_ERROR,
-            errors=[f"Processing exception: {e}"],
+            errors=[sanitize_error_message(f"Processing exception: {e}")],
         )
 
 
@@ -251,6 +291,7 @@ def run_batch_validation(
     """Orchestrate multi-pipeline validation in isolated execution contexts.
 
     Preserves original manifest order based on line_number or submission order.
+    Rejects duplicate pipeline_ids in submissions list.
     """
     batch_result = BatchValidationResult()
 
@@ -260,12 +301,26 @@ def run_batch_validation(
         for inv in invalid_results:
             invalid_by_pid[inv.submission.pipeline_id] = inv
 
-    # Collect all items sorted by line_number if available, maintaining manifest order
+    seen_pipeline_ids: set[str] = set()
     all_results: list[PipelineValidationResult] = []
 
     for sub in submissions:
-        if sub.pipeline_id in invalid_by_pid:
-            all_results.append(invalid_by_pid.pop(sub.pipeline_id))
+        pid = sub.pipeline_id
+        if pid in seen_pipeline_ids:
+            all_results.append(
+                PipelineValidationResult(
+                    submission=sub,
+                    processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+                    errors=[f"Duplicate pipeline_id '{pid}' in batch submission"],
+                )
+            )
+            continue
+
+        if pid:
+            seen_pipeline_ids.add(pid)
+
+        if pid in invalid_by_pid:
+            all_results.append(invalid_by_pid.pop(pid))
             continue
 
         try:
@@ -277,7 +332,7 @@ def run_batch_validation(
             res = PipelineValidationResult(
                 submission=sub,
                 processing_status=PipelineProcessingStatus.PROCESSING_ERROR,
-                errors=[f"Unhandled exception: {e}"],
+                errors=[sanitize_error_message(f"Unhandled exception: {e}")],
             )
         all_results.append(res)
 
