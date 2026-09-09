@@ -1,0 +1,11 @@
+# Deliberately bad pipeline: 2 TB input, collect/toPandas, full reload, no retry/timeout.
+contract: ../fixtures/contracts/bad_production_pipeline.yaml
+metadata_profile: ../fixtures/metadata/profile_500gb.json
+code: ../fixtures/code/bad_pipeline.py
+flow: [ADLS, Parquet, PySpark, Delta, Databricks Job, Job Cluster]
+input_gb_per_day: 2048
+expect_findings:
+  - CODE-PYSPARK-001
+  - CP-012
+  - CP-014
+  - CP-020

@@ -1,0 +1,20 @@
+{
+  "name": "large-500gb",
+  "note": "Fixture metadata only — not a runtime measurement.",
+  "total_bytes": 536870912000,
+  "total_gb": 500.0,
+  "file_count": 2000,
+  "average_file_size_kb": 262144.0,
+  "median_file_size_kb": 250000.0,
+  "p95_file_size_kb": 350000.0,
+  "p99_file_size_kb": 420000.0,
+  "min_file_size_kb": 100000.0,
+  "max_file_size_kb": 600000.0,
+  "record_count": 500000000,
+  "partition_count": 64,
+  "partition_distribution": {"date=2026-09-06": 8000000, "date=2026-09-07": 8200000},
+  "format": "parquet",
+  "compression": "snappy",
+  "column_count": 52,
+  "analysis_method": "metadata"
+}

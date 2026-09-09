@@ -1,0 +1,16 @@
+rule_id: RUNTIME-PERF-004
+name: Task Duration Imbalance
+category: performance
+severity: HIGH
+description: Detects wide variance between median and max task duration within individual stages.
+evaluator: eval_task_duration_imbalance
+params:
+  warn_ratio: 3.0
+  fail_ratio: 6.0
+evidence_required:
+  - task_durations
+recommendation: Address task duration imbalance by enabling AQE skew joins or tuning shuffle partition counts.
+blocking: false
+score: 0.2
+version: "1.0"
+context_aware: true

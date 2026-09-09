@@ -1,0 +1,17 @@
+rule_id: SCALABILITY-004
+name: File Count Growth Risk
+category: scalability
+severity: HIGH
+description: Projects file count expansion and detects operational metastore listing risks for small-file datasets.
+evaluator: eval_file_count_growth
+params:
+  warn_file_count: 50000
+  small_file_kb: 10240.0
+evidence_required:
+  - file_count
+  - average_file_size_kb
+recommendation: Enable automatic compaction (Delta OPTIMIZE) to prevent driver metadata listing saturation as files grow.
+blocking: false
+score: 0.4
+version: "1.0"
+context_aware: true

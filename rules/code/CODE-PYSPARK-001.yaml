@@ -1,0 +1,30 @@
+rule_id: CODE-PYSPARK-001
+
+name: Driver Collection Detection
+
+category: code
+
+severity: CRITICAL
+
+description: >
+  Detect driver-side collection of distributed data.
+
+condition: >-
+  \.collect\s*\(
+
+evidence_required:
+  - code_location
+
+recommendation: >
+  Avoid collecting large distributed datasets to the driver.
+
+blocking: true
+
+score: 15.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

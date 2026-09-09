@@ -1,0 +1,9 @@
+{
+  "pipeline_id": "dlt_pipeline_002",
+  "name": "dev_flag_in_prod_pipeline",
+  "target": "analytics_prod",
+  "continuous": true,
+  "development": true,
+  "edition": "COMMUNITY",
+  "clusters": []
+}

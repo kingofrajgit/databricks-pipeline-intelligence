@@ -1,0 +1,38 @@
+rule_id: SOURCE-003
+
+name: Large JDBC Without Parallelization
+
+category: source
+
+severity: HIGH
+
+description: >
+  Flag large JDBC extractions with no documented parallelization
+  (partition_column + num_partitions). Not required for small extracts.
+
+condition: >-
+  volume_gb >= jdbc_parallel_min_gb AND NOT
+  (partition_column set AND num_partitions > 1)
+
+evaluator: jdbc_parallel
+
+evidence_required:
+  - partition_column
+  - num_partitions
+  - volume_gb
+
+recommendation: >
+  Large JDBC extraction lacks documented parallelization: define
+  partition_column/num_partitions (or an incremental column strategy) to
+  avoid single-threaded full extracts.
+
+blocking: false
+
+score: 8.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - expected_volume_gb

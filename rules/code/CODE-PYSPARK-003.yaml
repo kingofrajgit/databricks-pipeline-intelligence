@@ -1,0 +1,27 @@
+rule_id: CODE-PYSPARK-003
+
+name: Show() in Production Path Detection
+
+category: code
+
+severity: HIGH
+
+description: >
+  Detect show() or take() calls in production pipeline code paths.
+
+condition: >-
+  \b(show|take)\s*\(
+
+evidence_required:
+  - code_location
+
+recommendation: >
+  Replace show()/take() with proper logging or remove from production code paths.
+
+blocking: false
+
+score: 5.0
+
+version: 1.0.0
+
+context_aware: true

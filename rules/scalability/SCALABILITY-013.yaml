@@ -1,0 +1,14 @@
+rule_id: SCALABILITY-013
+name: Runtime Regression at Scale
+category: scalability
+severity: HIGH
+description: Evaluates empirical historical run telemetry to detect super-linear runtime expansion relative to data volume growth.
+evaluator: eval_runtime_regression
+params: {}
+evidence_required:
+  - historical_runs
+recommendation: Investigate super-linear runtime growth factors such as partition skew, spill to disk, and shuffle amplification.
+blocking: false
+score: 0.4
+version: "1.0"
+context_aware: true

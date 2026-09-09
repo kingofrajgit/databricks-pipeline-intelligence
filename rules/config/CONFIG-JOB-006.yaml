@@ -1,0 +1,15 @@
+rule_id: CONFIG-JOB-006
+name: Job Source Mismatch
+category: job
+severity: HIGH
+description: Compares expected script/notebook path against actual task paths.
+evaluator: eval_source_mismatch
+params: {}
+evidence_required:
+  - job_config
+  - pipeline_contract
+recommendation: Ensure Databricks job task points to the intended production script.
+blocking: true
+score: 0.25
+version: "1.0"
+context_aware: true

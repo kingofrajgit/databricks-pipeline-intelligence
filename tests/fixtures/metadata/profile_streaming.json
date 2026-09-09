@@ -1,0 +1,20 @@
+{
+  "name": "streaming-events",
+  "note": "Fixture metadata only — runtime lag/throughput unavailable offline.",
+  "total_bytes": 0,
+  "total_gb": 0.0,
+  "file_count": 0,
+  "average_file_size_kb": 0.0,
+  "median_file_size_kb": 0.0,
+  "p95_file_size_kb": 0.0,
+  "p99_file_size_kb": 0.0,
+  "min_file_size_kb": 0.0,
+  "max_file_size_kb": 0.0,
+  "record_count": 0,
+  "partition_count": 12,
+  "partition_distribution": {},
+  "format": "json",
+  "compression": "",
+  "column_count": 18,
+  "analysis_method": "metadata"
+}

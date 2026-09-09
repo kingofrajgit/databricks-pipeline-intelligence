@@ -1,0 +1,15 @@
+rule_id: CONFIG-JOB-002
+name: Missing Task Timeout
+category: job
+severity: MEDIUM
+description: Detects production tasks without an explicit timeout configured.
+evaluator: eval_task_timeout
+params:
+  min_timeout_seconds: 60
+evidence_required:
+  - job_config
+recommendation: Set task or job execution timeouts to prevent hanging jobs from consuming compute indefinitely.
+blocking: false
+score: 0.15
+version: "1.0"
+context_aware: true

@@ -1,0 +1,20 @@
+{
+  "name": "small-file-workload",
+  "note": "Fixture metadata only — 500 GB spread over 1.8M tiny files.",
+  "total_bytes": 536870912000,
+  "total_gb": 500.0,
+  "file_count": 1800000,
+  "average_file_size_kb": 284.0,
+  "median_file_size_kb": 210.0,
+  "p95_file_size_kb": 900.0,
+  "p99_file_size_kb": 1500.0,
+  "min_file_size_kb": 1.0,
+  "max_file_size_kb": 5000.0,
+  "record_count": 500000000,
+  "partition_count": 1800,
+  "partition_distribution": {"date=2026-09-07": 300000},
+  "format": "parquet",
+  "compression": "snappy",
+  "column_count": 40,
+  "analysis_method": "metadata"
+}

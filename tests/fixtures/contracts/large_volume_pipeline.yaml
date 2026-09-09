@@ -1,0 +1,38 @@
+pipeline:
+  name: large_volume
+  environment: production
+  owner: data-platform
+source:
+  type: adls
+  format: parquet
+  path: abfss://landing@acct.dfs.core.windows.net/large_volume/
+  expected_daily_volume_gb: 1024
+  peak_daily_volume_gb: 3072
+  growth_rate_percent: 8
+processing:
+  type: incremental
+  language: pyspark
+target:
+  type: delta
+  catalog: prod
+  schema: marts
+  path: abfss://curated@acct.dfs.core.windows.net/large_volume/
+  format: delta
+sla:
+  max_runtime_minutes: 120
+schedule:
+  frequency: daily
+  time: "01:00"
+reliability:
+  retry_count: 3
+  idempotent: true
+scalability:
+  forecast_horizon_days: 365
+cluster:
+  num_workers: 16
+  spark_version: "15.4.x-scala2.12"
+  node_type: Standard_D8ds_v5
+job:
+  max_retries: 3
+  timeout_seconds: 7200
+code_path: ../code/good_pipeline.py

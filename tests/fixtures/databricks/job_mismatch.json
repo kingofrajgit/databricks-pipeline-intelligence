@@ -1,0 +1,25 @@
+{
+  "job_id": 103,
+  "name": "mismatched_daily_job",
+  "creator_user_name": "developer@company.com",
+  "settings": {
+    "name": "mismatched_daily_job",
+    "max_concurrent_runs": 1,
+    "schedule": {
+      "quartz_cron_expression": "0 0 * * * ?",
+      "timezone_id": "EST",
+      "pause_status": "PAUSED"
+    },
+    "tasks": [
+      {
+        "task_key": "task_legacy_path",
+        "description": "Task pointing to unexpected legacy script",
+        "spark_python_task": {
+          "python_file": "legacy/old_v1_pipeline.py"
+        },
+        "max_retries": 1,
+        "timeout_seconds": 600
+      }
+    ]
+  }
+}

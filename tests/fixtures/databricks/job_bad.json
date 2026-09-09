@@ -1,0 +1,35 @@
+{
+  "job_id": 102,
+  "name": "unreliable_pipeline_job",
+  "creator_user_name": "developer@company.com",
+  "settings": {
+    "name": "unreliable_pipeline_job",
+    "max_concurrent_runs": 5,
+    "timeout_seconds": 0,
+    "tasks": [
+      {
+        "task_key": "fragile_ingest",
+        "description": "Ingest without retry or timeout",
+        "spark_python_task": {
+          "python_file": "scripts/bad_pipeline.py"
+        },
+        "max_retries": 0,
+        "timeout_seconds": 0
+      },
+      {
+        "task_key": "excessive_retry_task",
+        "description": "Task with dangerous 10 retries",
+        "depends_on": [
+          {
+            "task_key": "fragile_ingest"
+          }
+        ],
+        "spark_python_task": {
+          "python_file": "scripts/bad_pipeline.py"
+        },
+        "max_retries": 10,
+        "timeout_seconds": 0
+      }
+    ]
+  }
+}

@@ -1,0 +1,35 @@
+rule_id: CODE-SQL-007
+
+name: Window Operation Risk
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Detect window functions without explicit frame bounds (ROWS/RANGE
+  BETWEEN). Unbounded windows can process entire partitions, causing
+  high memory/CPU usage.
+
+condition: >
+  Window function present AND frame unbounded
+
+evaluator: window_risk
+
+evidence_required:
+  - file
+  - line
+  - function
+  - bounded
+
+recommendation: >
+  Potentially expensive window operation: add explicit frame bound
+  (ROWS/RANGE BETWEEN) where semantics allow.
+
+blocking: false
+
+score: 5.0
+
+version: 1.0.0
+
+context_aware: true

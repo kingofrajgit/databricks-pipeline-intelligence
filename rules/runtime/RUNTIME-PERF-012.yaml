@@ -1,0 +1,16 @@
+rule_id: RUNTIME-PERF-012
+name: Long Tail Task Risk
+category: performance
+severity: MEDIUM
+description: Detects isolated long-tail tasks (P95/P99 stragglers) delaying stage completion.
+evaluator: eval_long_tail_tasks
+params:
+  tail_ratio_threshold: 4.0
+  min_tail_tasks: 5
+evidence_required:
+  - task_durations
+recommendation: Enable Spark speculative execution (`spark.speculation=true`) to launch duplicate attempts for stragglers.
+blocking: false
+score: 0.2
+version: "1.0"
+context_aware: true

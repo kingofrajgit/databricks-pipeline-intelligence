@@ -1,0 +1,32 @@
+rule_id: CODE-SQL-010
+
+name: SQL Parse Error
+
+category: code
+
+severity: CRITICAL
+
+description: >
+  Report SQL syntax/parse errors as blocking findings. Unparseable SQL
+  indicates a defect that will fail at runtime.
+
+condition: >
+  SQL parse error encountered
+
+evaluator: parse_errors
+
+evidence_required:
+  - file
+  - line
+  - error_message
+
+recommendation: >
+  Fix SQL syntax error to enable analysis and prevent runtime failures.
+
+blocking: true
+
+score: 15.0
+
+version: 1.0.0
+
+context_aware: false

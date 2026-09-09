@@ -1,0 +1,20 @@
+{
+  "name": "xlarge-1tb",
+  "note": "Fixture metadata only — not a runtime measurement.",
+  "total_bytes": 1099511627776,
+  "total_gb": 1024.0,
+  "file_count": 4000,
+  "average_file_size_kb": 268435.5,
+  "median_file_size_kb": 260000.0,
+  "p95_file_size_kb": 360000.0,
+  "p99_file_size_kb": 450000.0,
+  "min_file_size_kb": 90000.0,
+  "max_file_size_kb": 700000.0,
+  "record_count": 1000000000,
+  "partition_count": 128,
+  "partition_distribution": {"date=2026-09-06": 8000000, "date=2026-09-07": 8100000},
+  "format": "parquet",
+  "compression": "snappy",
+  "column_count": 64,
+  "analysis_method": "metadata"
+}

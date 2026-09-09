@@ -1,0 +1,18 @@
+{
+  "cluster_id": "cluster_001",
+  "cluster_name": "prod_etl_cluster",
+  "spark_version": "15.4.x-scala2.12",
+  "node_type_id": "i3.xlarge",
+  "driver_node_type_id": "i3.xlarge",
+  "autoscale": {
+    "min_workers": 2,
+    "max_workers": 8
+  },
+  "runtime_engine": "PHOTON",
+  "policy_id": "standard_policy",
+  "autotermination_minutes": 30,
+  "cluster_source": "JOB",
+  "spark_conf": {
+    "spark.sql.adaptive.enabled": "true"
+  }
+}

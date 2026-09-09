@@ -1,0 +1,26 @@
+{
+  "name": "schema-drift-100gb",
+  "note": "Fixture metadata only — observed schema drifted vs contract.",
+  "total_bytes": 107374182400,
+  "total_gb": 100.0,
+  "file_count": 800,
+  "average_file_size_kb": 131072.0,
+  "median_file_size_kb": 128000.0,
+  "p95_file_size_kb": 175000.0,
+  "p99_file_size_kb": 210000.0,
+  "min_file_size_kb": 60000.0,
+  "max_file_size_kb": 280000.0,
+  "record_count": 100000000,
+  "partition_count": 16,
+  "partition_distribution": {"date=2026-09-07": 6400000},
+  "format": "parquet",
+  "compression": "snappy",
+  "column_count": 4,
+  "schema_columns": [
+    {"name": "order_id", "data_type": "long", "nullable": false},
+    {"name": "customer_id", "data_type": "long", "nullable": false},
+    {"name": "order_total", "data_type": "double", "nullable": true},
+    {"name": "promo_code", "data_type": "string", "nullable": true}
+  ],
+  "analysis_method": "metadata"
+}

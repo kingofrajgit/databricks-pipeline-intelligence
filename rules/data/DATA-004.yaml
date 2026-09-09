@@ -1,0 +1,32 @@
+rule_id: DATA-004
+
+name: Missing Expected Volume
+
+category: data
+
+severity: MEDIUM
+
+description: >
+  Flag contracts that declare no expected (or peak) data volume. Sizing,
+  cluster, SLA, and growth analysis cannot run without it.
+
+condition: >-
+  expected_daily_volume_gb is missing OR expected_daily_volume_gb <= 0
+
+evaluator: missing_volume
+
+evidence_required:
+  - expected_daily_volume_gb
+  - peak_daily_volume_gb
+
+recommendation: >
+  Declare expected_daily_volume_gb (and peak) in the contract; sizing,
+  cluster, and SLA analysis require it.
+
+blocking: false
+
+score: 4.0
+
+version: 1.0.0
+
+context_aware: true

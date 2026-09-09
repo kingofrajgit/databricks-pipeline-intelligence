@@ -1,0 +1,20 @@
+{
+  "name": "json-large-300gb",
+  "note": "Fixture metadata only — not a runtime measurement.",
+  "total_bytes": 322122547200,
+  "total_gb": 300.0,
+  "file_count": 2000,
+  "average_file_size_kb": 153600.0,
+  "median_file_size_kb": 150000.0,
+  "p95_file_size_kb": 200000.0,
+  "p99_file_size_kb": 250000.0,
+  "min_file_size_kb": 70000.0,
+  "max_file_size_kb": 300000.0,
+  "record_count": 300000000,
+  "partition_count": 32,
+  "partition_distribution": {"date=2026-09-07": 9500000},
+  "format": "json",
+  "compression": "gzip",
+  "column_count": 22,
+  "analysis_method": "metadata"
+}

@@ -1,0 +1,17 @@
+rule_id: SCALABILITY-010
+name: Cluster Capacity Risk
+category: scalability
+severity: MEDIUM
+description: Evaluates whether cluster worker sizing provides sufficient compute capacity for projected peak workloads.
+evaluator: eval_cluster_capacity
+params:
+  min_workers_for_large_scale: 4
+  large_scale_volume_gb: 500.0
+evidence_required:
+  - cluster_config
+  - peak_daily_volume_gb
+recommendation: Increase cluster worker sizing or configure elasticity to support projected peak workload demands.
+blocking: false
+score: 0.3
+version: "1.0"
+context_aware: true

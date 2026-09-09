@@ -1,0 +1,48 @@
+rule_id: CODE-PYSPARK-008
+
+name: Potential Large Shuffle
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Flag shuffle-class operations (groupBy, distinct, repartition, orderBy,
+  large joins, windows) over sizable inputs as potential shuffle risk.
+  Static analysis cannot prove shuffle volume, so findings are WARN only.
+
+condition: >-
+  shuffle-class operation present AND input >= shuffle_gb
+
+evaluator: shuffle_risk
+
+# Severity policy: WARN always (never FAIL — static analysis cannot prove
+# shuffle volume); MEDIUM below high_gb, HIGH at/above it.
+params:
+  shuffle_gb: 100.0
+  high_gb: 1000.0
+
+evidence_required:
+  - file
+  - line
+  - operation
+  - input_gb
+
+recommendation: >
+  Potential shuffle risk: confirm partitioning and skew handling for the
+  flagged operation; static analysis cannot prove shuffle volume.
+
+blocking: false
+
+# Static analysis cannot prove shuffle volume: findings stay WARN even when
+# the level escalates to HIGH.
+cap_status: WARN
+
+score: 6.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

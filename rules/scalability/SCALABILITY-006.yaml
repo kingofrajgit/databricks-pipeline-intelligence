@@ -1,0 +1,16 @@
+rule_id: SCALABILITY-006
+name: Driver Scalability Risk
+category: scalability
+severity: HIGH
+description: Evaluates driver-side materialization (collect, toPandas) in the context of scaled data volume.
+evaluator: eval_driver_scalability
+params:
+  critical_volume_gb: 50.0
+evidence_required:
+  - code_analysis
+  - workload_volume_gb
+recommendation: Eliminate driver collection operations (collect, toPandas) to avoid driver OutOfMemory failures at scale.
+blocking: false
+score: 0.5
+version: "1.0"
+context_aware: true

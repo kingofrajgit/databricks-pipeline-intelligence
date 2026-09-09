@@ -1,0 +1,16 @@
+rule_id: CONFIG-JOB-001
+name: Missing Retry Configuration
+category: job
+severity: HIGH
+description: Detects production jobs or tasks without retry configuration where resilience is required.
+evaluator: eval_job_retries
+params:
+  min_retries: 1
+evidence_required:
+  - job_config
+recommendation: Configure retry count (>= 1) on production tasks to prevent transient failure pipeline interruptions.
+blocking: false
+cap_status: WARN
+score: 0.2
+version: "1.0"
+context_aware: true

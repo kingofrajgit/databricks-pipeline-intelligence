@@ -1,0 +1,16 @@
+rule_id: CONFIG-CLUSTER-003
+name: Invalid Autoscaling Range
+category: cluster
+severity: HIGH
+description: Detects invalid min/max worker configuration or excessively wide worker ratio.
+evaluator: eval_autoscaling_range
+params:
+  max_ratio: 10.0
+  max_workers_limit: 128
+evidence_required:
+  - cluster_config
+recommendation: Configure realistic min and max worker boundaries to avoid cluster provisioning errors.
+blocking: true
+score: 0.2
+version: "1.0"
+context_aware: true

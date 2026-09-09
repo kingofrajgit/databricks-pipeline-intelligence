@@ -1,0 +1,20 @@
+{
+  "name": "csv-large-600gb",
+  "note": "Fixture metadata only — not a runtime measurement.",
+  "total_bytes": 644245094400,
+  "total_gb": 600.0,
+  "file_count": 3000,
+  "average_file_size_kb": 204800.0,
+  "median_file_size_kb": 200000.0,
+  "p95_file_size_kb": 260000.0,
+  "p99_file_size_kb": 310000.0,
+  "min_file_size_kb": 90000.0,
+  "max_file_size_kb": 400000.0,
+  "record_count": 600000000,
+  "partition_count": 48,
+  "partition_distribution": {"date=2026-09-07": 13000000},
+  "format": "csv",
+  "compression": "gzip",
+  "column_count": 28,
+  "analysis_method": "metadata"
+}

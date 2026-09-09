@@ -1,0 +1,37 @@
+rule_id: SOURCE-002
+
+name: Missing Incremental Strategy
+
+category: source
+
+severity: HIGH
+
+description: >
+  Flag large-volume sources with no incremental ingestion evidence (no
+  incremental/CDC/streaming mode and no watermark, CDC, checkpoint, or
+  partitioning evidence).
+
+condition: >-
+  expected_volume_gb >= large_volume_gb AND ingestion_mode not incremental
+  AND no incremental evidence
+
+evaluator: incremental_strategy
+
+evidence_required:
+  - ingestion_mode
+  - expected_volume_gb
+
+recommendation: >
+  Define an incremental strategy (watermark, CDC, key-based merge) for this
+  large-volume source.
+
+blocking: false
+
+score: 8.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - expected_volume_gb

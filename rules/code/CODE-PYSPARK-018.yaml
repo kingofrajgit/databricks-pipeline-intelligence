@@ -1,0 +1,38 @@
+rule_id: CODE-PYSPARK-018
+
+name: Inefficient Count for Existence Check
+
+category: code
+
+severity: HIGH
+
+description: >
+  Detect df.count() called solely to test emptiness or existence (e.g. df.count() > 0,
+  df.count() == 0, if df.count()). Full dataset count forces a complete distributed scan.
+  Prefer df.isEmpty() or df.limit(1).count() > 0.
+
+condition: >-
+  df.count() called in boolean or comparison context
+
+evaluator: count_for_existence
+
+evidence_required:
+  - file
+  - line
+  - dataframe
+  - code
+
+recommendation: >
+  Avoid df.count() solely to test emptiness/existence; it triggers a full table scan.
+  Prefer df.isEmpty() or df.limit(1).count() > 0.
+
+blocking: true
+
+score: 10.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

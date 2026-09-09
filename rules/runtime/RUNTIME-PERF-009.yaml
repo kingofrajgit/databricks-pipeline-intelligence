@@ -1,0 +1,15 @@
+rule_id: RUNTIME-PERF-009
+name: Failed Task / Retry Risk
+category: performance
+severity: CRITICAL
+description: Detects failed task attempts, task retries, or stage failures during execution.
+evaluator: eval_task_failures
+params:
+  max_failed_tasks: 0
+evidence_required:
+  - failed_tasks
+recommendation: Investigate root cause of task failures in executor logs (OOMs, node loss, network timeouts).
+blocking: true
+score: 0.4
+version: "1.0"
+context_aware: true

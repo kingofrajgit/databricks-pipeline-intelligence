@@ -1,0 +1,42 @@
+pipeline:
+  name: jdbc_large
+  environment: production
+  owner: data-engineering
+source:
+  type: jdbc
+  format: unknown
+  path: jdbc:postgresql://db.internal:5432/orders
+  expected_daily_volume_gb: 800
+  peak_daily_volume_gb: 1500
+  growth_rate_percent: 5
+  jdbc:
+    database_type: postgresql
+    query: SELECT * FROM orders WHERE updated_at > :last_run
+    fetch_size: 10000
+processing:
+  type: full_load
+  language: pyspark
+target:
+  type: delta
+  catalog: prod
+  schema: marts
+  path: abfss://curated@acct.dfs.core.windows.net/jdbc_large/
+  format: delta
+sla:
+  max_runtime_minutes: 120
+schedule:
+  frequency: daily
+  time: "01:00"
+reliability:
+  retry_count: 2
+  idempotent: true
+scalability:
+  forecast_horizon_days: 180
+cluster:
+  num_workers: 8
+  spark_version: "15.4.x-scala2.12"
+  node_type: Standard_D8ds_v5
+job:
+  max_retries: 2
+  timeout_seconds: 7200
+code_path: ../code/good_pipeline.py

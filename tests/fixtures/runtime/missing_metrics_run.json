@@ -1,0 +1,13 @@
+{
+  "run_id": "run_missing_metrics_001",
+  "job_id": "job_113",
+  "stages": [
+    {
+      "stage_id": 1,
+      "name": "Incomplete Stage Data",
+      "num_tasks": 10,
+      "task_durations": [],
+      "task_input_bytes": []
+    }
+  ]
+}

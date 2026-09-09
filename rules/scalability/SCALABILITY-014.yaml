@@ -1,0 +1,14 @@
+rule_id: SCALABILITY-014
+name: Reliability Degradation at Scale
+category: scalability
+severity: HIGH
+description: Evaluates whether task failure rates, executor evictions, or memory spills correlate with increased workload volume.
+evaluator: eval_reliability_degradation
+params: {}
+evidence_required:
+  - historical_runs
+recommendation: Address task failure rate escalation at higher volumes by increasing executor memory and optimizing partition sizes.
+blocking: false
+score: 0.4
+version: "1.0"
+context_aware: true

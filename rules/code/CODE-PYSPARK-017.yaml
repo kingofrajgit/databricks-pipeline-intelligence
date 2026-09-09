@@ -1,0 +1,38 @@
+rule_id: CODE-PYSPARK-017
+
+name: User Defined Function (UDF) Overhead Risk
+
+category: code
+
+severity: HIGH
+
+description: >
+  Detect Python and Pandas UDF usages. Standard Python UDFs force row-by-row
+  serialization across the Python-JVM boundary, incurring severe performance penalties
+  on large datasets. Prefer native Spark SQL/DataFrame expressions or vectorized Pandas UDFs.
+
+condition: >-
+  udf() or pandas_udf() present
+
+evaluator: udf_risk
+
+evidence_required:
+  - file
+  - line
+  - kind
+  - input_gb
+
+recommendation: >
+  Replace row-at-a-time Python UDFs with native Spark functions or vectorized
+  Pandas UDFs to avoid JVM-Python serialization overhead.
+
+blocking: false
+
+score: 8.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

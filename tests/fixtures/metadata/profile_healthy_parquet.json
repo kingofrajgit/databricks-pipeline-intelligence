@@ -1,0 +1,29 @@
+{
+  "name": "healthy-parquet-250gb",
+  "note": "Fixture metadata only — not a runtime measurement.",
+  "total_bytes": 268435456000,
+  "total_gb": 250.0,
+  "file_count": 1000,
+  "average_file_size_kb": 262144.0,
+  "median_file_size_kb": 255000.0,
+  "p95_file_size_kb": 330000.0,
+  "p99_file_size_kb": 400000.0,
+  "min_file_size_kb": 120000.0,
+  "max_file_size_kb": 500000.0,
+  "record_count": 250000000,
+  "partition_count": 16,
+  "partition_distribution": {"date=2026-09-01": 16000000, "date=2026-09-02": 15500000},
+  "partition_sizes_gb": {"date=2026-09-01": 16.0, "date=2026-09-02": 15.5,
+                         "date=2026-09-03": 16.2, "date=2026-09-04": 15.8},
+  "partition_record_counts": {"date=2026-09-01": 16000000, "date=2026-09-02": 15500000,
+                              "date=2026-09-03": 16200000, "date=2026-09-04": 15800000},
+  "format": "parquet",
+  "compression": "snappy",
+  "column_count": 32,
+  "schema_columns": [
+    {"name": "order_id", "data_type": "long", "nullable": false},
+    {"name": "customer_id", "data_type": "long", "nullable": false},
+    {"name": "order_total", "data_type": "decimal(12,2)", "nullable": true}
+  ],
+  "analysis_method": "metadata"
+}

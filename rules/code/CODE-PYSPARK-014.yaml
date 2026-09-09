@@ -1,0 +1,34 @@
+rule_id: CODE-PYSPARK-014
+
+name: Potential Expensive Window
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Flag window specifications without an explicit frame bound
+  (rowsBetween/rangeBetween). Bounded windows are not flagged, and no
+  runtime impact is claimed.
+
+condition: >-
+  window spec present AND frame unbounded
+
+evaluator: window_risk
+
+evidence_required:
+  - file
+  - line
+  - bounded
+
+recommendation: >
+  Potentially expensive window operation: add an explicit frame bound where
+  semantics allow.
+
+blocking: false
+
+score: 5.0
+
+version: 1.0.0
+
+context_aware: true

@@ -1,0 +1,35 @@
+rule_id: CODE-PYSPARK-011
+
+name: Unjustified Cache
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Flag cache()/persist() where static analysis shows no demonstrated reuse
+  of the cached DataFrame. Reused frames are not flagged, and no runtime
+  benefit is ever claimed without runtime evidence.
+
+condition: >-
+  cache()/persist() present AND downstream_uses < 2
+
+evaluator: unjustified_cache
+
+evidence_required:
+  - file
+  - line
+  - dataframe
+  - downstream_uses
+
+recommendation: >
+  Caching benefit is not demonstrated: remove the cache or prove reuse with
+  runtime evidence.
+
+blocking: false
+
+score: 4.0
+
+version: 1.0.0
+
+context_aware: true

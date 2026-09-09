@@ -1,0 +1,27 @@
+rule_id: CODE-PYSPARK-002
+
+name: Pandas UDF Misuse Detection
+
+category: code
+
+severity: HIGH
+
+description: >
+  Detect use of Pandas UDF where native Spark UDF would be more appropriate.
+
+condition: >-
+  \budf\s*\(
+
+evidence_required:
+  - code_location
+
+recommendation: >
+  Consider using native Spark UDF or vectorized Pandas UDF (applyInPlace) for better performance.
+
+blocking: false
+
+score: 8.0
+
+version: 1.0.0
+
+context_aware: true

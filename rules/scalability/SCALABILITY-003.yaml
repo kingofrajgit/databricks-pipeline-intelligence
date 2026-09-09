@@ -1,0 +1,17 @@
+rule_id: SCALABILITY-003
+name: Data Growth Risk
+category: scalability
+severity: MEDIUM
+description: Calculates deterministic compound data growth projections over the forecast horizon.
+evaluator: eval_data_growth
+params:
+  warn_growth_rate: 20.0
+  warn_projected_gb: 1000.0
+evidence_required:
+  - growth_rate_percent
+  - baseline_volume_gb
+recommendation: Plan storage compaction and capacity allocation to accommodate projected compound data growth.
+blocking: false
+score: 0.3
+version: "1.0"
+context_aware: true

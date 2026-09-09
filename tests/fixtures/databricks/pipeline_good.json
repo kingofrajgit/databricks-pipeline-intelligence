@@ -1,0 +1,21 @@
+{
+  "pipeline_id": "dlt_pipeline_001",
+  "name": "customers_dlt_pipeline",
+  "target": "analytics_prod",
+  "continuous": false,
+  "development": false,
+  "edition": "ADVANCED",
+  "channel": "CURRENT",
+  "configuration": {
+    "pipelines.autoOptimize.managed": "true"
+  },
+  "clusters": [
+    {
+      "label": "default",
+      "autoscale": {
+        "min_workers": 1,
+        "max_workers": 5
+      }
+    }
+  ]
+}

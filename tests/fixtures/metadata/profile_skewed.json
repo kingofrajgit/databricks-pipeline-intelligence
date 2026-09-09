@@ -1,0 +1,22 @@
+{
+  "name": "partition-skewed-workload",
+  "note": "Fixture metadata only — one hot partition holds ~60% of rows.",
+  "total_bytes": 107374182400,
+  "total_gb": 100.0,
+  "file_count": 800,
+  "average_file_size_kb": 131072.0,
+  "median_file_size_kb": 90000.0,
+  "p95_file_size_kb": 400000.0,
+  "p99_file_size_kb": 600000.0,
+  "min_file_size_kb": 10000.0,
+  "max_file_size_kb": 800000.0,
+  "record_count": 100000000,
+  "partition_count": 32,
+  "partition_distribution": {"country=US": 60000000, "country=DE": 5000000, "country=FR": 5000000},
+  "partition_sizes_gb": {"country=US": 60.0, "country=DE": 5.0, "country=FR": 5.0, "country=other": 30.0},
+  "partition_record_counts": {"country=US": 60000000, "country=DE": 5000000, "country=FR": 5000000},
+  "format": "parquet",
+  "compression": "snappy",
+  "column_count": 30,
+  "analysis_method": "metadata"
+}

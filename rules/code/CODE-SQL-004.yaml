@@ -1,0 +1,43 @@
+rule_id: CODE-SQL-004
+
+name: Potential Large Aggregation
+
+category: code
+
+severity: HIGH
+
+description: >
+  Detect GROUP BY / aggregation operations on large inputs where the
+  shuffle volume may be significant. Static analysis cannot prove actual
+  shuffle volume.
+
+condition: >
+  GROUP BY or aggregation present AND input volume >= large_gb
+
+evaluator: large_agg
+
+params:
+  large_gb: 100.0
+  high_gb: 1000.0
+
+evidence_required:
+  - file
+  - line
+  - aggregations
+  - group_by
+  - volume_gb
+
+recommendation: >
+  Potential large aggregation shuffle; consider pre-aggregation, salting,
+  or approximate algorithms (e.g., approx_count_distinct).
+
+blocking: false
+
+score: 8.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

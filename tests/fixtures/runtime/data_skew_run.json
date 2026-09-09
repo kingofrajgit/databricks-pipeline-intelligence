@@ -1,0 +1,49 @@
+{
+  "run_id": "run_skew_001",
+  "job_id": "job_105",
+  "execution_duration_ms": 200000,
+  "cluster_id": "cluster_abc",
+  "cluster_utilization": 0.8,
+  "stages": [
+    {
+      "stage_id": 1,
+      "name": "Skewed Partition Stage",
+      "num_tasks": 10,
+      "executor_run_time_ms": 60000,
+      "input_bytes": 1677721600,
+      "output_bytes": 524288000,
+      "shuffle_read_bytes": 0,
+      "shuffle_write_bytes": 104857600,
+      "memory_spilled_bytes": 0,
+      "disk_spilled_bytes": 0,
+      "jvm_gc_time_ms": 1000,
+      "failed_tasks": 0,
+      "killed_tasks": 0,
+      "executor_failures": 0,
+      "task_durations": [
+        2000,
+        2000,
+        2000,
+        2000,
+        2000,
+        2000,
+        2000,
+        2000,
+        2000,
+        2000
+      ],
+      "task_input_bytes": [
+        104857600,
+        104857600,
+        104857600,
+        104857600,
+        104857600,
+        104857600,
+        104857600,
+        104857600,
+        104857600,
+        734003200
+      ]
+    }
+  ]
+}

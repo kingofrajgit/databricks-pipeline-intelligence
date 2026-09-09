@@ -1,0 +1,16 @@
+rule_id: SCALABILITY-009
+name: Aggregation Scalability Risk
+category: scalability
+severity: MEDIUM
+description: Assesses distinct and grouping aggregations against high-cardinality data volumes.
+evaluator: eval_aggregation_scalability
+params:
+  high_volume_threshold_gb: 100.0
+evidence_required:
+  - sql_analysis
+  - workload_volume_gb
+recommendation: Use approximate aggregations (approx_count_distinct) or pre-aggregate keys to reduce shuffle and hash map memory pressure.
+blocking: false
+score: 0.3
+version: "1.0"
+context_aware: true

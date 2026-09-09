@@ -1,0 +1,15 @@
+rule_id: SCALABILITY-008
+name: Join Scalability Risk
+category: scalability
+severity: HIGH
+description: Evaluates join architecture to prevent Cartesian row explosion and unbounded shuffle joins at scale.
+evaluator: eval_join_scalability
+params: {}
+evidence_required:
+  - code_analysis
+  - sql_analysis
+recommendation: Provide explicit join conditions and keys; eliminate unkeyed joins and Cartesian cross joins.
+blocking: false
+score: 0.4
+version: "1.0"
+context_aware: true

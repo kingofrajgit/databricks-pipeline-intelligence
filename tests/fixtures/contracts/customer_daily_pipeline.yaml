@@ -1,0 +1,38 @@
+pipeline:
+  name: customer_daily
+  environment: production
+  owner: data-engineering
+source:
+  type: adls
+  format: parquet
+  path: abfss://landing@acct.dfs.core.windows.net/customer_daily/
+  expected_daily_volume_gb: 500
+  peak_daily_volume_gb: 3000
+  growth_rate_percent: 8
+processing:
+  type: incremental
+  language: pyspark
+target:
+  type: delta
+  catalog: prod
+  schema: marts
+  path: abfss://curated@acct.dfs.core.windows.net/customer_daily/
+  format: delta
+sla:
+  max_runtime_minutes: 60
+schedule:
+  frequency: daily
+  time: "02:00"
+reliability:
+  retry_count: 2
+  idempotent: true
+scalability:
+  forecast_horizon_days: 365
+cluster:
+  num_workers: 8
+  spark_version: "15.4.x-scala2.12"
+  node_type: Standard_D8ds_v5
+job:
+  max_retries: 2
+  timeout_seconds: 3600
+code_path: ../code/good_pipeline.py

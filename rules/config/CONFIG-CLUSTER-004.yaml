@@ -1,0 +1,14 @@
+rule_id: CONFIG-CLUSTER-004
+name: Missing Photon Where Required
+category: cluster
+severity: HIGH
+description: Detects missing Photon runtime engine where required by pipeline contract.
+evaluator: eval_photon
+params: {}
+evidence_required:
+  - cluster_config
+recommendation: Enable Photon runtime engine on the cluster to meet contract performance expectations.
+blocking: false
+score: 0.15
+version: "1.0"
+context_aware: true

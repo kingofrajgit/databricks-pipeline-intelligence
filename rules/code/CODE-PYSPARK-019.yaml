@@ -1,0 +1,41 @@
+rule_id: CODE-PYSPARK-019
+
+name: Cartesian Cross Join Risk
+
+category: code
+
+severity: HIGH
+
+description: >
+  Detect crossJoin() or join(how="cross"). Cartesian products produce multiplicative
+  row growth (O(N*M)), leading to massive shuffles, performance degradation, and executor OOM.
+
+condition: >-
+  crossJoin() or join(how="cross") present AND (input_gb >= cross_max_gb OR input_gb UNKNOWN)
+
+evaluator: cross_join_risk
+
+params:
+  cross_max_gb: 10.0
+
+evidence_required:
+  - file
+  - line
+  - dataframe
+  - how
+  - input_gb
+
+recommendation: >
+  Avoid Cartesian/cross joins unless explicit and strictly bounded; prefer keyed joins
+  or broadcast joins on small lookup tables.
+
+blocking: true
+
+score: 15.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

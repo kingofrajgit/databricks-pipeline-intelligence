@@ -1,0 +1,16 @@
+rule_id: SCALABILITY-007
+name: Shuffle Scalability Risk
+category: scalability
+severity: HIGH
+description: Projects shuffle volume growth under scaled workload conditions to anticipate disk spill and network saturation.
+evaluator: eval_shuffle_scalability
+params:
+  warn_projected_shuffle_gb: 200.0
+evidence_required:
+  - total_shuffle_bytes
+  - workload_volume_gb
+recommendation: Optimize join keys, enable AQE, and minimize wide transformations to curb shuffle explosion at scale.
+blocking: false
+score: 0.4
+version: "1.0"
+context_aware: true

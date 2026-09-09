@@ -1,0 +1,15 @@
+rule_id: SCALABILITY-011
+name: Autoscaling Boundary Risk
+category: scalability
+severity: MEDIUM
+description: Assesses autoscaling upper boundaries against peak workload expansion multipliers.
+evaluator: eval_autoscaling_boundary
+params: {}
+evidence_required:
+  - cluster_config
+  - peak_daily_volume_gb
+recommendation: Configure or expand autoscaling max_workers to permit adequate elastic scaling during peak ingestion spikes.
+blocking: false
+score: 0.3
+version: "1.0"
+context_aware: true

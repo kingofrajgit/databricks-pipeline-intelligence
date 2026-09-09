@@ -1,0 +1,20 @@
+{
+  "name": "peak-3tb",
+  "note": "Fixture metadata only — not a runtime measurement.",
+  "total_bytes": 3298534883328,
+  "total_gb": 3072.0,
+  "file_count": 12000,
+  "average_file_size_kb": 268435.5,
+  "median_file_size_kb": 260000.0,
+  "p95_file_size_kb": 370000.0,
+  "p99_file_size_kb": 460000.0,
+  "min_file_size_kb": 80000.0,
+  "max_file_size_kb": 800000.0,
+  "record_count": 3000000000,
+  "partition_count": 256,
+  "partition_distribution": {"date=2026-09-07": 12000000},
+  "format": "parquet",
+  "compression": "snappy",
+  "column_count": 64,
+  "analysis_method": "metadata"
+}

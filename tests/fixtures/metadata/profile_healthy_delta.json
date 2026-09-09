@@ -1,0 +1,22 @@
+{
+  "name": "healthy-delta-400gb",
+  "note": "Fixture metadata only — not a runtime measurement.",
+  "total_bytes": 429496729600,
+  "total_gb": 400.0,
+  "file_count": 1500,
+  "average_file_size_kb": 273066.0,
+  "median_file_size_kb": 265000.0,
+  "p95_file_size_kb": 340000.0,
+  "p99_file_size_kb": 410000.0,
+  "min_file_size_kb": 110000.0,
+  "max_file_size_kb": 550000.0,
+  "record_count": 400000000,
+  "partition_count": 24,
+  "partition_distribution": {"date=2026-09-06": 17000000, "date=2026-09-07": 17200000},
+  "partition_sizes_gb": {"date=2026-09-06": 17.0, "date=2026-09-07": 17.2,
+                         "date=2026-09-05": 16.8, "date=2026-09-04": 17.1},
+  "format": "delta",
+  "compression": "snappy",
+  "column_count": 40,
+  "analysis_method": "metadata"
+}

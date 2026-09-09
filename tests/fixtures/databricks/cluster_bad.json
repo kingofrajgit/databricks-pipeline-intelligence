@@ -1,0 +1,13 @@
+{
+  "cluster_id": "cluster_002",
+  "cluster_name": "invalid_etl_cluster",
+  "spark_version": "14.3.x-scala2.12",
+  "node_type_id": "m5.large",
+  "autoscale": {
+    "min_workers": 10,
+    "max_workers": 2
+  },
+  "runtime_engine": "STANDARD",
+  "autotermination_minutes": 0,
+  "cluster_source": "UI"
+}

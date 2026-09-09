@@ -1,0 +1,41 @@
+rule_id: CODE-PYSPARK-016
+
+name: Unqualified or Large Broadcast Join Risk
+
+category: code
+
+severity: HIGH
+
+description: >
+  Detect broadcast() calls evaluated against data evidence. An oversized
+  broadcast causes executor OOM when the broadcast side is replicated to every
+  executor; unmeasured broadcasts remain qualified warnings.
+
+condition: >-
+  broadcast() present AND (input_gb >= broadcast_max_gb OR input_gb UNKNOWN)
+
+evaluator: broadcast_risk
+
+params:
+  broadcast_max_gb: 10.0
+
+evidence_required:
+  - file
+  - line
+  - dataframe
+  - input_gb
+
+recommendation: >
+  Verify that the broadcast side is strictly bounded (< 10GB); broadcast joins
+  replicate the entire dataset to every executor, risking executor driver/OOM.
+
+blocking: true
+
+score: 10.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

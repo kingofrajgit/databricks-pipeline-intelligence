@@ -1,0 +1,16 @@
+rule_id: RUNTIME-PERF-006
+name: Memory Spill Risk
+category: performance
+severity: HIGH
+description: Detects execution memory spill to worker storage during joins or aggregations.
+evaluator: eval_memory_spill
+params:
+  warn_spill_gb: 1.0
+  fail_spill_gb: 10.0
+evidence_required:
+  - memory_spill_bytes
+recommendation: Increase worker executor memory or increase shuffle partitions to reduce partition size.
+blocking: false
+score: 0.2
+version: "1.0"
+context_aware: true

@@ -1,0 +1,40 @@
+rule_id: DATA-001
+
+name: Small File Risk
+
+category: data
+
+severity: HIGH
+
+description: >
+  Detect small-file distributions (average, median, and P95 below the
+  format-adjusted threshold across many files) that create potential
+  Spark performance risk from metadata and task overhead.
+
+condition: >-
+  average_file_size_kb < threshold AND median_file_size_kb < threshold
+  AND file_count >= small_file_min_files
+
+evaluator: small_files
+
+evidence_required:
+  - average_file_size_kb
+  - median_file_size_kb
+  - p95_file_size_kb
+  - file_count
+  - configured_threshold_kb
+  - collection_method
+  - evidence_source
+
+recommendation: >
+  Potential Spark performance risk from small files: coalesce output, raise
+  the target file size (e.g. Delta OPTIMIZE / Auto Optimize), or repartition
+  before writing; validate with a benchmark.
+
+blocking: false
+
+score: 10.0
+
+version: 1.0.0
+
+context_aware: true

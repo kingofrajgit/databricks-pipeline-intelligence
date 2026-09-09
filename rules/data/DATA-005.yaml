@@ -1,0 +1,34 @@
+rule_id: DATA-005
+
+name: Excessive File Count
+
+category: data
+
+severity: HIGH
+
+description: >
+  Flag absolute file counts large enough to threaten driver/metadata
+  pressure regardless of average file size.
+
+condition: >-
+  file_count >= excessive_file_count
+
+evaluator: excessive_count
+
+evidence_required:
+  - file_count
+  - configured_limit
+  - collection_method
+  - evidence_source
+
+recommendation: >
+  File count implies driver/metadata pressure; consolidate files and confirm
+  the partition strategy.
+
+blocking: false
+
+score: 8.0
+
+version: 1.0.0
+
+context_aware: true

@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dpif"
+version = "0.1.0"
+description = "Databricks Pipeline Intelligence Framework"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.5",
+    "click>=8.0",
+    "pyyaml>=6.0",
+    "fastapi>=0.104",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "sqlglot>=25.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.4", "mypy>=1.10"]
+
+[project.scripts]
+dpif = "dpif.cli:main"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-v"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# Fixture pipelines are analysed as text by DPIF, never executed;
+# `spark` is the Databricks runtime global.
+"tests/fixtures/code/*.py" = ["F821"]
+
+[tool.mypy]
+python_version = "3.11"
+ignore_missing_imports = true
+show_error_codes = true
+[[tool.mypy.overrides]]
+module = "dpif.checkpoints.engine"
+ignore_errors = false

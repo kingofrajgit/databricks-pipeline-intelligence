@@ -1,0 +1,10 @@
+{
+  "cluster_id": "cluster_003",
+  "cluster_name": "legacy_cluster",
+  "spark_version": "10.4.x-scala2.12",
+  "node_type_id": "m4.large",
+  "num_workers": 1,
+  "runtime_engine": "STANDARD",
+  "autotermination_minutes": 120,
+  "cluster_source": "JOB"
+}

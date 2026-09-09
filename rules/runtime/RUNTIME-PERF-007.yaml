@@ -1,0 +1,16 @@
+rule_id: RUNTIME-PERF-007
+name: Disk Spill Risk
+category: performance
+severity: HIGH
+description: Detects disk spill when spilled execution memory exceeds local buffer capacity.
+evaluator: eval_disk_spill
+params:
+  warn_spill_gb: 0.5
+  fail_spill_gb: 5.0
+evidence_required:
+  - disk_spill_bytes
+recommendation: Disk spill causes severe latency; increase executor memory or choose worker types with higher RAM.
+blocking: false
+score: 0.3
+version: "1.0"
+context_aware: true

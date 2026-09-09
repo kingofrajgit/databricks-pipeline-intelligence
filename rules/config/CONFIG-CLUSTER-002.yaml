@@ -1,0 +1,15 @@
+rule_id: CONFIG-CLUSTER-002
+name: Missing Autoscaling
+category: cluster
+severity: MEDIUM
+description: Detects missing autoscaling when workload requires variable load handling.
+evaluator: eval_autoscaling
+params:
+  require_autoscaling: false
+evidence_required:
+  - cluster_config
+recommendation: Enable cluster autoscaling to dynamically handle varying volumes and optimize compute costs.
+blocking: false
+score: 0.15
+version: "1.0"
+context_aware: true

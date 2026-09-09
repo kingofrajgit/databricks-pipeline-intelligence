@@ -1,0 +1,32 @@
+rule_id: CODE-SQL-001
+
+name: SELECT * Risk
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Detect SELECT * and table.* patterns. Risk depends on table size and workload.
+  Small lookup tables may be acceptable; large analytical tables are risky.
+
+evaluator: select_star
+
+params: {}
+
+evidence_required:
+  - file
+  - line
+  - wildcard_tables
+
+recommendation: >
+  Avoid SELECT * in production; explicitly list required columns to reduce
+  data movement and enable schema evolution.
+
+blocking: false
+
+score: 5.0
+
+version: 1.0.0
+
+context_aware: true

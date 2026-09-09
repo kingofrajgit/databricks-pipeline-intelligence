@@ -1,0 +1,40 @@
+rule_id: CODE-PYSPARK-015
+
+name: Potential Expensive Deduplication
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Flag distinct()/dropDuplicates() over large inputs as potential
+  cost/performance risk, using data evidence where available.
+
+condition: >-
+  distinct()/dropDuplicates() present AND input >= dedup_gb
+
+evaluator: dedup_risk
+
+params:
+  dedup_gb: 100.0
+
+evidence_required:
+  - file
+  - line
+  - operation
+  - input_gb
+
+recommendation: >
+  Potential cost/performance risk: deduplication shuffles on the full key
+  set; confirm key cardinality.
+
+blocking: false
+
+score: 5.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

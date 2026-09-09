@@ -1,0 +1,16 @@
+rule_id: RUNTIME-PERF-005
+name: Data Skew Risk
+category: performance
+severity: HIGH
+description: Detects data skew via uneven input and shuffle byte distribution across tasks.
+evaluator: eval_data_skew
+params:
+  warn_skew_ratio: 3.0
+  fail_skew_ratio: 6.0
+evidence_required:
+  - task_metrics
+recommendation: Salt high-cardinality join keys, enable AQE skew join handling, or repartition on balanced columns.
+blocking: false
+score: 0.3
+version: "1.0"
+context_aware: true

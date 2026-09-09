@@ -1,0 +1,40 @@
+rule_id: CODE-SQL-009
+
+name: Excessive Query Complexity
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Flag queries with excessive joins, CTEs, nesting depth, or subqueries
+  that may indicate poor maintainability or optimization challenges.
+
+condition: >
+  join_count > max_joins OR cte_count > max_ctes OR nesting > max_nesting
+
+evaluator: complexity
+
+params:
+  max_joins: 7
+  max_ctes: 10
+  max_nesting: 3
+
+evidence_required:
+  - file
+  - line
+  - join_count
+  - cte_count
+  - nesting_depth
+
+recommendation: >
+  Consider breaking query into stages, using temporary views, or
+  simplifying logic. Complex queries are harder to optimize and maintain.
+
+blocking: false
+
+score: 4.0
+
+version: 1.0.0
+
+context_aware: true

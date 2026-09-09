@@ -1,0 +1,19 @@
+{
+  "policy_id": "standard_policy",
+  "name": "Standard Production Policy",
+  "description": "Enforces Photon and minimum DBR 14.3",
+  "definition": {
+    "spark_version": {
+      "type": "regex",
+      "pattern": "1[45]\\..*"
+    },
+    "runtime_engine": {
+      "type": "fixed",
+      "value": "PHOTON"
+    },
+    "autotermination_minutes": {
+      "type": "range",
+      "maxValue": 60
+    }
+  }
+}

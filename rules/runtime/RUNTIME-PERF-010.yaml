@@ -1,0 +1,14 @@
+rule_id: RUNTIME-PERF-010
+name: Executor Failure Risk
+category: performance
+severity: HIGH
+description: Detects explicit executor failure events such as node loss, killed containers, or heartbeat timeouts.
+evaluator: eval_executor_failures
+params: {}
+evidence_required:
+  - executor_failures
+recommendation: Investigate infrastructure/spot node terminations or worker memory exhaustion.
+blocking: true
+score: 0.4
+version: "1.0"
+context_aware: true

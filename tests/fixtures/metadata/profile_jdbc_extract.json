@@ -1,0 +1,20 @@
+{
+  "name": "jdbc-extract-800gb",
+  "note": "Fixture metadata only — JDBC extracts have no files; volume comes from the contract.",
+  "total_bytes": 0,
+  "total_gb": 0.0,
+  "file_count": 0,
+  "average_file_size_kb": 0.0,
+  "median_file_size_kb": 0.0,
+  "p95_file_size_kb": 0.0,
+  "p99_file_size_kb": 0.0,
+  "min_file_size_kb": 0.0,
+  "max_file_size_kb": 0.0,
+  "record_count": 200000000,
+  "partition_count": 0,
+  "partition_distribution": {},
+  "format": "unknown",
+  "compression": "",
+  "column_count": 45,
+  "analysis_method": "metadata"
+}

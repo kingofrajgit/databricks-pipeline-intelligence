@@ -1,0 +1,45 @@
+rule_id: CODE-PYSPARK-007
+
+name: toPandas Large Data Risk
+
+category: code
+
+severity: HIGH
+
+description: >
+  Detect toPandas() calls evaluated against data evidence. A bounded
+  toPandas() (e.g. after limit()) is a qualified warning; an unbounded call
+  over a large input is high risk. toPandas() is not banned.
+
+condition: >-
+  toPandas() present AND (input unbounded OR input large)
+
+evaluator: topandas_risk
+
+# Severity policy: bounded/small -> WARN; large -> FAIL/HIGH;
+# >= critical_gb -> FAIL/CRITICAL; unknown size -> WARN, low confidence.
+params:
+  small_gb: 1.0
+  critical_gb: 500.0
+
+evidence_required:
+  - file
+  - line
+  - dataframe
+  - limited
+  - input_gb
+
+recommendation: >
+  Prefer distributed writes/aggregates or bounded transfer for large frames;
+  confirm any toPandas() bound holds as data grows.
+
+blocking: false
+
+score: 10.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

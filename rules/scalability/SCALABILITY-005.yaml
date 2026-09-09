@@ -1,0 +1,17 @@
+rule_id: SCALABILITY-005
+name: Partition Scalability Risk
+category: scalability
+severity: MEDIUM
+description: Assesses partitioning strategy to ensure partition count and sizing remain balanced under scaling.
+evaluator: eval_partition_scalability
+params:
+  max_partition_size_gb: 10.0
+  max_partition_count: 10000
+evidence_required:
+  - partition_count
+  - partition_sizes_gb
+recommendation: Align partitioning columns to balance partition sizes between 100 MB and 2 GB per partition.
+blocking: false
+score: 0.3
+version: "1.0"
+context_aware: true

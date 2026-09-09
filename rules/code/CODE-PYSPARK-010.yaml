@@ -1,0 +1,40 @@
+rule_id: CODE-PYSPARK-010
+
+name: Potential Parallelism Reduction
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Flag coalesce(1)-style narrowing on large inputs, which forces a single
+  writer. Coalesce itself is not banned.
+
+condition: >-
+  coalesce(1) present AND input >= large_gb
+
+evaluator: coalesce_risk
+
+params:
+  large_gb: 100.0
+
+evidence_required:
+  - file
+  - line
+  - dataframe
+  - input_gb
+
+recommendation: >
+  Potential parallelism reduction: justify single-partition writes for large
+  outputs or keep parallelism.
+
+blocking: false
+
+score: 5.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

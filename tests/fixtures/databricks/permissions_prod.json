@@ -1,0 +1,14 @@
+{
+  "object_id": "101",
+  "object_type": "job",
+  "access_control_list": [
+    {
+      "group_name": "data_engineers",
+      "permission_level": "CAN_MANAGE"
+    },
+    {
+      "user_name": "developer@company.com",
+      "permission_level": "CAN_VIEW"
+    }
+  ]
+}

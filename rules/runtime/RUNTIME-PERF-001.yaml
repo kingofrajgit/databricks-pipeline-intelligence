@@ -1,0 +1,16 @@
+rule_id: RUNTIME-PERF-001
+name: Excessive Stage Duration
+category: performance
+severity: HIGH
+description: Detects individual Spark stages whose execution duration exceeds configured runtime thresholds.
+evaluator: eval_stage_duration
+params:
+  warn_seconds: 600.0
+  fail_seconds: 1800.0
+evidence_required:
+  - stage_duration
+recommendation: Investigate stage execution bottlenecks; evaluate shuffle boundaries, partition sizing, and stragglers.
+blocking: false
+score: 0.3
+version: "1.0"
+context_aware: true

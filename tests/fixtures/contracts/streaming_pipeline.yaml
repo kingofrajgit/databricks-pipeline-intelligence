@@ -1,0 +1,44 @@
+pipeline:
+  name: events_streaming
+  environment: production
+  owner: data-engineering
+source:
+  type: kafka
+  format: json
+  path: kafka://broker.internal:9092/events
+  expected_daily_volume_gb: 200
+  peak_daily_volume_gb: 500
+  growth_rate_percent: 10
+  streaming:
+    partition_count: 12
+    checkpoint_location: abfss://checkpoints@acct.dfs.core.windows.net/events_streaming/
+    trigger: processingTime=30 seconds
+    watermark: event_time - INTERVAL 10 MINUTES
+    starting_position: latest
+processing:
+  type: streaming
+  language: pyspark
+target:
+  type: delta
+  catalog: prod
+  schema: marts
+  path: abfss://curated@acct.dfs.core.windows.net/events_streaming/
+  format: delta
+sla:
+  max_runtime_minutes: 1440
+schedule:
+  frequency: none
+  time: "00:00"
+reliability:
+  retry_count: 3
+  idempotent: true
+scalability:
+  forecast_horizon_days: 180
+cluster:
+  num_workers: 6
+  spark_version: "15.4.x-scala2.12"
+  node_type: Standard_D8ds_v5
+job:
+  max_retries: 3
+  timeout_seconds: 86400
+code_path: ../code/good_pipeline.py

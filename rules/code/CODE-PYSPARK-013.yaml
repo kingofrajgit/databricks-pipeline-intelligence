@@ -1,0 +1,40 @@
+rule_id: CODE-PYSPARK-013
+
+name: Large Dataset Global Sort
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Flag global orderBy()/sort() over large inputs as a potential performance
+  warning — never a definite failure without runtime evidence.
+
+condition: >-
+  orderBy()/sort() present AND input >= sort_gb
+
+evaluator: global_sort
+
+params:
+  sort_gb: 100.0
+
+evidence_required:
+  - file
+  - line
+  - dataframe
+  - input_gb
+
+recommendation: >
+  Potential performance warning: global sorts force a wide shuffle; prefer
+  partitioned ordering where possible.
+
+blocking: false
+
+score: 5.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

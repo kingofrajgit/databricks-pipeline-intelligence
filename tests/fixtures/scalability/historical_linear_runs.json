@@ -1,0 +1,35 @@
+[
+  {
+    "run_id": "run-001",
+    "timestamp": "2026-09-01T00:00:00Z",
+    "input_volume_gb": 100.0,
+    "output_volume_gb": 95.0,
+    "duration_minutes": 10.0,
+    "shuffle_read_gb": 20.0,
+    "spill_to_disk_gb": 0.0,
+    "success": true,
+    "cost_usd": 5.0
+  },
+  {
+    "run_id": "run-002",
+    "timestamp": "2026-09-02T00:00:00Z",
+    "input_volume_gb": 200.0,
+    "output_volume_gb": 190.0,
+    "duration_minutes": 20.5,
+    "shuffle_read_gb": 41.0,
+    "spill_to_disk_gb": 0.0,
+    "success": true,
+    "cost_usd": 10.2
+  },
+  {
+    "run_id": "run-003",
+    "timestamp": "2026-09-03T00:00:00Z",
+    "input_volume_gb": 300.0,
+    "output_volume_gb": 285.0,
+    "duration_minutes": 31.0,
+    "shuffle_read_gb": 62.0,
+    "spill_to_disk_gb": 0.0,
+    "success": true,
+    "cost_usd": 15.5
+  }
+]

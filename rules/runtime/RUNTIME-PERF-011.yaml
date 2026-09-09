@@ -1,0 +1,15 @@
+rule_id: RUNTIME-PERF-011
+name: Low Cluster Utilization
+category: performance
+severity: MEDIUM
+description: Detects underutilized compute resources when utilization evidence exists.
+evaluator: eval_cluster_utilization
+params:
+  min_cpu_utilization: 0.30
+evidence_required:
+  - cluster_utilization
+recommendation: Downscale cluster worker count, reduce node size, or enable autoscaling to optimize DBU spend.
+blocking: false
+score: 0.2
+version: "1.0"
+context_aware: true

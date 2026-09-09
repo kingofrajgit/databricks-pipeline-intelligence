@@ -1,0 +1,15 @@
+rule_id: CONFIG-CLUSTER-006
+name: Missing Auto Termination
+category: cluster
+severity: MEDIUM
+description: Detects missing auto-termination on non-job or all-purpose clusters.
+evaluator: eval_autotermination
+params:
+  max_autotermination_minutes: 60
+evidence_required:
+  - cluster_config
+recommendation: Enable auto-termination (<= 60 minutes) on all-purpose clusters to prevent idle cost waste.
+blocking: false
+score: 0.1
+version: "1.0"
+context_aware: true

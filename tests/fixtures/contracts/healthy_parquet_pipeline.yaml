@@ -1,0 +1,44 @@
+pipeline:
+  name: healthy_parquet
+  environment: production
+  owner: data-engineering
+source:
+  type: adls
+  format: parquet
+  path: abfss://landing@acct.dfs.core.windows.net/healthy_parquet/
+  expected_daily_volume_gb: 250
+  peak_daily_volume_gb: 600
+  growth_rate_percent: 4
+  partitioning: [event_date]
+  compression: snappy
+  schema:
+    - {name: order_id, data_type: long, nullable: false}
+    - {name: customer_id, data_type: long, nullable: false}
+    - {name: order_total, data_type: "decimal(12,2)", nullable: true}
+processing:
+  type: incremental
+  language: pyspark
+target:
+  type: delta
+  catalog: prod
+  schema: marts
+  path: abfss://curated@acct.dfs.core.windows.net/healthy_parquet/
+  format: delta
+sla:
+  max_runtime_minutes: 45
+schedule:
+  frequency: daily
+  time: "02:00"
+reliability:
+  retry_count: 2
+  idempotent: true
+scalability:
+  forecast_horizon_days: 180
+cluster:
+  num_workers: 4
+  spark_version: "15.4.x-scala2.12"
+  node_type: Standard_D4ds_v5
+job:
+  max_retries: 2
+  timeout_seconds: 2700
+code_path: ../code/good_pipeline.py

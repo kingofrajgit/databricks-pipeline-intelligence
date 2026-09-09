@@ -1,0 +1,20 @@
+{
+  "name": "healthy-small-10gb",
+  "note": "Fixture metadata only — not a runtime measurement.",
+  "total_bytes": 10737418240,
+  "total_gb": 10.0,
+  "file_count": 100,
+  "average_file_size_kb": 104857.6,
+  "median_file_size_kb": 100000.0,
+  "p95_file_size_kb": 150000.0,
+  "p99_file_size_kb": 180000.0,
+  "min_file_size_kb": 50000.0,
+  "max_file_size_kb": 200000.0,
+  "record_count": 10000000,
+  "partition_count": 8,
+  "partition_distribution": {"p0": 1250000, "p1": 1250000, "p2": 1250000, "p3": 1250000},
+  "format": "parquet",
+  "compression": "snappy",
+  "column_count": 24,
+  "analysis_method": "metadata"
+}

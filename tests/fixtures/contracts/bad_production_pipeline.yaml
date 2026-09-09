@@ -1,0 +1,35 @@
+pipeline:
+  name: bad_production
+  environment: production
+  owner: ""
+source:
+  type: adls
+  format: parquet
+  path: abfss://landing@acct.dfs.core.windows.net/bad_production/
+  expected_daily_volume_gb: 2048
+  peak_daily_volume_gb: 3072
+  growth_rate_percent: 15
+processing:
+  type: full_load
+  language: pyspark
+target:
+  type: delta
+  catalog: ""
+  schema: ""
+  path: abfss://curated@acct.dfs.core.windows.net/bad_production/
+  format: delta
+sla:
+  max_runtime_minutes: 60
+schedule:
+  frequency: daily
+  time: "02:00"
+reliability:
+  retry_count: 0
+  idempotent: false
+scalability:
+  forecast_horizon_days: 365
+cluster: {}
+job:
+  max_retries: 0
+  timeout_seconds: 0
+code_path: ../code/bad_pipeline.py

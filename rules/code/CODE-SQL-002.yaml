@@ -1,0 +1,34 @@
+rule_id: CODE-SQL-002
+
+name: Cross Join Risk
+
+category: code
+
+severity: HIGH
+
+description: >
+  Detect CROSS JOIN operations which produce Cartesian products.
+  These are almost always unintentional and can cause massive data explosion.
+
+condition: >
+  CROSS JOIN detected in query
+
+evaluator: cross_join
+
+evidence_required:
+  - file
+  - line
+  - join_type
+  - tables
+
+recommendation: >
+  CROSS JOIN produces Cartesian product; replace with explicit join condition
+  using INNER/LEFT/RIGHT JOIN with ON clause.
+
+blocking: true
+
+score: 15.0
+
+version: 1.0.0
+
+context_aware: true

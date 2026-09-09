@@ -1,0 +1,37 @@
+rule_id: CODE-PYSPARK-009
+
+name: Potential Excessive Repartition
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Flag repeated repartition() calls on one DataFrame or unnecessarily large
+  literal partition counts. A single reasonable repartition is not flagged.
+
+condition: >-
+  repartitions_per_frame > 1 OR partition_count > max_partitions
+
+evaluator: repartition_risk
+
+params:
+  max_partitions: 2000
+
+evidence_required:
+  - file
+  - line
+  - dataframe
+  - repartition_count
+
+recommendation: >
+  Each repartition() is a full shuffle: consolidate repeated calls and keep
+  partition counts proportionate to the data.
+
+blocking: false
+
+score: 5.0
+
+version: 1.0.0
+
+context_aware: true

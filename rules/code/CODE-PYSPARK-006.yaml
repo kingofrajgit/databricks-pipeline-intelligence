@@ -1,0 +1,48 @@
+rule_id: CODE-PYSPARK-006
+
+name: Large Driver Collection Risk
+
+category: code
+
+severity: CRITICAL
+
+description: >
+  Detect collect() calls evaluated against data evidence. An unrestricted
+  collect() over a large input risks driver memory pressure/OOM, while the
+  same call after limit() or on a small input is a qualified warning.
+
+condition: >-
+  collect() present AND (input unbounded OR input large)
+
+evaluator: large_collect
+
+# Severity policy (configurable here, never hard-coded in analyzers):
+#   input < small_gb        -> WARN (small or bounded collect)
+#   small_gb <= input < critical_gb -> FAIL/HIGH
+#   input >= critical_gb    -> FAIL/CRITICAL (blocking)
+#   input UNKNOWN           -> WARN with reduced confidence
+params:
+  small_gb: 1.0
+  critical_gb: 500.0
+
+evidence_required:
+  - file
+  - line
+  - dataframe
+  - limited
+  - input_gb
+
+recommendation: >
+  Keep data distributed (write/aggregate) or bound the collected result;
+  unrestricted collect() over large inputs risks driver OOM.
+
+blocking: true
+
+score: 15.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

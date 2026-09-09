@@ -1,0 +1,15 @@
+rule_id: SCALABILITY-012
+name: SLA Scalability Risk
+category: scalability
+severity: HIGH
+description: Compares projected execution duration at peak workload against contractual SLA boundaries under explicit projection assumptions.
+evaluator: eval_sla_scalability
+params: {}
+evidence_required:
+  - sla_max_runtime_minutes
+  - runtime_duration_minutes
+recommendation: Optimize stage bottlenecks, reduce shuffle overhead, or renegotiate SLA windows to prevent peak SLA breaches.
+blocking: false
+score: 0.5
+version: "1.0"
+context_aware: true

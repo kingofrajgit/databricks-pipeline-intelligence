@@ -1,0 +1,45 @@
+{
+  "run_id": "run_low_util_001",
+  "job_id": "job_111",
+  "execution_duration_ms": 180000,
+  "cluster_id": "cluster_overprovisioned",
+  "cluster_utilization": 0.2,
+  "stages": [
+    {
+      "stage_id": 1,
+      "name": "Underutilized Stage",
+      "num_tasks": 8,
+      "executor_run_time_ms": 36000,
+      "input_bytes": 1073741824,
+      "output_bytes": 209715200,
+      "shuffle_read_bytes": 0,
+      "shuffle_write_bytes": 52428800,
+      "memory_spilled_bytes": 0,
+      "disk_spilled_bytes": 0,
+      "jvm_gc_time_ms": 500,
+      "failed_tasks": 0,
+      "killed_tasks": 0,
+      "executor_failures": 0,
+      "task_durations": [
+        4500,
+        4500,
+        4500,
+        4500,
+        4500,
+        4500,
+        4500,
+        4500
+      ],
+      "task_input_bytes": [
+        134217728,
+        134217728,
+        134217728,
+        134217728,
+        134217728,
+        134217728,
+        134217728,
+        134217728
+      ]
+    }
+  ]
+}

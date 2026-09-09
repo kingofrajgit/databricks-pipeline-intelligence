@@ -1,0 +1,27 @@
+rule_id: CODE-PYSPARK-005
+
+name: Hard-coded Path Detection
+
+category: code
+
+severity: HIGH
+
+description: >
+  Detect hard-coded file paths in pipeline code.
+
+condition: >-
+  [A-Za-z]:\\[^"']*|/tmp/[^\s']+
+
+evidence_required:
+  - code_location
+
+recommendation: >
+  Use configuration or environment variables for file paths.
+
+blocking: false
+
+score: 5.0
+
+version: 1.0.0
+
+context_aware: true

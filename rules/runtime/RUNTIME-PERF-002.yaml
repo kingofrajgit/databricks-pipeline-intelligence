@@ -1,0 +1,16 @@
+rule_id: RUNTIME-PERF-002
+name: High Shuffle Volume
+category: performance
+severity: HIGH
+description: Detects substantial shuffle read and write volume across execution stages.
+evaluator: eval_shuffle_volume
+params:
+  warn_gb: 100.0
+  fail_gb: 500.0
+evidence_required:
+  - shuffle_bytes
+recommendation: Optimize partitioning, pre-filter data before joins/aggregations, or evaluate broadcast joins.
+blocking: false
+score: 0.3
+version: "1.0"
+context_aware: true

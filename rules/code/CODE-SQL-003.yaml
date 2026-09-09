@@ -1,0 +1,43 @@
+rule_id: CODE-SQL-003
+
+name: Potential Large Join
+
+category: code
+
+severity: HIGH
+
+description: >
+  Detect joins between large tables where the combined data volume exceeds
+  a threshold. The actual shuffle volume cannot be determined statically,
+  so this is a potential risk finding.
+
+condition: >
+  JOIN present AND (left_table_size + right_table_size) >= large_join_gb
+
+evaluator: large_join
+
+params:
+  large_join_gb: 100.0
+  high_gb: 1000.0
+
+evidence_required:
+  - file
+  - line
+  - left_table
+  - right_table
+  - volume_gb
+
+recommendation: >
+  Potential large shuffle from join; consider broadcast join for small table,
+  salting for skew, or partitioning strategy.
+
+blocking: false
+
+score: 8.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

@@ -1,0 +1,41 @@
+rule_id: CODE-SQL-006
+
+name: Expensive DISTINCT
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Detect DISTINCT / COUNT(DISTINCT ...) on large inputs where the
+  deduplication shuffle cost may be significant.
+
+condition: >
+  DISTINCT or COUNT(DISTINCT ...) present AND input >= dedup_gb
+
+evaluator: dedup_risk
+
+params:
+  dedup_gb: 100.0
+
+evidence_required:
+  - file
+  - line
+  - operation
+  - input_gb
+
+recommendation: >
+  Potential cost/performance risk: deduplication shuffles on the full key
+  set; consider approximate algorithms (approx_count_distinct) or keyed
+  deduplication strategies.
+
+blocking: false
+
+score: 6.0
+
+version: 1.0.0
+
+context_aware: true
+
+requires_context:
+  - data_size_gb

@@ -1,0 +1,37 @@
+rule_id: DATA-002
+
+name: Partition Imbalance
+
+category: data
+
+severity: MEDIUM
+
+description: >
+  Detect obvious partition imbalance from partition size metadata. Worded as
+  potential imbalance only: Spark runtime skew requires runtime metrics.
+
+condition: >-
+  max_min_ratio >= imbalance_ratio OR largest_share >= 0.6
+
+evaluator: partition_imbalance
+
+evidence_required:
+  - largest_partition
+  - largest_gb
+  - smallest_partition
+  - max_min_ratio
+  - collection_method
+  - evidence_source
+
+recommendation: >
+  Potential partition imbalance detected: review the partition key and
+  consider salting or re-bucketing the hot partition; confirm with runtime
+  task metrics before tuning joins.
+
+blocking: false
+
+score: 6.0
+
+version: 1.0.0
+
+context_aware: true

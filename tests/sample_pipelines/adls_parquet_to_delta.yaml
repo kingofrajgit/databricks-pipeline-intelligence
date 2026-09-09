@@ -1,0 +1,12 @@
+# End-to-end offline scenario: ADLS -> Parquet -> PySpark -> Delta -> Databricks Job (job cluster).
+# Input 500 GB/day, peak 3 TB/day. Uses customer_daily contract + 500 GB profile + good code.
+contract: ../fixtures/contracts/customer_daily_pipeline.yaml
+metadata_profile: ../fixtures/metadata/profile_500gb.json
+code: ../fixtures/code/good_pipeline.py
+flow: [ADLS, Parquet, PySpark, Delta, Databricks Job, Job Cluster]
+input_gb_per_day: 500
+peak_gb_per_day: 3072
+expect:
+  CP-001: PASS
+  CP-004: PASS
+  CP-007: PASS

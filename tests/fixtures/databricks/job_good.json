@@ -1,0 +1,63 @@
+{
+  "job_id": 101,
+  "name": "customer_daily_etl",
+  "creator_user_name": "data-platform@company.com",
+  "settings": {
+    "name": "customer_daily_etl",
+    "max_concurrent_runs": 1,
+    "timeout_seconds": 3600,
+    "schedule": {
+      "quartz_cron_expression": "0 0 2 * * ?",
+      "timezone_id": "UTC",
+      "pause_status": "UNPAUSED"
+    },
+    "tasks": [
+      {
+        "task_key": "ingest_customers",
+        "description": "Ingest customer files",
+        "spark_python_task": {
+          "python_file": "pipelines/customer_daily.py"
+        },
+        "job_cluster_key": "etl_cluster",
+        "max_retries": 2,
+        "min_retry_interval_millis": 60000,
+        "retry_on_timeout": true,
+        "timeout_seconds": 1800
+      },
+      {
+        "task_key": "transform_orders",
+        "description": "Transform customer orders",
+        "depends_on": [
+          {
+            "task_key": "ingest_customers"
+          }
+        ],
+        "spark_python_task": {
+          "python_file": "pipelines/customer_daily.py"
+        },
+        "job_cluster_key": "etl_cluster",
+        "max_retries": 2,
+        "min_retry_interval_millis": 60000,
+        "retry_on_timeout": true,
+        "timeout_seconds": 1800
+      }
+    ],
+    "job_clusters": [
+      {
+        "job_cluster_key": "etl_cluster",
+        "new_cluster": {
+          "spark_version": "15.4.x-scala2.12",
+          "node_type_id": "i3.xlarge",
+          "autoscale": {
+            "min_workers": 2,
+            "max_workers": 8
+          },
+          "runtime_engine": "PHOTON",
+          "spark_conf": {
+            "spark.databricks.io.cache.enabled": "true"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,15 @@
+rule_id: CONFIG-JOB-004
+name: Excessive Concurrent Runs
+category: job
+severity: MEDIUM
+description: Detects unsafe concurrency on scheduled production pipelines.
+evaluator: eval_concurrency
+params:
+  max_allowed_concurrency: 1
+evidence_required:
+  - job_config
+recommendation: Limit max_concurrent_runs to 1 for scheduled pipelines to prevent write collisions and state corruption.
+blocking: false
+score: 0.15
+version: "1.0"
+context_aware: true

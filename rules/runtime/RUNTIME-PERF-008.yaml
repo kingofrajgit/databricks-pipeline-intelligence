@@ -1,0 +1,17 @@
+rule_id: RUNTIME-PERF-008
+name: Excessive GC Time
+category: performance
+severity: HIGH
+description: Detects excessive JVM garbage collection time relative to execution runtime.
+evaluator: eval_gc_time
+params:
+  warn_gc_ratio: 0.10
+  fail_gc_ratio: 0.20
+evidence_required:
+  - gc_time
+  - executor_run_time
+recommendation: Tune JVM GC; avoid large Python/JVM conversions, increase off-heap memory, or tune GC collector.
+blocking: false
+score: 0.2
+version: "1.0"
+context_aware: true

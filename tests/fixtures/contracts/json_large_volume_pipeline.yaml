@@ -1,0 +1,39 @@
+pipeline:
+  name: json_large_volume
+  environment: production
+  owner: data-engineering
+source:
+  type: s3
+  format: json
+  path: s3://landing-bucket/json_large/
+  expected_daily_volume_gb: 300
+  peak_daily_volume_gb: 700
+  growth_rate_percent: 6
+  compression: gzip
+processing:
+  type: incremental
+  language: pyspark
+target:
+  type: delta
+  catalog: prod
+  schema: marts
+  path: abfss://curated@acct.dfs.core.windows.net/json_large/
+  format: delta
+sla:
+  max_runtime_minutes: 75
+schedule:
+  frequency: daily
+  time: "02:00"
+reliability:
+  retry_count: 2
+  idempotent: true
+scalability:
+  forecast_horizon_days: 180
+cluster:
+  num_workers: 6
+  spark_version: "15.4.x-scala2.12"
+  node_type: Standard_D8ds_v5
+job:
+  max_retries: 2
+  timeout_seconds: 4500
+code_path: ../code/good_pipeline.py

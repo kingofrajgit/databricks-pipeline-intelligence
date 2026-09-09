@@ -1,0 +1,15 @@
+rule_id: CONFIG-JOB-003
+name: Excessive Retry Configuration
+category: job
+severity: MEDIUM
+description: Detects unusually high retry counts causing prolonged operational resource waste.
+evaluator: eval_excessive_retries
+params:
+  max_allowed_retries: 5
+evidence_required:
+  - job_config
+recommendation: Reduce retry count to <= 5. Excessive retries on deterministic failures waste cluster compute.
+blocking: false
+score: 0.1
+version: "1.0"
+context_aware: true

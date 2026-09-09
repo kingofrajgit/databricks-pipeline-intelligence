@@ -1,0 +1,16 @@
+rule_id: SCALABILITY-001
+name: Expected Volume Capacity Risk
+category: scalability
+severity: MEDIUM
+description: Compares expected pipeline workload volume against available observed evidence and demonstrated capacity.
+evaluator: eval_expected_volume_capacity
+params:
+  warn_ratio: 2.0
+evidence_required:
+  - expected_daily_volume_gb
+  - observed_volume_gb
+recommendation: Conduct a dry-run or load test at expected scale before promoting to production.
+blocking: false
+score: 0.3
+version: "1.0"
+context_aware: true

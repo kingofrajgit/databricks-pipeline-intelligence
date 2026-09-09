@@ -1,0 +1,35 @@
+rule_id: DATA-003
+
+name: Schema Drift
+
+category: data
+
+severity: HIGH
+
+description: >
+  Detect drift between the expected contract schema and the observed schema:
+  missing columns, unexpected columns, type changes, nullable changes.
+
+condition: >
+  missing_columns > 0 OR type_changes > 0 OR unexpected_columns > 0
+
+evaluator: schema_drift
+
+evidence_required:
+  - missing
+  - unexpected
+  - type_changes
+  - collection_method
+  - evidence_source
+
+recommendation: >
+  Align the observed schema with the expected contract schema; gate
+  deployments on schema compatibility.
+
+blocking: false
+
+score: 8.0
+
+version: 1.0.0
+
+context_aware: true

@@ -1,0 +1,20 @@
+{
+  "name": "healthy-medium-100gb",
+  "note": "Fixture metadata only — not a runtime measurement.",
+  "total_bytes": 107374182400,
+  "total_gb": 100.0,
+  "file_count": 800,
+  "average_file_size_kb": 131072.0,
+  "median_file_size_kb": 125000.0,
+  "p95_file_size_kb": 180000.0,
+  "p99_file_size_kb": 220000.0,
+  "min_file_size_kb": 60000.0,
+  "max_file_size_kb": 300000.0,
+  "record_count": 100000000,
+  "partition_count": 32,
+  "partition_distribution": {"date=2026-09-01": 3200000, "date=2026-09-02": 3100000},
+  "format": "parquet",
+  "compression": "snappy",
+  "column_count": 38,
+  "analysis_method": "metadata"
+}

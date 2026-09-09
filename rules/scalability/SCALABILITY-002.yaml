@@ -1,0 +1,17 @@
+rule_id: SCALABILITY-002
+name: Peak Volume Capacity Risk
+category: scalability
+severity: MEDIUM
+description: Evaluates contractual peak workload volume against observed runtime capacity and cluster headroom.
+evaluator: eval_peak_volume_capacity
+params:
+  warn_ratio: 2.0
+  fail_ratio: 10.0
+evidence_required:
+  - peak_daily_volume_gb
+  - observed_volume_gb
+recommendation: Validate cluster autoscaling and executor memory limits against contractual peak ingestion bursts.
+blocking: false
+score: 0.3
+version: "1.0"
+context_aware: true

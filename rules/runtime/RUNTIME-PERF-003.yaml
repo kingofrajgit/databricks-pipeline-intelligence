@@ -1,0 +1,17 @@
+rule_id: RUNTIME-PERF-003
+name: Shuffle-to-Input Ratio Risk
+category: performance
+severity: HIGH
+description: Detects disproportionately high shuffle volume relative to read input volume.
+evaluator: eval_shuffle_input_ratio
+params:
+  warn_ratio: 2.0
+  fail_ratio: 5.0
+evidence_required:
+  - shuffle_bytes
+  - input_bytes
+recommendation: Review multi-stage shuffles, broad joins, or Cartesian products amplifying data volume beyond input size.
+blocking: false
+score: 0.3
+version: "1.0"
+context_aware: true

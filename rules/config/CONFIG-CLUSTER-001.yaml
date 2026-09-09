@@ -1,0 +1,19 @@
+rule_id: CONFIG-CLUSTER-001
+name: Unsupported Outdated Runtime
+category: cluster
+severity: HIGH
+description: Compares configured Databricks Runtime against supported versions.
+evaluator: eval_cluster_runtime
+params:
+  min_version: "14.3"
+  approved_versions:
+    - "14.3"
+    - "15.4"
+    - "16.0"
+evidence_required:
+  - cluster_config
+recommendation: Upgrade Databricks Runtime to supported LTS version (>= 14.3) for security patches and Spark optimizations.
+blocking: true
+score: 0.2
+version: "1.0"
+context_aware: true

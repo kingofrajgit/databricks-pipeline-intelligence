@@ -1,0 +1,33 @@
+rule_id: CODE-PYSPARK-012
+
+name: Repeated Spark Action
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Flag multiple actions (count/collect/take/show/write) on one DataFrame,
+  which may require additional computation. count() alone is never bad.
+
+condition: >-
+  actions_per_frame >= 2
+
+evaluator: repeated_actions
+
+evidence_required:
+  - file
+  - dataframe
+  - actions
+
+recommendation: >
+  Repeated actions may recompute the frame; restructure the flow or cache
+  only with runtime evidence.
+
+blocking: false
+
+score: 4.0
+
+version: 1.0.0
+
+context_aware: true

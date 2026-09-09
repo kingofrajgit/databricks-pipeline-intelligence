@@ -1,0 +1,38 @@
+pipeline:
+  name: orders_incremental
+  environment: production
+  owner: data-engineering
+source:
+  type: delta
+  format: delta
+  path: abfss://landing@acct.dfs.core.windows.net/orders/
+  expected_daily_volume_gb: 100
+  peak_daily_volume_gb: 250
+  growth_rate_percent: 5
+processing:
+  type: cdc
+  language: pyspark
+target:
+  type: delta
+  catalog: prod
+  schema: marts
+  path: abfss://curated@acct.dfs.core.windows.net/orders/
+  format: delta
+sla:
+  max_runtime_minutes: 45
+schedule:
+  frequency: daily
+  time: "03:00"
+reliability:
+  retry_count: 2
+  idempotent: true
+scalability:
+  forecast_horizon_days: 180
+cluster:
+  num_workers: 4
+  spark_version: "15.4.x-scala2.12"
+  node_type: Standard_D4ds_v5
+job:
+  max_retries: 2
+  timeout_seconds: 2700
+code_path: ../code/good_pipeline.py

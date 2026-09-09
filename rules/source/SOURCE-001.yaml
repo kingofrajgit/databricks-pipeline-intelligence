@@ -1,0 +1,33 @@
+rule_id: SOURCE-001
+
+name: Source Format Risk
+
+category: source
+
+severity: HIGH
+
+description: >
+  Flag unknown/unsupported source formats, or row-based formats (CSV/JSON)
+  at analytical scale where a columnar format is worth evaluating. No format
+  is universally bad: the verdict depends on volume and workload.
+
+condition: >-
+  format is unknown OR (format in (csv, json) AND volume_gb >= 100)
+
+evaluator: source_format
+
+evidence_required:
+  - format
+  - volume_gb
+
+recommendation: >
+  Confirm the reader contract for the source format; for large analytical
+  workloads consider a columnar format (Parquet/Delta) where appropriate.
+
+blocking: false
+
+score: 6.0
+
+version: 1.0.0
+
+context_aware: true

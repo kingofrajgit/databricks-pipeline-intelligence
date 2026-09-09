@@ -1,0 +1,35 @@
+rule_id: CODE-SQL-008
+
+name: Function on Filter Column
+
+category: code
+
+severity: MEDIUM
+
+description: >
+  Detect functions applied to columns in WHERE/HAVING clauses that may
+  prevent partition pruning or index usage.
+
+condition: >
+  Function applied to column in WHERE/HAVING predicate
+
+evaluator: function_on_column
+
+evidence_required:
+  - file
+  - line
+  - function
+  - column
+  - filter
+
+recommendation: >
+  Functions on filter columns may prevent partition pruning and index
+  usage; consider rewriting predicates to avoid functions on columns.
+
+blocking: false
+
+score: 5.0
+
+version: 1.0.0
+
+context_aware: true

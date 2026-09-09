@@ -1,0 +1,15 @@
+rule_id: CONFIG-JOB-005
+name: Schedule Mismatch
+category: job
+severity: HIGH
+description: Compares expected schedule from contract against actual Databricks job schedule.
+evaluator: eval_schedule_mismatch
+params: {}
+evidence_required:
+  - job_config
+  - pipeline_contract
+recommendation: Unpause production job schedule or align quartz cron with contract SLA.
+blocking: true
+score: 0.2
+version: "1.0"
+context_aware: true

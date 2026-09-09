@@ -1,0 +1,14 @@
+rule_id: CONFIG-CLUSTER-005
+name: Cluster Policy Mismatch
+category: cluster
+severity: HIGH
+description: Compares actual cluster configuration against applicable cluster policy.
+evaluator: eval_cluster_policy
+params: {}
+evidence_required:
+  - cluster_config
+recommendation: Align cluster settings with workspace cluster policy rules.
+blocking: true
+score: 0.2
+version: "1.0"
+context_aware: true
