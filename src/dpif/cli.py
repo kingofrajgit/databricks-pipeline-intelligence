@@ -152,6 +152,20 @@ def _display_path(p: Path) -> str:
 
 @cli.command("validate")
 @click.option("--contract", "-c", type=click.Path(exists=True), help="Pipeline contract YAML")
+@click.option(
+    "--input",
+    "-i",
+    "input_manifest",
+    type=click.Path(exists=True),
+    help="CSV manifest for multi-pipeline batch validation",
+)
+@click.option(
+    "--output-dir",
+    "-o",
+    type=click.Path(),
+    default=".",
+    help="Output directory for batch report JSON/CSV",
+)
 @click.option("--offline/--online", default=True, help="Offline (fixtures) or live mode")
 @click.option("--job-id", type=int, default=None, help="Databricks Job ID for live mode")
 @click.option("--environment", "-e", type=str, default=None, help="Environment override")
@@ -184,6 +198,8 @@ def _display_path(p: Path) -> str:
 )
 def validate_contract(
     contract: str | None,
+    input_manifest: str | None,
+    output_dir: str,
     offline: bool,
     job_id: int | None,
     environment: str | None,
@@ -193,28 +209,35 @@ def validate_contract(
     historical_runs: str | None = None,
     json_output: bool = False,
 ) -> None:
-    """Validate a pipeline contract (offline) or Databricks job (live).
+    """Validate a pipeline contract, multi-pipeline CSV manifest, or Databricks job.
 
     Examples:
       dpif validate --contract examples/customer_daily.yaml --offline
+      dpif validate --input manifests/pipelines.csv --offline
     """
     settings = get_settings()
     if settings.debug:
         setup_logging(level="DEBUG")
     try:
         if offline:
-            if not contract:
-                click.echo("Error: --contract is required for offline validation", err=True)
+            if input_manifest:
+                _run_batch_offline_validation(
+                    input_manifest, environment, output_dir, json_output
+                )
+            elif contract:
+                _run_offline_validation(
+                    contract,
+                    environment,
+                    code_path,
+                    metadata_profile,
+                    runtime_run,
+                    historical_runs,
+                    json_output,
+                )
+            else:
+                msg = "Error: Either --contract or --input is required for offline validation"
+                click.echo(msg, err=True)
                 sys.exit(2)
-            _run_offline_validation(
-                contract,
-                environment,
-                code_path,
-                metadata_profile,
-                runtime_run,
-                historical_runs,
-                json_output,
-            )
         else:
             if job_id is None:
                 click.echo("Error: --job-id is required for live validation", err=True)
@@ -229,6 +252,81 @@ def validate_contract(
         logger.exception("Validation crashed: %s", e)
         click.echo(f"Validation crashed: {e}", err=True)
         sys.exit(1)
+
+
+def _run_batch_offline_validation(
+    manifest_path: str,
+    environment: str | None,
+    output_dir: str,
+    json_output: bool,
+) -> None:
+    from dpif.orchestration.batch import export_batch_reports, run_batch_validation
+    from dpif.orchestration.manifest import load_and_validate_manifest
+
+    valid_subs, invalid_results = load_and_validate_manifest(manifest_path)
+    batch_result = run_batch_validation(valid_subs, invalid_results, environment)
+    json_path, csv_path = export_batch_reports(batch_result, output_dir)
+
+    d = batch_result.to_dict()
+    sum_info = d["summary"]
+
+    if json_output:
+        click.echo(json.dumps(d, indent=2))
+    else:
+        click.echo("=" * 60)
+        click.echo("DATABRICKS PIPELINE INTELLIGENCE - Multi-Pipeline Batch Validation")
+        click.echo("=" * 60)
+        click.echo("")
+        click.echo("BATCH SUMMARY")
+        click.echo("-" * 60)
+        click.echo(f"    Total Submissions:   {sum_info['total_submissions']}")
+        click.echo(f"    Validated:           {sum_info['validated']}")
+        click.echo(f"    Invalid Submissions: {sum_info['invalid_submissions']}")
+        click.echo(f"    Missing Input:       {sum_info['missing_input']}")
+        click.echo(f"    Processing Errors:   {sum_info['processing_errors']}")
+        click.echo("")
+        click.echo("PRODUCTION READINESS SUMMARY")
+        click.echo("-" * 60)
+        rd = sum_info["readiness"]
+        click.echo(f"    PRODUCTION_READY:               {rd['production_ready']}")
+        click.echo(f"    PRODUCTION_READY_WITH_WARNINGS: {rd['production_ready_with_warnings']}")
+        click.echo(f"    NOT_PRODUCTION_READY:           {rd['not_production_ready']}")
+        click.echo(f"    INSUFFICIENT_EVIDENCE:          {rd['insufficient_evidence']}")
+        click.echo("")
+        click.echo("PIPELINE DETAILS")
+        click.echo("-" * 60)
+        for pipe in d["pipelines"]:
+            pid = pipe["pipeline_id"]
+            status = pipe["processing_status"]
+            readiness = pipe["readiness_status"]
+            score = (
+                f"{pipe['quality_score']:.1f}"
+                if pipe.get("quality_score") is not None
+                else "N/A"
+            )
+            fc = pipe.get("finding_summary", {})
+            c_cnt, h_cnt = fc.get("critical", 0), fc.get("high", 0)
+            m_cnt, l_cnt = fc.get("medium", 0), fc.get("low", 0)
+            f_str = f"C:{c_cnt} H:{h_cnt} M:{m_cnt} L:{l_cnt}"
+            click.echo(
+                f"  [{status:<19}] {pid:<12} | Readiness: {readiness:<25} | "
+                f"Score: {score:>5} | Findings: {f_str}"
+            )
+            if pipe.get("errors"):
+                for err in pipe["errors"]:
+                    click.echo(f"      - ERROR: {err}")
+        click.echo("")
+        click.echo(f"Batch reports generated:\n  - JSON: {json_path}\n  - CSV:  {csv_path}")
+        click.echo("")
+
+    has_system_errors = (
+        sum_info["invalid_submissions"] > 0
+        or sum_info["missing_input"] > 0
+        or sum_info["processing_errors"] > 0
+    )
+    if has_system_errors:
+        sys.exit(1)
+
 
 
 def _run_offline_validation(

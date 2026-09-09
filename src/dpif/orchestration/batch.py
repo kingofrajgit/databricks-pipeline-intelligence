@@ -260,3 +260,68 @@ def run_batch_validation(
 
     batch_result.recompute_summaries()
     return batch_result
+
+
+def export_batch_reports(
+    batch_result: BatchValidationResult,
+    output_dir: Path | str,
+) -> tuple[Path, Path]:
+    """Export machine-readable batch_report.json and batch_report.csv.
+
+    Returns:
+        tuple of (json_path, csv_path)
+    """
+    out_path = Path(output_dir)
+    out_path.mkdir(parents=True, exist_ok=True)
+
+    json_file = out_path / "batch_report.json"
+    csv_file = out_path / "batch_report.csv"
+
+    # Export JSON
+    with json_file.open("w", encoding="utf-8") as f_json:
+        json.dump(batch_result.to_dict(), f_json, indent=2)
+
+    # Export CSV
+    import csv
+
+    headers = [
+        "pipeline_id",
+        "developer",
+        "processing_status",
+        "readiness_status",
+        "quality_score",
+        "evidence_coverage",
+        "critical_count",
+        "high_count",
+        "medium_count",
+        "low_count",
+        "info_count",
+        "errors",
+    ]
+
+    with csv_file.open("w", encoding="utf-8", newline="") as f_csv:
+        writer = csv.DictWriter(f_csv, fieldnames=headers)
+        writer.writeheader()
+        for res in batch_result.pipeline_results:
+            writer.writerow(
+                {
+                    "pipeline_id": res.submission.pipeline_id,
+                    "developer": res.submission.developer,
+                    "processing_status": res.processing_status.value,
+                    "readiness_status": res.readiness_status or "UNKNOWN",
+                    "quality_score": (
+                        f"{res.quality_score:.1f}" if res.quality_score is not None else ""
+                    ),
+                    "evidence_coverage": (
+                        f"{res.evidence_coverage:.1f}" if res.evidence_coverage is not None else ""
+                    ),
+                    "critical_count": res.critical_count,
+                    "high_count": res.high_count,
+                    "medium_count": res.medium_count,
+                    "low_count": res.low_count,
+                    "info_count": res.info_count,
+                    "errors": "; ".join(res.errors),
+                }
+            )
+
+    return json_file, csv_file
