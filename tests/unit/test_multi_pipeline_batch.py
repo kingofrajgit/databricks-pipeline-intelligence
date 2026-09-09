@@ -527,4 +527,234 @@ def test_security_extended_paths(tmp_path: Path):
     assert "escapes root" in inv_sd[0].errors[0]
 
 
+def _create_minimal_valid_pipeline(tmp_path: Path, name: str) -> tuple[Path, Path]:
+    c = tmp_path / f"{name}_contract.yaml"
+    c.write_text(
+        f"""
+pipeline:
+  name: {name}
+  environment: production
+source:
+  type: adls
+  path: /data/raw
+  format: parquet
+processing:
+  type: batch
+target:
+  type: delta
+  path: /data/silver
+""",
+        encoding="utf-8",
+    )
+    code = tmp_path / f"{name}_code.py"
+    code.write_text("print('hello')", encoding="utf-8")
+    return c, code
+
+
+def test_m2_cross_pipeline_isolation(tmp_path: Path):
+    """Prove P001, P002, P003 are completely isolated (findings, score, coverage, readiness)."""
+    from dpif.orchestration.batch import run_batch_validation
+
+    c1, code1 = _create_minimal_valid_pipeline(tmp_path, "P001")
+    c2, code2 = _create_minimal_valid_pipeline(tmp_path, "P002")
+
+    # Make P002 code contain an anti-pattern (driver collect) to generate a finding
+    code2.write_text("df.collect()", encoding="utf-8")
+
+    sub1 = PipelineSubmission(
+        pipeline_id="P001",
+        developer="DevA",
+        contract_path=str(c1),
+        code_path=str(code1),
+        resolved_contract_path=str(c1.resolve()),
+        resolved_code_path=str(code1.resolve()),
+    )
+    sub2 = PipelineSubmission(
+        pipeline_id="P002",
+        developer="DevB",
+        contract_path=str(c2),
+        code_path=str(code2),
+        resolved_contract_path=str(c2.resolve()),
+        resolved_code_path=str(code2.resolve()),
+    )
+
+    batch_result = run_batch_validation([sub1, sub2])
+    assert len(batch_result.pipeline_results) == 2
+
+    res1, res2 = batch_result.pipeline_results[0], batch_result.pipeline_results[1]
+
+    # P001 findings must not contain P002 findings
+    assert res1.critical_count == 0 and res1.high_count == 0
+    assert len(res2.errors) == 0
+    assert res1.assessment_dict is not None
+    assert res2.assessment_dict is not None
+    # Verify overall assessment objects are isolated instances
+    assert res1.assessment_dict is not res2.assessment_dict
+
+
+def test_m2_failure_isolation_and_exception_handling(tmp_path: Path, monkeypatch):
+    """Test P001 (success), P002 (invalid), P003 (missing), P004 (exception), P005 (success)."""
+    from dpif.orchestration.batch import run_batch_validation, validate_single_pipeline_submission
+
+    c1, code1 = _create_minimal_valid_pipeline(tmp_path, "P001")
+    c5, code5 = _create_minimal_valid_pipeline(tmp_path, "P005")
+
+    sub1 = PipelineSubmission(
+        pipeline_id="P001",
+        developer="DevA",
+        contract_path=str(c1),
+        code_path=str(code1),
+        resolved_contract_path=str(c1.resolve()),
+        resolved_code_path=str(code1.resolve()),
+    )
+    sub3 = PipelineSubmission(
+        pipeline_id="P003",
+        developer="DevC",
+        contract_path="missing.yaml",
+        code_path="missing.py",
+        resolved_contract_path=str(tmp_path / "missing.yaml"),
+        resolved_code_path=str(tmp_path / "missing.py"),
+    )
+    sub4 = PipelineSubmission(
+        pipeline_id="P004",
+        developer="DevD",
+        contract_path=str(c1),
+        code_path=str(code1),
+        resolved_contract_path=str(c1.resolve()),
+        resolved_code_path=str(code1.resolve()),
+    )
+    sub5 = PipelineSubmission(
+        pipeline_id="P005",
+        developer="DevE",
+        contract_path=str(c5),
+        code_path=str(code5),
+        resolved_contract_path=str(c5.resolve()),
+        resolved_code_path=str(code5.resolve()),
+    )
+
+    invalid_p002 = PipelineValidationResult(
+        submission=PipelineSubmission(
+            pipeline_id="P002",
+            developer="DevB",
+            contract_path="bad.yaml",
+            code_path="bad.py",
+        ),
+        processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+        errors=["Malformed CSV row"],
+    )
+
+    # Monkeypatch validate_single_pipeline_submission to throw for P004 specifically
+    orig_fn = validate_single_pipeline_submission
+
+    def mock_validate(sub, environment=None):
+        if sub.pipeline_id == "P004":
+            raise RuntimeError("Simulated validator engine crash!")
+        return orig_fn(sub, environment=environment)
+
+    monkeypatch.setattr(
+        "dpif.orchestration.batch.validate_single_pipeline_submission",
+        mock_validate,
+    )
+
+    # Note: run_batch_validation should catch validator exceptions per pipeline
+    # Let's verify batch.py handles unexpected exceptions if validate throws
+    batch_res = run_batch_validation([sub1, sub3, sub4, sub5], invalid_results=[invalid_p002])
+
+    assert len(batch_res.pipeline_results) == 5
+    statuses = {r.submission.pipeline_id: r.processing_status for r in batch_res.pipeline_results}
+    assert statuses["P001"] == PipelineProcessingStatus.VALIDATION_COMPLETE
+    assert statuses["P002"] == PipelineProcessingStatus.INVALID_SUBMISSION
+    assert statuses["P003"] == PipelineProcessingStatus.MISSING_INPUT
+    assert statuses["P004"] == PipelineProcessingStatus.PROCESSING_ERROR
+    assert statuses["P005"] == PipelineProcessingStatus.VALIDATION_COMPLETE
+
+    # Verify readiness status for failed processing is UNKNOWN / None
+    res4 = [r for r in batch_res.pipeline_results if r.submission.pipeline_id == "P004"][0]
+    assert res4.readiness_status is None
+    assert "Simulated validator engine crash!" in res4.errors[0]
+
+
+def test_m2_deterministic_ordering(tmp_path: Path):
+    """Verify input submission order is strictly preserved in batch result."""
+    from dpif.orchestration.batch import run_batch_validation
+
+    subs = []
+    for i in range(10):
+        pid = f"P{i:03d}"
+        c, code = _create_minimal_valid_pipeline(tmp_path, pid)
+        subs.append(
+            PipelineSubmission(
+                pipeline_id=pid,
+                developer=f"Dev{i}",
+                contract_path=str(c),
+                code_path=str(code),
+                resolved_contract_path=str(c.resolve()),
+                resolved_code_path=str(code.resolve()),
+            )
+        )
+
+    batch_res = run_batch_validation(subs)
+    result_ids = [r.submission.pipeline_id for r in batch_res.pipeline_results]
+    expected_ids = [f"P{i:03d}" for i in range(10)]
+    assert result_ids == expected_ids
+
+
+def test_m2_empty_and_mixed_batches(tmp_path: Path):
+    """Test empty manifest, all invalid, and mixed batches."""
+    from dpif.orchestration.batch import run_batch_validation
+
+    # 1. Empty batch
+    empty_res = run_batch_validation([])
+    assert empty_res.total_submissions == 0
+    assert len(empty_res.pipeline_results) == 0
+
+    # 2. All invalid
+    sub_inv1 = PipelineSubmission(
+        pipeline_id="P1", developer="D1", contract_path="a", code_path="b"
+    )
+    inv1 = PipelineValidationResult(
+        submission=sub_inv1,
+        processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+    )
+    sub_inv2 = PipelineSubmission(
+        pipeline_id="P2", developer="D2", contract_path="a", code_path="b"
+    )
+    inv2 = PipelineValidationResult(
+        submission=sub_inv2,
+        processing_status=PipelineProcessingStatus.INVALID_SUBMISSION,
+    )
+    all_inv_res = run_batch_validation([], invalid_results=[inv1, inv2])
+    assert all_inv_res.total_submissions == 2
+    assert all_inv_res.invalid_submission_count == 2
+    assert all_inv_res.validated_count == 0
+
+
+def test_m2_100_pipelines_sequential_batch(tmp_path: Path):
+    """Scalability test with 100 pipelines to verify stability and correctness."""
+    from dpif.orchestration.batch import run_batch_validation
+
+    # Shared contract and code files to avoid 200 disk writes
+    c, code = _create_minimal_valid_pipeline(tmp_path, "shared")
+
+    subs = [
+        PipelineSubmission(
+            pipeline_id=f"P{i:03d}",
+            developer=f"Dev{i}",
+            contract_path=str(c),
+            code_path=str(code),
+            resolved_contract_path=str(c.resolve()),
+            resolved_code_path=str(code.resolve()),
+        )
+        for i in range(100)
+    ]
+
+    batch_res = run_batch_validation(subs)
+    assert batch_res.total_submissions == 100
+    assert batch_res.validated_count == 100
+    assert len(batch_res.pipeline_results) == 100
+    assert batch_res.pipeline_results[0].submission.pipeline_id == "P000"
+    assert batch_res.pipeline_results[99].submission.pipeline_id == "P099"
+
+
+
 

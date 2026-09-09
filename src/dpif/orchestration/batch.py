@@ -255,7 +255,17 @@ def run_batch_validation(
         batch_result.pipeline_results.extend(invalid_results)
 
     for sub in submissions:
-        res = validate_single_pipeline_submission(sub, environment=environment)
+        try:
+            res = validate_single_pipeline_submission(sub, environment=environment)
+        except Exception as e:
+            logger.exception(
+                "Unhandled exception validating pipeline %s: %s", sub.pipeline_id, e
+            )
+            res = PipelineValidationResult(
+                submission=sub,
+                processing_status=PipelineProcessingStatus.PROCESSING_ERROR,
+                errors=[f"Unhandled exception: {e}"],
+            )
         batch_result.pipeline_results.append(res)
 
     batch_result.recompute_summaries()
