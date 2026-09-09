@@ -360,7 +360,7 @@ def test_m2_10_pipeline_mixed_batch(tmp_path: Path, monkeypatch: pytest.MonkeyPa
 
 
 def test_m2_100_pipeline_scalability(tmp_path: Path):
-    """Requirement 8: Lightweight scalability orchestration test (20 pipelines)."""
+    """Requirement 8: Lightweight 100-pipeline scalability orchestration test."""
     c_shared, code_shared = _create_pipeline_files(tmp_path, "shared_100")
 
     subs = [
@@ -373,19 +373,35 @@ def test_m2_100_pipeline_scalability(tmp_path: Path):
             resolved_contract_path=str(c_shared.resolve()),
             resolved_code_path=str(code_shared.resolve()),
         )
-        for i in range(20)
+        for i in range(100)
     ]
 
     batch_result = run_batch_validation(subs)
 
-    assert batch_result.total_submissions == 20
-    assert batch_result.validated_count == 20
-    assert len(batch_result.pipeline_results) == 20
+    # 1. Exactly 100 submissions
+    assert len(subs) == 100
+    # 2. Exactly 100 results
+    assert len(batch_result.pipeline_results) == 100
+    # 10. BatchValidationResult.total_submissions == 100
+    assert batch_result.total_submissions == 100
+    # 11. BatchValidationResult.validated_count == 100
+    assert batch_result.validated_count == 100
 
-    # Ensure unique pipeline IDs and ordering
     res_ids = [r.submission.pipeline_id for r in batch_result.pipeline_results]
-    assert len(set(res_ids)) == 20
-    assert res_ids == [f"P{i:03d}" for i in range(20)]
+    expected_ids = [f"P{i:03d}" for i in range(100)]
+
+    # 3 & 6. Every pipeline ID appears exactly once / no duplicate pipeline IDs
+    assert len(set(res_ids)) == 100
+    # 4 & 5 & 7. Result ordering is deterministic, matches submission order, no missing IDs
+    assert res_ids == expected_ids
+
+    # 8 & 9. All 100 pipelines complete successfully and prove state isolation
+    for idx, res in enumerate(batch_result.pipeline_results):
+        assert res.processing_status == PipelineProcessingStatus.VALIDATION_COMPLETE
+        assert res.submission.pipeline_id == f"P{idx:03d}"
+        assert res.submission.developer == f"Developer_{idx}"
+        assert res.quality_score is not None
+        assert res.assessment_dict is not None
 
 
 def test_m2_empty_batch():
