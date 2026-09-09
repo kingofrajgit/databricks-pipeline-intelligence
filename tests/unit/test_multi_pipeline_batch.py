@@ -763,5 +763,70 @@ def test_m2_100_pipelines_sequential_batch(tmp_path: Path):
     assert batch_res.pipeline_results[99].submission.pipeline_id == "P099"
 
 
+def test_m4_export_batch_reports(tmp_path: Path):
+    """M4 Requirements 3, 4, 10, 12: JSON & CSV report export structure and determinism."""
+    from dpif.orchestration.batch import export_batch_reports, run_batch_validation
+
+    c, code = _create_minimal_valid_pipeline(tmp_path, "rep_pipe")
+    sub1 = PipelineSubmission(
+        pipeline_id="P001",
+        developer="Dev1",
+        contract_path=str(c),
+        code_path=str(code),
+        line_number=1,
+        resolved_contract_path=str(c.resolve()),
+        resolved_code_path=str(code.resolve()),
+    )
+    sub2 = PipelineSubmission(
+        pipeline_id="../secret/P002",
+        developer="Dev2",
+        contract_path="invalid.yaml",
+        code_path="invalid.py",
+        line_number=2,
+    )
+    inv2 = PipelineValidationResult(
+        submission=sub2,
+        processing_status=PipelineProcessingStatus.MISSING_INPUT,
+        errors=["Missing contract file: invalid.yaml"],
+    )
+
+    batch_res = run_batch_validation([sub1], invalid_results=[inv2])
+    out_dir = tmp_path / "reports_dir"
+    json_path, csv_path = export_batch_reports(batch_res, out_dir)
+
+    assert json_path.exists()
+    assert csv_path.exists()
+    assert json_path.name == "batch_report.json"
+    assert csv_path.name == "batch_report.csv"
+    # Ensure no path traversal constructed files outside out_dir
+    assert json_path.parent == out_dir
+    assert csv_path.parent == out_dir
+
+    # Check JSON structure
+    import json
+    data = json.loads(json_path.read_text(encoding="utf-8"))
+    assert data["summary"]["total_submissions"] == 2
+    assert data["summary"]["validated"] == 1
+    assert data["summary"]["missing_input"] == 1
+
+    # Check CSV structure & headers
+    import csv
+
+    with csv_path.open(encoding="utf-8", newline="") as f:
+        reader = csv.DictReader(f)
+        rows = list(reader)
+        assert len(rows) == 2
+        assert reader.fieldnames is not None
+        assert "pipeline_id" in reader.fieldnames
+        assert "finding_count" in reader.fieldnames
+        assert "blocking" in reader.fieldnames
+        assert "error_count" in reader.fieldnames
+        assert rows[0]["pipeline_id"] == "P001"
+        assert rows[1]["pipeline_id"] == "../secret/P002"
+        assert rows[1]["processing_status"] == "MISSING_INPUT"
+        assert rows[1]["error_count"] == "1"
+
+
+
 
 

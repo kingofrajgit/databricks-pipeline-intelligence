@@ -219,6 +219,14 @@ def validate_contract(
     if settings.debug:
         setup_logging(level="DEBUG")
     try:
+        if contract and input_manifest:
+            click.echo(
+                "Error: Cannot specify both --contract and --input. "
+                "Choose single-pipeline or batch validation mode.",
+                err=True,
+            )
+            sys.exit(2)
+
         if offline:
             if input_manifest:
                 _run_batch_offline_validation(
@@ -273,59 +281,22 @@ def _run_batch_offline_validation(
     if json_output:
         click.echo(json.dumps(d, indent=2))
     else:
-        click.echo("=" * 60)
-        click.echo("DATABRICKS PIPELINE INTELLIGENCE - Multi-Pipeline Batch Validation")
-        click.echo("=" * 60)
-        click.echo("")
-        click.echo("BATCH SUMMARY")
-        click.echo("-" * 60)
-        click.echo(f"    Total Submissions:   {sum_info['total_submissions']}")
-        click.echo(f"    Validated:           {sum_info['validated']}")
-        click.echo(f"    Invalid Submissions: {sum_info['invalid_submissions']}")
-        click.echo(f"    Missing Input:       {sum_info['missing_input']}")
-        click.echo(f"    Processing Errors:   {sum_info['processing_errors']}")
-        click.echo("")
-        click.echo("PRODUCTION READINESS SUMMARY")
-        click.echo("-" * 60)
+        click.echo("DPIF Batch Validation Complete\n")
+        click.echo(f"Total pipelines: {sum_info['total_submissions']}")
+        click.echo(f"Validated: {sum_info['validated']}")
+        click.echo(f"Invalid submissions: {sum_info['invalid_submissions']}")
+        click.echo(f"Missing inputs: {sum_info['missing_input']}")
+        click.echo(f"Processing errors: {sum_info['processing_errors']}\n")
         rd = sum_info["readiness"]
-        click.echo(f"    PRODUCTION_READY:               {rd['production_ready']}")
-        click.echo(f"    PRODUCTION_READY_WITH_WARNINGS: {rd['production_ready_with_warnings']}")
-        click.echo(f"    NOT_PRODUCTION_READY:           {rd['not_production_ready']}")
-        click.echo(f"    INSUFFICIENT_EVIDENCE:          {rd['insufficient_evidence']}")
-        click.echo("")
-        click.echo("PIPELINE DETAILS")
-        click.echo("-" * 60)
-        for pipe in d["pipelines"]:
-            pid = pipe["pipeline_id"]
-            status = pipe["processing_status"]
-            readiness = pipe["readiness_status"]
-            score = (
-                f"{pipe['quality_score']:.1f}"
-                if pipe.get("quality_score") is not None
-                else "N/A"
-            )
-            fc = pipe.get("finding_summary", {})
-            c_cnt, h_cnt = fc.get("critical", 0), fc.get("high", 0)
-            m_cnt, l_cnt = fc.get("medium", 0), fc.get("low", 0)
-            f_str = f"C:{c_cnt} H:{h_cnt} M:{m_cnt} L:{l_cnt}"
-            click.echo(
-                f"  [{status:<19}] {pid:<12} | Readiness: {readiness:<25} | "
-                f"Score: {score:>5} | Findings: {f_str}"
-            )
-            if pipe.get("errors"):
-                for err in pipe["errors"]:
-                    click.echo(f"      - ERROR: {err}")
-        click.echo("")
-        click.echo(f"Batch reports generated:\n  - JSON: {json_path}\n  - CSV:  {csv_path}")
-        click.echo("")
+        click.echo(f"Production ready: {rd['production_ready']}")
+        click.echo(f"Ready with warnings: {rd['production_ready_with_warnings']}")
+        click.echo(f"Not production ready: {rd['not_production_ready']}")
+        click.echo(f"Insufficient evidence: {rd['insufficient_evidence']}\n")
+        click.echo(f"Reports:\n  JSON: {json_path}\n  CSV:  {csv_path}")
 
-    has_system_errors = (
-        sum_info["invalid_submissions"] > 0
-        or sum_info["missing_input"] > 0
-        or sum_info["processing_errors"] > 0
-    )
-    if has_system_errors:
-        sys.exit(1)
+    # Exit code contract: 0 = batch validation run completed successfully.
+    # Findings, readiness states, and per-pipeline processing errors are reported in the output,
+    # not treated as a CLI system crash/error.
 
 
 

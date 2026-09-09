@@ -72,7 +72,7 @@ class PipelineValidationResult(BaseModel):
             "pipeline_id": self.submission.pipeline_id,
             "developer": self.submission.developer,
             "processing_status": self.processing_status.value,
-            "readiness_status": self.readiness_status or "UNKNOWN",
+            "readiness_status": self.readiness_status,
             "quality_score": self.quality_score,
             "evidence_coverage": self.evidence_coverage,
             "finding_summary": {

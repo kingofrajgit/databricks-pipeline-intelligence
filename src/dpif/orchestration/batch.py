@@ -400,11 +400,13 @@ def export_batch_reports(
         "readiness_status",
         "quality_score",
         "evidence_coverage",
+        "finding_count",
         "critical_count",
         "high_count",
         "medium_count",
         "low_count",
-        "info_count",
+        "blocking",
+        "error_count",
         "errors",
     ]
 
@@ -412,23 +414,40 @@ def export_batch_reports(
         writer = csv.DictWriter(f_csv, fieldnames=headers)
         writer.writeheader()
         for res in batch_result.pipeline_results:
+            total_findings = (
+                res.critical_count
+                + res.high_count
+                + res.medium_count
+                + res.low_count
+                + res.info_count
+            )
+            has_blocking = False
+            if res.assessment_dict and isinstance(res.assessment_dict, dict):
+                has_blocking = bool(res.assessment_dict.get("blocking_risk_detected", False))
+
+            readiness_str = (
+                res.readiness_status if res.readiness_status is not None else ""
+            )
+
             writer.writerow(
                 {
                     "pipeline_id": res.submission.pipeline_id,
                     "developer": res.submission.developer,
                     "processing_status": res.processing_status.value,
-                    "readiness_status": res.readiness_status or "UNKNOWN",
+                    "readiness_status": readiness_str,
                     "quality_score": (
                         f"{res.quality_score:.1f}" if res.quality_score is not None else ""
                     ),
                     "evidence_coverage": (
                         f"{res.evidence_coverage:.1f}" if res.evidence_coverage is not None else ""
                     ),
+                    "finding_count": total_findings,
                     "critical_count": res.critical_count,
                     "high_count": res.high_count,
                     "medium_count": res.medium_count,
                     "low_count": res.low_count,
-                    "info_count": res.info_count,
+                    "blocking": "true" if has_blocking else "false",
+                    "error_count": len(res.errors),
                     "errors": "; ".join(res.errors),
                 }
             )
