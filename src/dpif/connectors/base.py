@@ -41,6 +41,10 @@ class DatabricksConnector(ABC):
         """Return object permissions if available."""
         return None
 
+    def get_run(self, run_id: int | str) -> dict[str, Any] | None:
+        """Return run details if available."""
+        return None
+
     def get_workspace_status(self) -> dict[str, Any] | None:
         """Return workspace connectivity status if available."""
         return None

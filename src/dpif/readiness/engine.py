@@ -229,7 +229,7 @@ def evaluate_production_readiness(
             "but historical run data is missing."
         )
 
-    elif policy.require_live_databricks_evidence and connector_mode != "live":
+    elif policy.require_live_databricks_evidence and connector_mode not in ("live", "live-api"):
         status = ProductionReadinessStatus.INSUFFICIENT_EVIDENCE
         reasons.append(
             "Production policy requires live Databricks environment verification, "

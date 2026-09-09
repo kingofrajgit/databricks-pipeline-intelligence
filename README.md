@@ -159,10 +159,30 @@ Every finding contains `rule_id`, `category`, `severity`, `status`, `title`,
 ## Offline mode & connectors
 
 `DatabricksConnector` (`src/dpif/connectors/base.py`) is the single seam for
-Databricks access. Phase 2 ships `OfflineDatabricksConnector`, which serves
-fixture metadata and returns empty run histories when unavailable — it never
-fakes live API responses. A future `LiveDatabricksConnector` can replace it
-without changing callers.
+Databricks access. The framework supports `OfflineDatabricksConnector` and `LiveDatabricksConnector`.
+
+### Online Evidence Acquisition Architecture (M5A)
+
+```text
+Databricks Workspace
+        ↓
+LiveDatabricksConnector (REST API 2.0 / 2.1)
+        ↓
+DatabricksEvidenceProvider (Evidence Boundary)
+        ↓
+Normalized Pipeline Evidence & Provenance
+        ↓
+Existing Validation Engine (CP-001..CP-024)
+        ↓
+Production Readiness & Reports
+```
+
+Key Principles:
+- **Evidence Acquisition != Validation**: Online mode acquires evidence via `DatabricksEvidenceProvider` without embedding validation rule logic.
+- **Evidence Provenance**: Every payload carries full provenance (`LIVE_API` vs `FIXTURE`, `acquired_at`, workspace reference).
+- **Strict UNKNOWN Semantics**: If Databricks API cannot provide a required piece of evidence (or returns 404), the category remains `UNKNOWN` / insufficient evidence. It is never converted to PASS or fabricated.
+- **Credential Security**: Credentials (`DATABRICKS_TOKEN`, Bearer tokens) are masked at the API seam and never recorded in logs, errors, findings, or reports.
+- **Connector Mode Seam**: `connector_mode` supports both `offline` fixture mode and `live` (`live-api`) online mode seamlessly downstream.
 
 Synthetic metadata fixtures (`tests/fixtures/metadata/`, JSON, metadata only —
 never multi-terabyte files): 10 GB, 100 GB, 500 GB, 1 TB, 3 TB, plus
