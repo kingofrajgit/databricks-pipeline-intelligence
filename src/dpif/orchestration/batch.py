@@ -248,13 +248,26 @@ def run_batch_validation(
     invalid_results: list[PipelineValidationResult] | None = None,
     environment: str | None = None,
 ) -> BatchValidationResult:
-    """Orchestrate multi-pipeline validation in isolated execution contexts."""
+    """Orchestrate multi-pipeline validation in isolated execution contexts.
+
+    Preserves original manifest order based on line_number or submission order.
+    """
     batch_result = BatchValidationResult()
 
+    # Index invalid results by pipeline_id or line_number to preserve order
+    invalid_by_pid: dict[str, PipelineValidationResult] = {}
     if invalid_results:
-        batch_result.pipeline_results.extend(invalid_results)
+        for inv in invalid_results:
+            invalid_by_pid[inv.submission.pipeline_id] = inv
+
+    # Collect all items sorted by line_number if available, maintaining manifest order
+    all_results: list[PipelineValidationResult] = []
 
     for sub in submissions:
+        if sub.pipeline_id in invalid_by_pid:
+            all_results.append(invalid_by_pid.pop(sub.pipeline_id))
+            continue
+
         try:
             res = validate_single_pipeline_submission(sub, environment=environment)
         except Exception as e:
@@ -266,8 +279,20 @@ def run_batch_validation(
                 processing_status=PipelineProcessingStatus.PROCESSING_ERROR,
                 errors=[f"Unhandled exception: {e}"],
             )
-        batch_result.pipeline_results.append(res)
+        all_results.append(res)
 
+    # Any remaining invalid_results that were not part of submissions list
+    if invalid_by_pid:
+        all_results.extend(invalid_by_pid.values())
+
+    # Sort all results by line_number if set on submissions
+    all_results.sort(
+        key=lambda r: (
+            r.submission.line_number if r.submission.line_number is not None else float("inf")
+        )
+    )
+
+    batch_result.pipeline_results = all_results
     batch_result.recompute_summaries()
     return batch_result
 

@@ -531,18 +531,25 @@ def _create_minimal_valid_pipeline(tmp_path: Path, name: str) -> tuple[Path, Pat
     c = tmp_path / f"{name}_contract.yaml"
     c.write_text(
         f"""
-pipeline:
-  name: {name}
-  environment: production
+contract_id: {name}
+pipeline_name: {name}
+version: "1.0"
+owner: owner@test.com
+description: Contract for {name}
+environment: production
+expected_daily_volume_gb: 10.0
 source:
   type: adls
-  path: /data/raw
   format: parquet
+  expected_volume_gb: 10.0
+  peak_volume_gb: 15.0
+  partitioning: [date]
 processing:
   type: batch
 target:
   type: delta
-  path: /data/silver
+  table: target_tbl
+  location: dbfs:/mnt/target
 """,
         encoding="utf-8",
     )
