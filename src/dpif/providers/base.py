@@ -310,12 +310,24 @@ class DatabricksEvidenceProvider:
                 resource_id=str(job_id),
             )
 
+        # Cross-reference cluster_id from Job evidence if cluster_id not explicitly provided
+        effective_cluster_id = cluster_id
+        if not effective_cluster_id and EvidenceCategory.JOB.value in evidence.items:
+            job_item = evidence.items[EvidenceCategory.JOB.value]
+            if job_item.is_available and isinstance(job_item.payload, dict):
+                settings = job_item.payload.get("settings", {})
+                tasks = settings.get("tasks", []) if isinstance(settings, dict) else []
+                for task in tasks:
+                    if isinstance(task, dict) and "existing_cluster_id" in task:
+                        effective_cluster_id = str(task["existing_cluster_id"])
+                        break
+
         # Category 4: Cluster Config
-        if cluster_id:
+        if effective_cluster_id:
             _acquire_category(
                 EvidenceCategory.CLUSTER,
-                lambda: self.connector.get_cluster(cluster_id),
-                resource_id=cluster_id,
+                lambda: self.connector.get_cluster(effective_cluster_id),
+                resource_id=effective_cluster_id,
             )
 
         # Category 5: Permissions
