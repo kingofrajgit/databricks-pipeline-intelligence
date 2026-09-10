@@ -121,8 +121,10 @@ class OfflineDatabricksConnector(DatabricksConnector):
         data = self._load(f"table_{safe}") or self._load("table_default")
         return {**data, "_connector": "offline-fixture", "evidence_source": "FIXTURE"}
 
-    def get_recent_runs(self, job_id: int | str, limit: int = 10) -> list[dict[str, Any]]:
+    def get_recent_runs(self, job_id: int | str, limit: int = 10) -> list[dict[str, Any]] | None:
         data = self._load(f"runs_{job_id}")
+        if not data:
+            return None
         runs = data.get("runs", []) if isinstance(data, dict) else []
         return runs[:limit]
 

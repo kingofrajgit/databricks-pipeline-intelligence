@@ -267,14 +267,23 @@ class DatabricksEvidenceProvider:
                                 status_code=200,
                             )
                     elif cat == EvidenceCategory.HISTORICAL_RUNS:
-                        valid_hist = isinstance(res, list) or (
-                            isinstance(res, dict) and isinstance(res.get("runs"), list)
-                        )
-                        if not valid_hist:
+                        if isinstance(res, dict) and isinstance(res.get("runs"), list):
+                            hist_runs = res["runs"]
+                        elif isinstance(res, list):
+                            hist_runs = res
+                        else:
                             raise DatabricksApiError(
                                 f"Malformed response: invalid historical shape ({resource_id})",
                                 status_code=200,
                             )
+                        clean_res = sanitize_job_payload(hist_runs, token)
+                        evidence.items[cat.value] = NormalizedEvidenceItem(
+                            category=cat,
+                            provenance=prov,
+                            payload=clean_res,
+                            is_available=True,
+                        )
+                        return
                     clean_res = sanitize_job_payload(res, token)
                     evidence.items[cat.value] = NormalizedEvidenceItem(
                         category=cat,

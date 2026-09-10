@@ -26,8 +26,10 @@ class DatabricksConnector(ABC):
         """Return table/data profile metadata."""
 
     @abstractmethod
-    def get_recent_runs(self, job_id: int | str, limit: int = 10) -> list[dict[str, Any]]:
-        """Return recent run metadata (empty when unavailable — never faked)."""
+    def get_recent_runs(
+        self, job_id: int | str, limit: int = 10
+    ) -> dict[str, Any] | list[dict[str, Any]] | None:
+        """Return recent run metadata (None when unavailable — never faked)."""
 
     def get_cluster_policy(self, policy_id: str) -> dict[str, Any] | None:
         """Return cluster policy definition if available."""

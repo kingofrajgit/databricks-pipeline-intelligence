@@ -160,17 +160,15 @@ class LiveDatabricksConnector(DatabricksConnector):
         """Live table profile requires UC or runtime scan; returns empty when not scanned."""
         return {"table": table, "status": "runtime-scan-required", "_connector": "live-api"}
 
-    def get_recent_runs(self, job_id: int | str, limit: int = 10) -> list[dict[str, Any]]:
+    def get_recent_runs(
+        self, job_id: int | str, limit: int = 10
+    ) -> dict[str, Any] | list[dict[str, Any]] | None:
         """Fetch recent runs for a job via /api/2.1/jobs/runs/list."""
-        res = self._request(
+        return self._request(
             "GET",
             "/api/2.1/jobs/runs/list",
             params={"job_id": job_id, "limit": limit, "active_only": "false"},
         )
-        if not res:
-            return []
-        runs = res.get("runs", [])
-        return runs if isinstance(runs, list) else []
 
     def get_run(self, run_id: int | str) -> dict[str, Any] | None:
         """Fetch job run details via /api/2.1/jobs/runs/get."""

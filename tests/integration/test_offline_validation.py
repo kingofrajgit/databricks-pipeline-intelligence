@@ -218,7 +218,7 @@ def test_cli_code_section_present(repo_root):
 def test_offline_connector_never_fakes_runs(metadata_dir):
     conn = OfflineDatabricksConnector(metadata_dir)
     assert conn.mode() == "offline-fixture"
-    assert conn.get_recent_runs(123) == []
+    assert conn.get_recent_runs(123) is None
     assert conn.get_job(123)["_connector"] == "offline-fixture"
 
 

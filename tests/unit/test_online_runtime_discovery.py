@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock
 
+import pytest
 import requests
 
 from dpif.connectors.live import LiveDatabricksConnector
@@ -360,6 +361,112 @@ def test_m5d_empty_historical_run_result():
     hist_item = evidence.items[EvidenceCategory.HISTORICAL_RUNS.value]
     assert hist_item.is_available is True
     assert hist_item.payload == []
+
+
+@pytest.mark.parametrize(
+    "status_code, expected_err_code",
+    [
+        (404, AcquisitionErrorCode.RESOURCE_NOT_FOUND),
+        (401, AcquisitionErrorCode.AUTHENTICATION_FAILURE),
+        (403, AcquisitionErrorCode.AUTHORIZATION_FAILURE),
+        (429, AcquisitionErrorCode.RATE_LIMIT_EXCEEDED),
+        (503, AcquisitionErrorCode.API_UNAVAILABLE),
+    ],
+)
+def test_m5d_historical_runs_api_failures(status_code, expected_err_code):
+    """C-G, K. Test historical runs API failure status codes preserve error semantics."""
+    mock_session = MagicMock(spec=requests.Session)
+    mock_resp = MagicMock()
+    mock_resp.status_code = status_code
+    mock_session.request.return_value = mock_resp
+
+    conn = LiveDatabricksConnector(
+        host="https://mock.cloud.databricks.com",
+        token="dapi_mock_token_123",
+        session=mock_session,
+    )
+    provider = DatabricksEvidenceProvider(connector=conn)
+    evidence = provider.acquire_pipeline_evidence(
+        pipeline_id="p1", job_id=4567, include_historical_runs=True
+    )
+
+    hist_item = evidence.items[EvidenceCategory.HISTORICAL_RUNS.value]
+    assert hist_item.is_available is False
+    assert hist_item.payload is None
+    assert hist_item.error is not None
+    assert hist_item.error.error_code == expected_err_code
+
+
+def test_m5d_historical_runs_timeout():
+    """H. Test historical runs timeout exception produces TIMEOUT error and is_available=False."""
+    mock_session = MagicMock(spec=requests.Session)
+    mock_session.request.side_effect = requests.exceptions.Timeout("Connection timed out")
+
+    conn = LiveDatabricksConnector(
+        host="https://mock.cloud.databricks.com",
+        token="dapi_mock_token_123",
+        session=mock_session,
+    )
+    provider = DatabricksEvidenceProvider(connector=conn)
+    evidence = provider.acquire_pipeline_evidence(
+        pipeline_id="p1", job_id=4567, include_historical_runs=True
+    )
+
+    hist_item = evidence.items[EvidenceCategory.HISTORICAL_RUNS.value]
+    assert hist_item.is_available is False
+    assert hist_item.payload is None
+    assert hist_item.error is not None
+    assert hist_item.error.error_code == AcquisitionErrorCode.TIMEOUT
+
+
+def test_m5d_historical_runs_malformed_json():
+    """I. Test historical runs HTTP 200 + invalid JSON produces MALFORMED_RESPONSE."""
+    mock_session = MagicMock(spec=requests.Session)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.side_effect = ValueError("Invalid JSON")
+    mock_session.request.return_value = mock_resp
+
+    conn = LiveDatabricksConnector(
+        host="https://mock.cloud.databricks.com",
+        token="dapi_mock_token_123",
+        session=mock_session,
+    )
+    provider = DatabricksEvidenceProvider(connector=conn)
+    evidence = provider.acquire_pipeline_evidence(
+        pipeline_id="p1", job_id=4567, include_historical_runs=True
+    )
+
+    hist_item = evidence.items[EvidenceCategory.HISTORICAL_RUNS.value]
+    assert hist_item.is_available is False
+    assert hist_item.payload is None
+    assert hist_item.error is not None
+    assert hist_item.error.error_code == AcquisitionErrorCode.MALFORMED_RESPONSE
+
+
+def test_m5d_historical_runs_malformed_structure():
+    """J. Test historical runs HTTP 200 + unexpected shape produces MALFORMED_RESPONSE."""
+    mock_session = MagicMock(spec=requests.Session)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"hello": "world"}
+    mock_session.request.return_value = mock_resp
+
+    conn = LiveDatabricksConnector(
+        host="https://mock.cloud.databricks.com",
+        token="dapi_mock_token_123",
+        session=mock_session,
+    )
+    provider = DatabricksEvidenceProvider(connector=conn)
+    evidence = provider.acquire_pipeline_evidence(
+        pipeline_id="p1", job_id=4567, include_historical_runs=True
+    )
+
+    hist_item = evidence.items[EvidenceCategory.HISTORICAL_RUNS.value]
+    assert hist_item.is_available is False
+    assert hist_item.payload is None
+    assert hist_item.error is not None
+    assert hist_item.error.error_code == AcquisitionErrorCode.MALFORMED_RESPONSE
 
 
 def test_m5d_credential_sanitization_in_run_payload():
