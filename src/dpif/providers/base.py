@@ -255,6 +255,26 @@ class DatabricksEvidenceProvider:
                                 f"Malformed response: missing valid cluster_id ({resource_id})",
                                 status_code=200,
                             )
+                    elif cat == EvidenceCategory.RUNTIME:
+                        has_str_id = isinstance(res.get("run_id"), str) and bool(
+                            res["run_id"].strip()
+                        )
+                        has_int_id = isinstance(res.get("run_id"), int) and res["run_id"] > 0
+                        valid_run_id = isinstance(res, dict) and (has_str_id or has_int_id)
+                        if not valid_run_id:
+                            raise DatabricksApiError(
+                                f"Malformed response: missing valid run_id ({resource_id})",
+                                status_code=200,
+                            )
+                    elif cat == EvidenceCategory.HISTORICAL_RUNS:
+                        valid_hist = isinstance(res, list) or (
+                            isinstance(res, dict) and isinstance(res.get("runs"), list)
+                        )
+                        if not valid_hist:
+                            raise DatabricksApiError(
+                                f"Malformed response: invalid historical shape ({resource_id})",
+                                status_code=200,
+                            )
                     clean_res = sanitize_job_payload(res, token)
                     evidence.items[cat.value] = NormalizedEvidenceItem(
                         category=cat,

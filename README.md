@@ -161,16 +161,16 @@ Every finding contains `rule_id`, `category`, `severity`, `status`, `title`,
 `DatabricksConnector` (`src/dpif/connectors/base.py`) is the single seam for
 Databricks access. The framework supports `OfflineDatabricksConnector` and `LiveDatabricksConnector`.
 
-### Online Evidence Acquisition Architecture (M5A / M5B / M5C)
+### Online Evidence Acquisition Architecture (M5A / M5B / M5C / M5D)
 
 ```text
-Databricks Workspace (Jobs API & Clusters API)
+Databricks Workspace (Jobs API, Clusters API, Runs API)
         ↓
 LiveDatabricksConnector
         ↓
-DatabricksEvidenceProvider (Job & Cluster Discovery)
+DatabricksEvidenceProvider (Job, Cluster & Run Discovery)
         ↓
-Normalized JOB / CLUSTER Evidence & Provenance
+Normalized JOB / CLUSTER / RUNTIME / HISTORICAL_RUNS Evidence & Provenance
         ↓
 Existing Validation Engine (CP-001..CP-024)
         ↓
@@ -179,11 +179,12 @@ Production Readiness & Reports
 
 Key Principles:
 - **Job Discovery (M5B)**: Direct online Job configuration acquisition (`job_id -> Databricks Jobs API -> Normalized JOB evidence`) preserving tasks, task types (notebook, python, SQL), schedule, cluster references, and timeouts.
-- **Cluster Discovery (M5C)**: Direct online Cluster configuration acquisition (`cluster_id -> Databricks Clusters API -> Normalized CLUSTER evidence`) preserving spark_version, node_type, autoscale, fixed workers, spark_conf, spark_env_vars, policy_id, instance_pool_id, and autotermination.
+- **Cluster Discovery (M5C)**: Direct online Cluster configuration acquisition (`cluster_id -> Databricks Clusters API -> Normalized CLUSTER evidence`) preserving spark_version, node_type, autoscale, fixed workers, spark_conf, spark_env_vars, policy_id, instance_pool_id, and autotermination. Structural validation strictly enforces valid `cluster_id` identity.
+- **Runtime & Run Evidence (M5D)**: Direct online execution evidence acquisition (`run_id -> Databricks Runs API -> Normalized RUNTIME evidence` and `job_id -> Databricks Runs List API -> Normalized HISTORICAL_RUNS evidence`). Preserves run state, result state, start/end timestamps, duration metrics (setup, execution, cleanup), trigger information, and task metadata. M5D acquires execution evidence without performing performance/bottleneck analysis.
 - **Job → Cluster Reference**: Job evidence containing `existing_cluster_id` automatically drives cluster evidence acquisition for that resource ID, while `job_cluster_key` references are preserved as configuration evidence without fabricating fake cluster resources.
 - **Evidence Acquisition != Validation**: Online mode acquires evidence via `DatabricksEvidenceProvider` without embedding validation rule logic.
 - **Evidence Provenance**: Every payload carries full provenance (`LIVE_API` vs `FIXTURE`, `acquired_at`, workspace reference).
-- **Strict UNKNOWN Semantics**: If Job or Cluster API returns 404 or fails, `is_available` is set to `False` with a structured `AcquisitionError`. The category remains `UNKNOWN` / insufficient evidence downstream.
+- **Strict UNKNOWN Semantics**: If Job, Cluster, or Run API returns 404 or fails, `is_available` is set to `False` with a structured `AcquisitionError`. The category remains `UNKNOWN` / insufficient evidence downstream.
 - **Credential Security**: Credentials (`DATABRICKS_TOKEN`, Bearer tokens, secrets, passwords) are masked/sanitized at the API seam and never recorded in logs, errors, findings, or reports.
 - **Connector Mode Seam**: `connector_mode` supports both `offline` fixture mode and `live` (`live-api`) online mode seamlessly downstream.
 
