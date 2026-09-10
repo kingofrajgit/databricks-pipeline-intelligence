@@ -328,6 +328,82 @@ def test_m5c_malformed_json_response():
     assert cluster_item.error.error_code == AcquisitionErrorCode.MALFORMED_RESPONSE
 
 
+def test_m5c_unexpected_response_structure_json_list():
+    """A. Test HTTP 200 + JSON list ([]) produces MALFORMED_RESPONSE."""
+    mock_session = MagicMock(spec=requests.Session)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = []
+    mock_session.request.return_value = mock_resp
+
+    conn = LiveDatabricksConnector(
+        host="https://mock.cloud.databricks.com",
+        token="dapi_mock_token_123",
+        session=mock_session,
+    )
+    provider = DatabricksEvidenceProvider(connector=conn)
+    evidence = provider.acquire_pipeline_evidence(
+        pipeline_id="p1", cluster_id="0123-456789-cluster1"
+    )
+
+    cluster_item = evidence.items[EvidenceCategory.CLUSTER.value]
+    assert cluster_item.is_available is False
+    assert cluster_item.payload is None
+    assert cluster_item.error is not None
+    assert cluster_item.error.error_code == AcquisitionErrorCode.MALFORMED_RESPONSE
+
+
+def test_m5c_unexpected_response_structure_unrelated_json():
+    """B. Test HTTP 200 + unrelated JSON ({"hello": "world"}) produces MALFORMED_RESPONSE."""
+    mock_session = MagicMock(spec=requests.Session)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"hello": "world"}
+    mock_session.request.return_value = mock_resp
+
+    conn = LiveDatabricksConnector(
+        host="https://mock.cloud.databricks.com",
+        token="dapi_mock_token_123",
+        session=mock_session,
+    )
+    provider = DatabricksEvidenceProvider(connector=conn)
+    evidence = provider.acquire_pipeline_evidence(
+        pipeline_id="p1", cluster_id="0123-456789-cluster1"
+    )
+
+    cluster_item = evidence.items[EvidenceCategory.CLUSTER.value]
+    assert cluster_item.is_available is False
+    assert cluster_item.payload is None
+    assert cluster_item.error is not None
+    assert cluster_item.error.error_code == AcquisitionErrorCode.MALFORMED_RESPONSE
+
+
+def test_m5c_minimal_valid_cluster_response():
+    """C, D. Test HTTP 200 + minimal valid cluster returns is_available=True."""
+    mock_session = MagicMock(spec=requests.Session)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"cluster_id": "synthetic-cluster-123"}
+    mock_session.request.return_value = mock_resp
+
+    conn = LiveDatabricksConnector(
+        host="https://mock.cloud.databricks.com",
+        token="dapi_mock_token_123",
+        session=mock_session,
+    )
+    provider = DatabricksEvidenceProvider(connector=conn)
+    evidence = provider.acquire_pipeline_evidence(
+        pipeline_id="p1", cluster_id="synthetic-cluster-123"
+    )
+
+    cluster_item = evidence.items[EvidenceCategory.CLUSTER.value]
+    assert cluster_item.is_available is True
+    assert cluster_item.payload == {
+        "cluster_id": "synthetic-cluster-123",
+        "_connector": "live-api",
+    }
+
+
 def test_m5c_fixed_worker_and_single_node_cluster_attributes():
     """J..S. Test fixed-worker, single-node, and detailed configuration fields."""
     fixed = MOCK_FIXED_WORKER_CLUSTER_RESPONSE

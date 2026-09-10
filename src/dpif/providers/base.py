@@ -244,6 +244,15 @@ class DatabricksEvidenceProvider:
                         ),
                     )
                 else:
+                    if cat == EvidenceCategory.CLUSTER:
+                        valid_cluster = isinstance(res, dict) and (
+                            "cluster_id" in res or "cluster_name" in res
+                        )
+                        if not valid_cluster:
+                            raise DatabricksApiError(
+                                f"Malformed response: invalid cluster ID ({resource_id})",
+                                status_code=200,
+                            )
                     clean_res = sanitize_job_payload(res, token)
                     evidence.items[cat.value] = NormalizedEvidenceItem(
                         category=cat,
