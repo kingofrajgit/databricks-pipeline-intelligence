@@ -1,0 +1,13 @@
+{
+  "cluster_id": "cluster_default",
+  "cluster_name": "default_cluster",
+  "spark_version": "13.3.x-scala2.12",
+  "node_type_id": "i3.xlarge",
+  "autoscale": {
+    "min_workers": 2,
+    "max_workers": 8
+  },
+  "runtime_engine": "STANDARD",
+  "autotermination_minutes": 60,
+  "cluster_source": "JOB"
+}

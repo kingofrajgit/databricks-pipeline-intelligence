@@ -86,10 +86,7 @@ class OfflineDatabricksConnector(DatabricksConnector):
         data = self._find_fixture("cluster", str(cluster_id))
         if not data:
             data = self._load("cluster_default")
-        res = {**data, "_connector": "offline-fixture", "evidence_source": "FIXTURE"}
-        if "cluster_id" not in res:
-            res["cluster_id"] = str(cluster_id)
-        return res
+        return {**data, "_connector": "offline-fixture", "evidence_source": "FIXTURE"}
 
     def get_cluster_policy(self, policy_id: str) -> dict[str, Any] | None:
         data = self._find_fixture("policy", str(policy_id))
