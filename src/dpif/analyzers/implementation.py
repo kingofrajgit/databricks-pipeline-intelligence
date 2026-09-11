@@ -180,7 +180,9 @@ class DeveloperImplementationAnalyzer:
                     f"Python UDF implementation on large input (~{self.volume_gb:.0f} GB) "
                     "causes PySpark row-wise serialization overhead."
                 )
-                rec = "Consider refactoring to native PySpark SQL functions or Vectorized Pandas UDF."
+                rec = (
+                    "Consider refactoring to native PySpark SQL functions or Vectorized Pandas UDF."
+                )
             elif is_pandas:
                 status = CheckpointStatus.PASS
                 sev = Severity.INFO
@@ -230,14 +232,20 @@ class DeveloperImplementationAnalyzer:
                             "to check for dataset existence/emptiness."
                         ),
                         status=CheckpointStatus.WARN,
-                        severity=Severity.HIGH if (self.volume_gb and self.volume_gb >= 100.0) else Severity.MEDIUM,
+                        severity=Severity.HIGH
+                        if (self.volume_gb and self.volume_gb >= 100.0)
+                        else Severity.MEDIUM,
                         observed={
                             "line": c_op.line,
                             "dataframe": c_op.dataframe,
                             "code": c_op.code,
                         },
-                        expected={"existence_check_method": "df.isEmpty() or df.limit(1).count() > 0"},
-                        evidence=[f"count() call evaluated as boolean condition at line {c_op.line}"],
+                        expected={
+                            "existence_check_method": "df.isEmpty() or df.limit(1).count() > 0"
+                        },
+                        evidence=[
+                            f"count() call evaluated as boolean condition at line {c_op.line}"
+                        ],
                         recommendation="Use df.isEmpty() or df.limit(1).count() > 0 to avoid a full dataset scan.",
                         confidence=0.9,
                         provenance=self.provenance,
@@ -322,7 +330,9 @@ class DeveloperImplementationAnalyzer:
 
             # Check for repartition directly before join
             reparts = [
-                o for o in ops if o.operation_type == OperationType.REPARTITION and o.line < j_op.line
+                o
+                for o in ops
+                if o.operation_type == OperationType.REPARTITION and o.line < j_op.line
             ]
             if reparts and (j_op.line - reparts[-1].line <= 3):
                 r_op = reparts[-1]
@@ -391,7 +401,9 @@ class DeveloperImplementationAnalyzer:
                             "lines": [o.line for o in r_ops],
                         },
                         expected={"repartition_count": "<= 1 per flow"},
-                        evidence=[f"{len(r_ops)} repartition calls at lines {[o.line for o in r_ops]}"],
+                        evidence=[
+                            f"{len(r_ops)} repartition calls at lines {[o.line for o in r_ops]}"
+                        ],
                         recommendation="Consolidate repartitioning to avoid unnecessary intermediate full shuffles.",
                         confidence=0.8,
                         provenance=self.provenance,
@@ -410,7 +422,9 @@ class DeveloperImplementationAnalyzer:
 
             if is_single:
                 has_agg_after = any(a.line > c_op.line for a in aggs)
-                has_write_after = any(w.line >= c_op.line for w in writes) or any("write" in op.code for op in self.code.operations if op.line >= c_op.line)
+                has_write_after = any(w.line >= c_op.line for w in writes) or any(
+                    "write" in op.code for op in self.code.operations if op.line >= c_op.line
+                )
 
                 if has_agg_after:
                     findings.append(
@@ -424,7 +438,9 @@ class DeveloperImplementationAnalyzer:
                             severity=Severity.HIGH,
                             observed={"line": c_op.line, "code": c_op.code},
                             expected={"parallel_processing_before_agg": True},
-                            evidence=[f"coalesce(1) at line {c_op.line} followed by downstream aggregation"],
+                            evidence=[
+                                f"coalesce(1) at line {c_op.line} followed by downstream aggregation"
+                            ],
                             recommendation="Remove coalesce(1) before aggregation or move coalesce to final output stage.",
                             confidence=0.85,
                             provenance=self.provenance,
@@ -439,10 +455,20 @@ class DeveloperImplementationAnalyzer:
                             dimension=ImplementationDimension.PARTITIONING_QUALITY,
                             title="coalesce(1) Used Prior to Output Write",
                             description="coalesce(1) used to produce a single output file.",
-                            status=CheckpointStatus.PASS if (self.volume_gb and self.volume_gb < 1.0) else CheckpointStatus.WARN,
-                            severity=Severity.INFO if (self.volume_gb and self.volume_gb < 1.0) else Severity.MEDIUM,
-                            observed={"line": c_op.line, "code": c_op.code, "volume_gb": self.volume_gb},
-                            expected={"single_partition_output": "reasonable for small result sets"},
+                            status=CheckpointStatus.PASS
+                            if (self.volume_gb and self.volume_gb < 1.0)
+                            else CheckpointStatus.WARN,
+                            severity=Severity.INFO
+                            if (self.volume_gb and self.volume_gb < 1.0)
+                            else Severity.MEDIUM,
+                            observed={
+                                "line": c_op.line,
+                                "code": c_op.code,
+                                "volume_gb": self.volume_gb,
+                            },
+                            expected={
+                                "single_partition_output": "reasonable for small result sets"
+                            },
                             evidence=[f"coalesce(1) at line {c_op.line} before write"],
                             recommendation="Verify output volume is small (<1 GB) so single-thread writer does not bottleneck.",
                             confidence=0.8,
@@ -489,7 +515,10 @@ class DeveloperImplementationAnalyzer:
                         location=loc,
                     )
                 )
-            elif self.provenance == EvidenceProvenanceKind.RUNTIME or self.provenance == EvidenceProvenanceKind.HISTORICAL_RUN:
+            elif (
+                self.provenance == EvidenceProvenanceKind.RUNTIME
+                or self.provenance == EvidenceProvenanceKind.HISTORICAL_RUN
+            ):
                 # Runtime evidence available
                 findings.append(
                     ForensicFinding(
@@ -500,9 +529,15 @@ class DeveloperImplementationAnalyzer:
                         description=f"Broadcast choice for '{target_df}' is supported by available runtime evidence.",
                         status=CheckpointStatus.PASS,
                         severity=Severity.INFO,
-                        observed={"line": b_op.line, "code": b_op.code, "volume_gb": self.volume_gb},
+                        observed={
+                            "line": b_op.line,
+                            "code": b_op.code,
+                            "volume_gb": self.volume_gb,
+                        },
                         expected={"small_broadcast_side": True},
-                        evidence=[f"broadcast({target_df}) at line {b_op.line} verified against runtime metrics"],
+                        evidence=[
+                            f"broadcast({target_df}) at line {b_op.line} verified against runtime metrics"
+                        ],
                         recommendation="Maintain broadcast strategy.",
                         confidence=0.9,
                         provenance=self.provenance,
@@ -520,9 +555,15 @@ class DeveloperImplementationAnalyzer:
                         description=f"Broadcast join requested on large pipeline input (~{self.volume_gb:.0f} GB).",
                         status=CheckpointStatus.WARN,
                         severity=Severity.HIGH,
-                        observed={"line": b_op.line, "code": b_op.code, "volume_gb": self.volume_gb},
+                        observed={
+                            "line": b_op.line,
+                            "code": b_op.code,
+                            "volume_gb": self.volume_gb,
+                        },
                         expected={"broadcast_side_volume_gb": "< 0.1 GB"},
-                        evidence=[f"broadcast({target_df}) at line {b_op.line} with input volume {self.volume_gb} GB"],
+                        evidence=[
+                            f"broadcast({target_df}) at line {b_op.line} with input volume {self.volume_gb} GB"
+                        ],
                         recommendation="Verify that the broadcast side is strictly a small lookup table.",
                         confidence=0.7,
                         provenance=self.provenance,
@@ -542,8 +583,12 @@ class DeveloperImplementationAnalyzer:
                         dimension=ImplementationDimension.JOIN_STRATEGY,
                         title="Cross/Cartesian Join Implemented",
                         description="Developer implemented an explicit cross join operation.",
-                        status=CheckpointStatus.WARN if (self.volume_gb and self.volume_gb < 1.0) else CheckpointStatus.FAIL,
-                        severity=Severity.MEDIUM if (self.volume_gb and self.volume_gb < 1.0) else Severity.HIGH,
+                        status=CheckpointStatus.WARN
+                        if (self.volume_gb and self.volume_gb < 1.0)
+                        else CheckpointStatus.FAIL,
+                        severity=Severity.MEDIUM
+                        if (self.volume_gb and self.volume_gb < 1.0)
+                        else Severity.HIGH,
                         observed={"line": j_op.line, "code": j_op.code, "how": how},
                         expected={"equi_join_condition": True},
                         evidence=[f"crossJoin / join(..., how='cross') at line {j_op.line}"],
@@ -562,7 +607,8 @@ class DeveloperImplementationAnalyzer:
     def _analyze_cache_lifecycle(self) -> list[ForensicFinding]:
         findings: list[ForensicFinding] = []
         caches = [
-            o for o in self.code.of_type(OperationType.CACHE, OperationType.PERSIST)
+            o
+            for o in self.code.of_type(OperationType.CACHE, OperationType.PERSIST)
             if "unpersist" not in (o.code or "")
         ]
         unpersists = [o for o in self.code.operations if o.code and "unpersist" in o.code]
@@ -578,8 +624,7 @@ class DeveloperImplementationAnalyzer:
 
             # Find matching unpersist
             has_unpersist = any(
-                u.line > c_op.line and (u.dataframe == df or df in u.code)
-                for u in unpersists
+                u.line > c_op.line and (u.dataframe == df or df in u.code) for u in unpersists
             )
 
             if uses >= 2 and has_unpersist:
@@ -649,7 +694,9 @@ class DeveloperImplementationAnalyzer:
                             "unpersisted": False,
                         },
                         expected={"unpersist_after_use": True},
-                        evidence=[f"cache() at line {c_op.line} reused {uses}x without unpersist()"],
+                        evidence=[
+                            f"cache() at line {c_op.line} reused {uses}x without unpersist()"
+                        ],
                         recommendation="Add df.unpersist() after the final downstream action to release executor memory.",
                         confidence=0.8,
                         provenance=self.provenance,
@@ -665,7 +712,9 @@ class DeveloperImplementationAnalyzer:
     def _analyze_checkpoint_lifecycle(self) -> list[ForensicFinding]:
         findings: list[ForensicFinding] = []
         checkpoints = [
-            o for o in self.code.operations if o.code and ("checkpoint" in o.code or "localCheckpoint" in o.code)
+            o
+            for o in self.code.operations
+            if o.code and ("checkpoint" in o.code or "localCheckpoint" in o.code)
         ]
 
         for cp_op in checkpoints:
@@ -690,7 +739,12 @@ class DeveloperImplementationAnalyzer:
                         description=f"Developer implemented {kind} on dataset '{df}' prior to downstream operations ({uses}x).",
                         status=CheckpointStatus.PASS,
                         severity=Severity.INFO,
-                        observed={"line": cp_op.line, "dataframe": df, "is_local": is_local, "uses": uses},
+                        observed={
+                            "line": cp_op.line,
+                            "dataframe": df,
+                            "is_local": is_local,
+                            "uses": uses,
+                        },
                         expected={"checkpoint_materialized_and_used": True},
                         evidence=[f"{kind} at line {cp_op.line} with {uses} downstream uses"],
                         recommendation="Ensure reliable storage/checkpoint directory is configured for non-local checkpoints.",
@@ -709,7 +763,12 @@ class DeveloperImplementationAnalyzer:
                         description=f"Developer implemented {kind} on dataset '{df}', but no downstream usage is statically visible.",
                         status=CheckpointStatus.WARN,
                         severity=Severity.LOW,
-                        observed={"line": cp_op.line, "dataframe": df, "is_local": is_local, "uses": uses},
+                        observed={
+                            "line": cp_op.line,
+                            "dataframe": df,
+                            "is_local": is_local,
+                            "uses": uses,
+                        },
                         expected={"downstream_uses": ">= 1"},
                         evidence=[f"{kind} at line {cp_op.line} without downstream uses"],
                         recommendation=f"Verify if {kind} is necessary if dataset is not reused.",
@@ -806,7 +865,10 @@ class DeveloperImplementationAnalyzer:
             if matching_closes:
                 c_line = matching_closes[0]
                 in_finally = any(
-                    any(f_node.lineno <= c_line <= getattr(f_node, "end_lineno", f_node.lineno) for f_node in t.finalbody)
+                    any(
+                        f_node.lineno <= c_line <= getattr(f_node, "end_lineno", f_node.lineno)
+                        for f_node in t.finalbody
+                    )
                     for t in visitor.try_finallys
                 )
 
@@ -820,9 +882,15 @@ class DeveloperImplementationAnalyzer:
                         description=f"Resource '{open_kind}' acquired and explicitly released inside a try/finally block.",
                         status=CheckpointStatus.PASS,
                         severity=Severity.INFO,
-                        observed={"open_line": open_line, "close_line": matching_closes[0], "kind": open_kind},
+                        observed={
+                            "open_line": open_line,
+                            "close_line": matching_closes[0],
+                            "kind": open_kind,
+                        },
                         expected={"safe_cleanup": True},
-                        evidence=[f"Resource '{open_kind}' at line {open_line} closed at line {matching_closes[0]} in finally"],
+                        evidence=[
+                            f"Resource '{open_kind}' at line {open_line} closed at line {matching_closes[0]} in finally"
+                        ],
                         recommendation="Maintain try/finally resource cleanup pattern.",
                         confidence=0.9,
                         provenance=self.provenance,
@@ -839,9 +907,15 @@ class DeveloperImplementationAnalyzer:
                         description=f"Resource '{open_kind}' acquired and explicitly closed, but not enclosed in a try/finally or context manager.",
                         status=CheckpointStatus.WARN,
                         severity=Severity.LOW,
-                        observed={"open_line": open_line, "close_line": matching_closes[0], "kind": open_kind},
+                        observed={
+                            "open_line": open_line,
+                            "close_line": matching_closes[0],
+                            "kind": open_kind,
+                        },
                         expected={"exception_safe_cleanup": True},
-                        evidence=[f"Resource '{open_kind}' at line {open_line} closed at line {matching_closes[0]} outside try/finally"],
+                        evidence=[
+                            f"Resource '{open_kind}' at line {open_line} closed at line {matching_closes[0]} outside try/finally"
+                        ],
                         recommendation="Wrap resource acquisition in 'with' statement or try/finally to ensure cleanup during exceptions.",
                         confidence=0.8,
                         provenance=self.provenance,
@@ -860,7 +934,9 @@ class DeveloperImplementationAnalyzer:
                         severity=Severity.MEDIUM,
                         observed={"open_line": open_line, "kind": open_kind},
                         expected={"explicit_close_or_context_manager": True},
-                        evidence=[f"Resource acquisition '{open_kind}' at line {open_line} without visible close()"],
+                        evidence=[
+                            f"Resource acquisition '{open_kind}' at line {open_line} without visible close()"
+                        ],
                         recommendation="Ensure all acquired resources are explicitly closed or managed via context managers.",
                         confidence=0.75,
                         provenance=self.provenance,
@@ -888,8 +964,13 @@ class DeveloperImplementationAnalyzer:
                 self.handlers: list[tuple[ast.ExceptHandler, bool, bool, bool]] = []
 
             def visit_ExceptHandler(self, node: ast.ExceptHandler) -> None:
-                is_broad = node.type is None or (isinstance(node.type, ast.Name) and node.type.id in ("Exception", "BaseException"))
-                body_empty = not node.body or (len(node.body) == 1 and isinstance(node.body[0], (ast.Pass, ast.Constant)))
+                is_broad = node.type is None or (
+                    isinstance(node.type, ast.Name)
+                    and node.type.id in ("Exception", "BaseException")
+                )
+                body_empty = not node.body or (
+                    len(node.body) == 1 and isinstance(node.body[0], (ast.Pass, ast.Constant))
+                )
 
                 has_reraise = False
                 has_logging = False
@@ -924,9 +1005,15 @@ class DeveloperImplementationAnalyzer:
                         description="Developer implemented an exception block that swallows errors without logging or re-raising.",
                         status=CheckpointStatus.FAIL,
                         severity=Severity.HIGH,
-                        observed={"line": handler.lineno, "is_broad": is_broad, "body_empty": body_empty},
+                        observed={
+                            "line": handler.lineno,
+                            "is_broad": is_broad,
+                            "body_empty": body_empty,
+                        },
                         expected={"exception_propagation_or_logging": True},
-                        evidence=[f"Except handler at line {handler.lineno} passes/ignores caught exceptions"],
+                        evidence=[
+                            f"Except handler at line {handler.lineno} passes/ignores caught exceptions"
+                        ],
                         recommendation="Log caught exceptions or re-raise after partial failure handling.",
                         confidence=0.9,
                         provenance=self.provenance,
@@ -992,10 +1079,18 @@ class DeveloperImplementationAnalyzer:
                 self.not_implemented_nodes: list[int] = []
 
             def visit_Raise(self, node: ast.Raise) -> None:
-                if node.exc and isinstance(node.exc, ast.Call) and isinstance(node.exc.func, ast.Name):
+                if (
+                    node.exc
+                    and isinstance(node.exc, ast.Call)
+                    and isinstance(node.exc.func, ast.Name)
+                ):
                     if node.exc.func.id == "NotImplementedError":
                         self.not_implemented_nodes.append(node.lineno)
-                elif node.exc and isinstance(node.exc, ast.Name) and node.exc.id == "NotImplementedError":
+                elif (
+                    node.exc
+                    and isinstance(node.exc, ast.Name)
+                    and node.exc.id == "NotImplementedError"
+                ):
                     self.not_implemented_nodes.append(node.lineno)
                 self.generic_visit(node)
 

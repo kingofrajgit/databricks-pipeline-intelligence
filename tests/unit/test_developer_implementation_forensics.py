@@ -7,8 +7,6 @@ exception safety, and implementation completeness.
 
 from __future__ import annotations
 
-import pytest
-
 from dpif.analyzers.implementation import DeveloperImplementationAnalyzer
 from dpif.code.parser import analyze_source
 from dpif.models import CheckpointStatus, Severity
@@ -60,7 +58,9 @@ res = df.withColumn("v2", add_one("v"))
     res = _analyze(code, {"data_size_gb": 50.0})
     dim = res.dimensions[ImplementationDimension.TRANSFORMATION_QUALITY.value]
     assert dim.status == CheckpointStatus.PASS
-    assert any(f.rule_id == "IMP-TRANS-002" and f.status == CheckpointStatus.PASS for f in dim.findings)
+    assert any(
+        f.rule_id == "IMP-TRANS-002" and f.status == CheckpointStatus.PASS for f in dim.findings
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -145,7 +145,9 @@ df.coalesce(1).write.parquet("/tmp/out")
 """
     res = _analyze(code, {"data_size_gb": 0.2})
     dim = res.dimensions[ImplementationDimension.PARTITIONING_QUALITY.value]
-    assert any(f.rule_id == "IMP-PART-003" and f.status == CheckpointStatus.PASS for f in dim.findings)
+    assert any(
+        f.rule_id == "IMP-PART-003" and f.status == CheckpointStatus.PASS for f in dim.findings
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -160,7 +162,9 @@ res = df1.join(broadcast(df2), "id")
 """
     res = _analyze(code, {})  # no data_size_gb
     dim = res.dimensions[ImplementationDimension.JOIN_STRATEGY.value]
-    assert any(f.rule_id == "IMP-JOIN-001" and f.status == CheckpointStatus.UNKNOWN for f in dim.findings)
+    assert any(
+        f.rule_id == "IMP-JOIN-001" and f.status == CheckpointStatus.UNKNOWN for f in dim.findings
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -175,7 +179,9 @@ res = df1.join(broadcast(df2), "id")
 """
     res = _analyze(code, {"data_size_gb": 5.0, "evidence_source": "runtime metrics"})
     dim = res.dimensions[ImplementationDimension.JOIN_STRATEGY.value]
-    assert any(f.rule_id == "IMP-JOIN-002" and f.status == CheckpointStatus.PASS for f in dim.findings)
+    assert any(
+        f.rule_id == "IMP-JOIN-002" and f.status == CheckpointStatus.PASS for f in dim.findings
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -219,7 +225,9 @@ c1 = df.count()
 """
     res = _analyze(code)
     dim = res.dimensions[ImplementationDimension.CACHE_LIFECYCLE.value]
-    assert any(f.rule_id == "IMP-CACHE-002" and f.status == CheckpointStatus.WARN for f in dim.findings)
+    assert any(
+        f.rule_id == "IMP-CACHE-002" and f.status == CheckpointStatus.WARN for f in dim.findings
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -233,7 +241,9 @@ c2 = df.collect()
 """
     res = _analyze(code)
     dim = res.dimensions[ImplementationDimension.CACHE_LIFECYCLE.value]
-    assert any(f.rule_id == "IMP-CACHE-003" and f.status == CheckpointStatus.WARN for f in dim.findings)
+    assert any(
+        f.rule_id == "IMP-CACHE-003" and f.status == CheckpointStatus.WARN for f in dim.findings
+    )
 
 
 # -----------------------------------------------------------------------------

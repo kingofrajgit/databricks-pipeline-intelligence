@@ -37,11 +37,13 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 # Fixture pipelines are analysed as text by DPIF, never executed;
 # `spark` is the Databricks runtime global.
 "tests/fixtures/code/*.py" = ["F821"]
+"scratch/*.py" = ["F821", "B905"]
 
 [tool.mypy]
 python_version = "3.11"
