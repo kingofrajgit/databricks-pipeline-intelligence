@@ -440,6 +440,13 @@ def _run_offline_validation(
             code_findings, perf_findings, has_runtime_evidence=bool(runtime_obj)
         )
 
+    from dpif.analyzers.implementation import DeveloperImplementationAnalyzer
+
+    impl_analyzer = DeveloperImplementationAnalyzer(analysis, context=rule_context)
+    impl_assessment = impl_analyzer.analyze()
+
+    context["implementation_forensics"] = impl_assessment
+
     assessment = context.get("production_readiness_assessment")
     if assessment is None:
         from dpif.readiness.engine import evaluate_production_readiness
@@ -456,6 +463,7 @@ def _run_offline_validation(
 
     if json_output:
         payload = assessment.to_dict()
+        payload["implementation_forensics"] = impl_assessment.to_dict()
         payload["checkpoints"] = {
             k: {
                 "checkpoint_id": v.checkpoint_id,
@@ -474,6 +482,7 @@ def _run_offline_validation(
     _display_checkpoint_results(results)
     _display_data_section(contract, profile, coverage, growth, results)
     _display_code_section(analysis, build_flow(analysis), results, profile.total_gb)
+    _display_implementation_forensics_section(impl_assessment)
     if runtime_obj:
         _display_performance_section(runtime_obj, results)
         _display_correlation_section(correlations)
@@ -650,6 +659,27 @@ def _display_code_section(
             click.echo(f"    Data context: Expected input: {volume_gb:.0f} GB/day")
             if f.recommendation:
                 click.echo(f"    Recommendation: {f.recommendation[:240]}")
+    click.echo("")
+
+
+def _display_implementation_forensics_section(impl_assessment: Any) -> None:
+    click.echo("DEVELOPER IMPLEMENTATION FORENSICS (M5E)")
+    click.echo("-" * 60)
+    click.echo(f"  Overall Forensics Status: {impl_assessment.overall_status.value}")
+    click.echo("")
+    click.echo("  Dimensions Assessment:")
+    for dim_key, dim_val in sorted(impl_assessment.dimensions.items()):
+        status_str = dim_val.status.value
+        click.echo(f"    - {dim_key:<32}: [{status_str:<4}] {dim_val.findings_count} finding(s)")
+    if impl_assessment.all_findings:
+        click.echo("")
+        click.echo("  Forensic Findings Detail:")
+        for f in impl_assessment.all_findings:
+            prov = f.provenance.value if hasattr(f.provenance, "value") else str(f.provenance)
+            click.echo(f"    [{f.status.value}] {f.rule_id} - {f.title} ({f.location}) [{prov}]")
+            click.echo(f"      Description: {f.description}")
+            if f.recommendation:
+                click.echo(f"      Recommendation: {f.recommendation}")
     click.echo("")
 
 
