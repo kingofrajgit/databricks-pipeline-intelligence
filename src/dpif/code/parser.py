@@ -53,6 +53,10 @@ METHOD_OPS: dict[str, OperationType] = {
     "unionByName": OperationType.UNION,
     "explode": OperationType.EXPLODE,
     "over": OperationType.WINDOW,
+    "unpersist": OperationType.PERSIST,
+    "checkpoint": OperationType.CHECKPOINT,
+    "localCheckpoint": OperationType.CHECKPOINT,
+    "localcheckpoint": OperationType.CHECKPOINT,
 }
 
 TERMINAL_ACTIONS = frozenset(
@@ -494,6 +498,7 @@ def _record_operations(source: str, tree: ast.AST, df_vars: list[str]) -> list[O
                         },
                     )
                 )
+                continue
             elif outer in ("load", "parquet", "csv", "json", "orc", "avro"):
                 ops.append(
                     Operation(
@@ -504,9 +509,30 @@ def _record_operations(source: str, tree: ast.AST, df_vars: list[str]) -> list[O
                         arguments={"via": "read"},
                     )
                 )
-            continue
+                continue
         # df.write... terminal writers
         if "write" in attrs:
+            if "coalesce" in attrs:
+                ops.append(
+                    Operation(
+                        operation_type=OperationType.COALESCE,
+                        line=node.lineno,
+                        column=node.col_offset,
+                        dataframe=root,
+                        code=snippet,
+                        arguments={"literals": [1] if "coalesce(1)" in snippet else []},
+                    )
+                )
+            if "repartition" in attrs:
+                ops.append(
+                    Operation(
+                        operation_type=OperationType.REPARTITION,
+                        line=node.lineno,
+                        column=node.col_offset,
+                        dataframe=root,
+                        code=snippet,
+                    )
+                )
             if outer in SPARK_WRITE_ATTRS or outer in WRITE_CHAIN_ATTRS:
                 # record once at the terminal save call
                 if outer in ("save", "parquet", "csv", "json") or (
@@ -544,7 +570,7 @@ def _record_operations(source: str, tree: ast.AST, df_vars: list[str]) -> list[O
             )
             continue
         # dataframe method calls
-        if root in df_set or root is None:
+        if root in df_set or root is None or root == "spark":
             op_type = METHOD_OPS.get(outer)
             if op_type is None:
                 continue

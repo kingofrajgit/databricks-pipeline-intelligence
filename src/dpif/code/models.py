@@ -43,6 +43,7 @@ class OperationType(StrEnum):
     EXPLODE = "EXPLODE"
     UNION = "UNION"
     LOOP = "LOOP"
+    CHECKPOINT = "CHECKPOINT"
     OTHER = "OTHER"
 
 

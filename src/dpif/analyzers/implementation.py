@@ -262,13 +262,9 @@ class DeveloperImplementationAnalyzer:
             loc = j_op.location(self.code.source_file)
             j_df = j_op.dataframe
 
-            # Check if filter occurs before join vs after join on the same df flow
-            filters_before = [
-                f for f in filters if f.dataframe == j_df and f.line < j_op.line
-            ]
-            filters_after = [
-                f for f in filters if f.dataframe == j_df and f.line > j_op.line
-            ]
+            # Check if filter occurs before join vs after join
+            filters_before = [f for f in filters if f.line < j_op.line]
+            filters_after = [f for f in filters if f.line >= j_op.line]
 
             if filters_before:
                 findings.append(
@@ -367,7 +363,13 @@ class DeveloperImplementationAnalyzer:
         # Repeated repartitioning on the same DataFrame flow
         by_flow: dict[str, list[Operation]] = {}
         for r in reparts:
-            root = flow_mod.flow_root(self.code, r.dataframe or "<unknown>", r.line)
+            r_target = r.dataframe
+            if r_target == "spark" or not r_target:
+                for asgn in self.code.assignments:
+                    if asgn.line == r.line:
+                        r_target = asgn.target
+                        break
+            root = flow_mod.flow_root(self.code, r_target or "<unknown>")
             by_flow.setdefault(root, []).append(r)
 
         for root, r_ops in by_flow.items():
@@ -398,17 +400,17 @@ class DeveloperImplementationAnalyzer:
                 )
 
         # Coalesce analysis (coalesce(1) before aggregation vs after aggregation before write)
-        aggs = set(self.code.of_type(OperationType.GROUP_BY, OperationType.AGGREGATE))
-        writes = set(self.code.of_type(OperationType.WRITE))
+        aggs = list(self.code.of_type(OperationType.GROUP_BY, OperationType.AGGREGATE))
+        writes = list(self.code.of_type(OperationType.WRITE))
 
         for c_op in coalesces:
             loc = c_op.location(self.code.source_file)
             lits = c_op.arguments.get("literals", [])
-            is_single = isinstance(lits, list) and 1 in lits
+            is_single = (isinstance(lits, list) and 1 in lits) or "coalesce(1)" in (c_op.code or "")
 
             if is_single:
-                has_agg_after = any(a.line > c_op.line for a in aggs if a.dataframe == c_op.dataframe)
-                has_write_after = any(w.line > c_op.line for w in writes)
+                has_agg_after = any(a.line > c_op.line for a in aggs)
+                has_write_after = any(w.line >= c_op.line for w in writes) or any("write" in op.code for op in self.code.operations if op.line >= c_op.line)
 
                 if has_agg_after:
                     findings.append(
@@ -559,13 +561,20 @@ class DeveloperImplementationAnalyzer:
     # -------------------------------------------------------------------------
     def _analyze_cache_lifecycle(self) -> list[ForensicFinding]:
         findings: list[ForensicFinding] = []
-        caches = self.code.of_type(OperationType.CACHE, OperationType.PERSIST)
+        caches = [
+            o for o in self.code.of_type(OperationType.CACHE, OperationType.PERSIST)
+            if "unpersist" not in (o.code or "")
+        ]
         unpersists = [o for o in self.code.operations if o.code and "unpersist" in o.code]
 
         for c_op in caches:
             loc = c_op.location(self.code.source_file)
             df = c_op.dataframe or "<unknown>"
-            uses = flow_mod.downstream_uses(self.code, df, c_op.line) if c_op.dataframe else 0
+            for asgn in self.code.assignments:
+                if asgn.line == c_op.line:
+                    df = asgn.target
+                    break
+            uses = flow_mod.downstream_uses(self.code, df, c_op.line)
 
             # Find matching unpersist
             has_unpersist = any(
@@ -663,7 +672,11 @@ class DeveloperImplementationAnalyzer:
             loc = cp_op.location(self.code.source_file)
             is_local = "localCheckpoint" in cp_op.code
             df = cp_op.dataframe or "<unknown>"
-            uses = flow_mod.downstream_uses(self.code, df, cp_op.line) if cp_op.dataframe else 0
+            for asgn in self.code.assignments:
+                if asgn.line == cp_op.line:
+                    df = asgn.target
+                    break
+            uses = flow_mod.downstream_uses(self.code, df, cp_op.line)
 
             kind = "localCheckpoint()" if is_local else "checkpoint()"
 
@@ -724,15 +737,22 @@ class DeveloperImplementationAnalyzer:
         class ResourceVisitor(ast.NodeVisitor):
             def __init__(self) -> None:
                 self.context_managers: list[ast.With] = []
+                self.with_call_nodes: set[int] = set()
                 self.explicit_opens: list[tuple[int, str]] = []
                 self.explicit_closes: list[tuple[int, str]] = []
                 self.try_finallys: list[ast.Try] = []
 
             def visit_With(self, node: ast.With) -> None:
                 self.context_managers.append(node)
+                for item in node.items:
+                    if isinstance(item.context_expr, ast.Call):
+                        self.with_call_nodes.add(id(item.context_expr))
                 self.generic_visit(node)
 
             def visit_Call(self, node: ast.Call) -> None:
+                if id(node) in self.with_call_nodes:
+                    self.generic_visit(node)
+                    return
                 func_name = ""
                 if isinstance(node.func, ast.Name):
                     func_name = node.func.id
@@ -782,10 +802,13 @@ class DeveloperImplementationAnalyzer:
             matching_closes = [
                 c_line for c_line, _ in visitor.explicit_closes if c_line > open_line
             ]
-            in_finally = any(
-                t.lineno <= open_line and any(f_node.lineno >= open_line for f_node in t.finalbody)
-                for t in visitor.try_finallys
-            )
+            in_finally = False
+            if matching_closes:
+                c_line = matching_closes[0]
+                in_finally = any(
+                    any(f_node.lineno <= c_line <= getattr(f_node, "end_lineno", f_node.lineno) for f_node in t.finalbody)
+                    for t in visitor.try_finallys
+                )
 
             if matching_closes and in_finally:
                 findings.append(
