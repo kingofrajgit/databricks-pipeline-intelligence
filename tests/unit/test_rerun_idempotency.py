@@ -75,15 +75,17 @@ df.write.mode("overwrite").saveAsTable("dest_table")
 
 
 # -----------------------------------------------------------------------------
-# Scenario C: MERGE with stable key evidence -> PASS
+# Scenario C: MERGE with stable key and deduplication evidence -> PASS
 # -----------------------------------------------------------------------------
 def test_scenario_c_merge_stable_key_evidence():
     code = """
 from delta.tables import DeltaTable
+df = df.dropDuplicates(["user_id"])
 target = DeltaTable.forName(spark, "users")
 target.alias("t").merge(df.alias("s"), "t.user_id = s.user_id").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()
 """
-    res = _analyze(code)
+    ctx = {"job_config": {"settings": {"max_concurrent_runs": 1, "max_retries": 0}}}
+    res = _analyze(code, ctx)
     sc = res.scenarios[RerunScenarioKind.SAME_INPUT.value]
     assert sc.status == CheckpointStatus.PASS
     assert any(f.rule_id == "RER-IDM-002" for f in sc.findings)
@@ -155,6 +157,7 @@ df.write.mode("append").saveAsTable("events_out")
 def test_scenario_h_retry_safe_merge():
     code = """
 from delta.tables import DeltaTable
+df = df.dropDuplicates(["id"])
 target = DeltaTable.forName(spark, "events")
 target.alias("t").merge(df.alias("s"), "t.id = s.id").whenMatchedUpdateAll().execute()
 """
@@ -201,6 +204,7 @@ spark.sql("SELECT * FROM invalid_table")
 def test_scenario_k_partial_failure_idempotent_write():
     code = """
 from delta.tables import DeltaTable
+df = df.dropDuplicates(["id"])
 target = DeltaTable.forName(spark, "target")
 target.alias("t").merge(df.alias("s"), "t.id = s.id").whenMatchedUpdateAll().execute()
 """
@@ -225,17 +229,20 @@ df.write.mode("append").saveAsTable("daily_log")
 
 
 # -----------------------------------------------------------------------------
-# Scenario M: Checkpoint evidence
+# Scenario M: Checkpoint alone -> not automatic input-idempotency PASS (UNKNOWN)
 # -----------------------------------------------------------------------------
 def test_scenario_m_checkpoint_evidence():
     code = """
-df = spark.readStream.table("stream_in")
-df.writeStream.option("checkpointLocation", "/tmp/checkpoints/p1").start()
+df = spark.read.table("input_table")
+df.checkpoint()
+df.write.saveAsTable("dest_table")
 """
     res = _analyze(code)
     sc = res.scenarios[RerunScenarioKind.INCREMENTAL_INPUT.value]
-    assert sc.status == CheckpointStatus.PASS
+    assert sc.status == CheckpointStatus.UNKNOWN
     assert any("Checkpointing mechanism detected" in ev for ev in sc.evidence)
+    assert any(f.rule_id == "RER-INC-002" for f in sc.findings)
+    assert res.idempotency.dimensions[IdempotencyDimension.INPUT_IDEMPOTENCY.value].status == CheckpointStatus.UNKNOWN
 
 
 # -----------------------------------------------------------------------------
@@ -265,16 +272,16 @@ df = spark.readStream.table("events").withWatermark("timestamp", "10 minutes")
 
 
 # -----------------------------------------------------------------------------
-# Scenario P: Late-arriving-data handling via lookback
+# Scenario P: Late-arriving-data handling via lookback + deduplication
 # -----------------------------------------------------------------------------
 def test_scenario_p_late_arriving_data_lookback():
     code = """
-df = spark.read.table("events").filter("event_time >= date_sub(current_date(), 7)")
+df = spark.read.table("events").filter("event_time >= date_sub(current_date(), 7)").dropDuplicates(["event_id"])
 """
     res = _analyze(code)
     sc = res.scenarios[RerunScenarioKind.LATE_ARRIVING_DATA.value]
     assert sc.status == CheckpointStatus.PASS
-    assert any(f.rule_id == "RER-LATE-001" for f in sc.findings)
+    assert any(f.rule_id == "RER-LATE-002" for f in sc.findings)
 
 
 # -----------------------------------------------------------------------------
@@ -340,11 +347,11 @@ def test_scenario_t_unavailable_historical_runs():
 
 
 # -----------------------------------------------------------------------------
-# Scenario U: Overwrite potential data-loss risk
+# Scenario U: Overwrite potential data-loss risk (filtered unpartitioned overwrite)
 # -----------------------------------------------------------------------------
 def test_scenario_u_overwrite_data_loss_risk():
     code = """
-df = spark.read.table("in")
+df = spark.read.table("in").filter("date = current_date()")
 df.write.mode("overwrite").saveAsTable("unpartitioned_dest")
 """
     res = _analyze(code)
@@ -407,7 +414,7 @@ def test_scenario_x_fixture_checkpoint_evidence(contracts_dir, code_dir):
     sc = res.scenarios[RerunScenarioKind.INCREMENTAL_INPUT.value]
     assert sc.status == CheckpointStatus.PASS
     finding = next(f for f in sc.findings if f.rule_id == "RER-INC-001")
-    assert "Checkpointing mechanism detected" in sc.evidence
+    assert any("Checkpointing mechanism detected" in ev for ev in sc.evidence)
     assert finding.observed["has_checkpoint"] is True
 
 
@@ -443,7 +450,147 @@ def test_scenario_z_fixture_no_fail_and_honest_unknowns(contracts_dir, code_dir)
     # The contract declares reliability.idempotent: false, so the honest
     # non-idempotent implementation must NOT be reported as a contract mismatch.
     assert not [f for f in res.all_findings if f.rule_id == "RER-IDM-003"]
-    # No watermark and no upsert: late data is UNKNOWN, never a fabricated PASS.
+    # No watermark and no upsert: late data is UNKNOWN, never a false PASS.
     late = res.scenarios[RerunScenarioKind.LATE_ARRIVING_DATA.value]
     assert late.status == CheckpointStatus.UNKNOWN
     assert not late.findings
+
+
+# =============================================================================
+# Hardened Regression Tests A through J (Requirement 6)
+# =============================================================================
+
+
+def test_regression_a_merge_id_key_no_uniqueness_unknown():
+    """6A: MERGE with id-like key but no uniqueness/dedup evidence -> UNKNOWN/WARN."""
+    code = """
+from delta.tables import DeltaTable
+target = DeltaTable.forName(spark, "users")
+target.alias("t").merge(df.alias("s"), "t.id = s.id").whenMatchedUpdateAll().execute()
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.SAME_INPUT.value]
+    assert sc.status in (CheckpointStatus.UNKNOWN, CheckpointStatus.WARN)
+    assert any(f.rule_id == "RER-IDM-004" for f in sc.findings)
+    assert res.idempotency.dimensions[IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY.value].status == CheckpointStatus.UNKNOWN
+
+
+def test_regression_b_merge_explicit_dedup_stronger_status():
+    """6B: MERGE with explicit deduplication on key -> stronger status (PASS)."""
+    code = """
+from delta.tables import DeltaTable
+df_clean = df.dropDuplicates(["id"])
+target = DeltaTable.forName(spark, "users")
+target.alias("t").merge(df_clean.alias("s"), "t.id = s.id").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.SAME_INPUT.value]
+    assert sc.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-IDM-002" for f in sc.findings)
+    assert res.idempotency.dimensions[IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY.value].status == CheckpointStatus.PASS
+
+
+def test_regression_c_checkpoint_alone_not_automatic_input_pass():
+    """6C: Checkpoint alone -> not automatic input-idempotency PASS (UNKNOWN)."""
+    code = """
+df = spark.read.table("stream_in")
+df.write.option("checkpointLocation", "/tmp/cp").saveAsTable("out")
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.INCREMENTAL_INPUT.value]
+    assert sc.status == CheckpointStatus.UNKNOWN
+    assert any(f.rule_id == "RER-INC-002" for f in sc.findings)
+    assert res.idempotency.dimensions[IdempotencyDimension.INPUT_IDEMPOTENCY.value].status == CheckpointStatus.UNKNOWN
+
+
+def test_regression_d_checkpoint_with_boundary_stronger_status():
+    """6D: Checkpoint + actual incremental boundary -> stronger status (PASS)."""
+    code = """
+df = spark.readStream.table("stream_in").filter("event_time >= current_date()")
+df.writeStream.option("checkpointLocation", "/tmp/cp").start()
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.INCREMENTAL_INPUT.value]
+    assert sc.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-INC-001" for f in sc.findings)
+    assert res.idempotency.dimensions[IdempotencyDimension.INPUT_IDEMPOTENCY.value].status == CheckpointStatus.PASS
+
+
+def test_regression_e_watermark_evidence_not_blanket_correctness():
+    """6E: Watermark -> late-data evidence but not blanket correctness."""
+    code = """
+df = spark.readStream.table("events").withWatermark("timestamp", "15 minutes")
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.LATE_ARRIVING_DATA.value]
+    assert sc.status == CheckpointStatus.PASS
+    finding = next(f for f in sc.findings if f.rule_id == "RER-LATE-001")
+    assert finding.observed["has_watermark"] is True
+    assert finding.observed["blanket_correctness"] is False
+
+
+def test_regression_f_merge_alone_not_blanket_late_data_pass():
+    """6F: MERGE alone -> not blanket late-data PASS (UNKNOWN)."""
+    code = """
+from delta.tables import DeltaTable
+target = DeltaTable.forName(spark, "users")
+target.alias("t").merge(df.alias("s"), "t.id = s.id").whenMatchedUpdateAll().execute()
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.LATE_ARRIVING_DATA.value]
+    assert sc.status == CheckpointStatus.UNKNOWN
+    assert any(f.rule_id == "RER-LATE-003" for f in sc.findings)
+
+
+def test_regression_g_overwrite_full_table_destructive_replacement_not_actual_loss():
+    """6G: Overwrite full-table -> potential destructive replacement, not actual loss."""
+    code = """
+df = spark.read.table("in").filter("created_at >= '2026-01-01'")
+df.write.mode("overwrite").saveAsTable("unpartitioned_dest")
+"""
+    res = _analyze(code)
+    assert res.data_loss_risk.status == CheckpointStatus.WARN
+    finding = next(f for f in res.data_loss_risk.findings if f.rule_id == "RER-LOSS-001")
+    assert "potential data-loss risk" in finding.title.lower()
+    assert "actual loss" not in finding.title.lower()
+    assert "destructive replacement" in finding.description.lower()
+
+
+def test_regression_h_safe_complete_source_overwrite_non_failing():
+    """6H: Safe complete-source overwrite -> appropriate non-failing assessment (PASS)."""
+    code = """
+df = spark.read.table("complete_source")
+df.write.mode("overwrite").saveAsTable("derived_target")
+"""
+    res = _analyze(code)
+    assert res.data_loss_risk.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-LOSS-002" for f in res.data_loss_risk.findings)
+
+
+def test_regression_i_output_write_pass_concurrency_warn_overall_not_pass():
+    """6I: Output write PASS + concurrency WARN -> overall pipeline NOT PASS."""
+    code = """
+df = spark.read.table("source")
+df.write.mode("overwrite").saveAsTable("target_table")
+"""
+    ctx = {"job_config": {"settings": {"max_concurrent_runs": 4}}}
+    res = _analyze(code, ctx)
+    assert res.idempotency.dimensions[IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY.value].status == CheckpointStatus.PASS
+    assert res.idempotency.dimensions[IdempotencyDimension.CONCURRENT_EXECUTION_SAFETY.value].status == CheckpointStatus.WARN
+    assert res.idempotency.overall_status != CheckpointStatus.PASS
+    assert res.idempotency.overall_status == CheckpointStatus.WARN
+    assert res.idempotency.is_idempotent is False
+
+
+def test_regression_j_output_write_pass_partial_failure_unknown_preserves_uncertainty():
+    """6J: Output write PASS + partial-failure UNKNOWN -> preserve uncertainty (UNKNOWN)."""
+    code = """
+df = spark.read.table("source")
+df.write.mode("overwrite").saveAsTable("unpartitioned_dest")
+"""
+    ctx = {"job_config": {"settings": {"max_concurrent_runs": 1, "max_retries": 0}}}
+    res = _analyze(code, ctx)
+    assert res.idempotency.dimensions[IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY.value].status == CheckpointStatus.PASS
+    assert res.idempotency.dimensions[IdempotencyDimension.PARTIAL_FAILURE_RECOVERY.value].status == CheckpointStatus.UNKNOWN
+    assert res.idempotency.overall_status == CheckpointStatus.UNKNOWN
+    assert res.idempotency.is_idempotent is None

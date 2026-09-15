@@ -91,7 +91,12 @@ class RerunIdempotencyAnalyzer:
         self.has_offset: bool = False
         self.has_watermark: bool = False
         self.has_lookback: bool = False
+        self.has_source_filter: bool = False
+        self.merge_condition_detected: bool = False
+        self.merge_key_detected: bool = False
         self.merge_key_stable: bool | None = None
+        self.merge_key_unique: bool = False
+        self.source_duplicate_protection: bool = False
         self.merge_condition: str = ""
 
         self._extract_code_features()
@@ -106,24 +111,29 @@ class RerunIdempotencyAnalyzer:
             drop_ops = self.code.of_type(OperationType.DROP_DUPLICATES, OperationType.DISTINCT)
             if drop_ops:
                 self.has_deduplication = True
+                self.source_duplicate_protection = True
 
         if "dropduplicates" in source_lower or "drop_duplicates" in source_lower:
             self.has_deduplication = True
+            self.source_duplicate_protection = True
         if ".distinct(" in source_lower:
             self.has_deduplication = True
+            self.source_duplicate_protection = True
 
         if self.sql_analysis:
             for q in self.sql_analysis.queries:
                 if q.distinct:
                     self.has_deduplication = True
+                    self.source_duplicate_protection = True
                 # Detect ROW_NUMBER() / RANK() deduplication filter
                 for w in q.windows:
                     if w.function.upper() in ("ROW_NUMBER", "RANK", "DENSE_RANK"):
                         for f in q.filters:
                             if "1" in f.expression:
                                 self.has_deduplication = True
+                                self.source_duplicate_protection = True
 
-        # 2. Incremental filtering, watermarks, checkpoints, offsets
+        # 2. Incremental filtering, watermarks, checkpoints, offsets, and source filters
         if WATERMARK_RE.search(source):
             self.has_watermark = True
         if CHECKPOINT_RE.search(source):
@@ -136,13 +146,18 @@ class RerunIdempotencyAnalyzer:
         if self.code:
             for op in self.code.of_type(OperationType.FILTER):
                 snippet = op.code
+                self.has_source_filter = True
                 if INCREMENTAL_FILTER_RE.search(snippet):
                     self.has_incremental_filter = True
             if self.code.of_type(OperationType.CHECKPOINT):
                 self.has_checkpoint = True
 
+        if ".filter(" in source_lower or ".where(" in source_lower or " where " in source_lower:
+            self.has_source_filter = True
+
         if self.sql_analysis:
             for f in self.sql_analysis.filters:
+                self.has_source_filter = True
                 if INCREMENTAL_FILTER_RE.search(f.expression):
                     self.has_incremental_filter = True
 
@@ -203,34 +218,77 @@ class RerunIdempotencyAnalyzer:
                 if "overwrite" in code_snippet:
                     self.is_overwrite = True
 
+    def _check_contract_uniqueness(self, cond: str) -> bool:
+        """Check if contract, data profile, or schema evidence establishes uniqueness for the merge key."""
+        profile = self.context.get("data_profile")
+        if profile and hasattr(profile, "schema_columns"):
+            for col in profile.schema_columns:
+                col_name = getattr(col, "name", "")
+                if col_name and col_name in cond:
+                    if getattr(col, "unique", False) or getattr(col, "primary_key", False):
+                        return True
+
+        if self.contract:
+            tgt = getattr(self.contract, "target", None)
+            if tgt:
+                tgt_schema = getattr(tgt, "schema_text", "") or getattr(tgt, "schema", "")
+                if isinstance(tgt_schema, str) and ("primary key" in tgt_schema.lower() or "unique" in tgt_schema.lower()):
+                    return True
+            rel = getattr(self.contract, "reliability", None)
+            if rel and getattr(rel, "unique_keys", None):
+                return True
+
+        source_lower = self.raw_source.lower()
+        if "primary key" in source_lower or "add constraint" in source_lower or "unique key" in source_lower:
+            return True
+
+        return False
+
+    def _evaluate_merge_condition(self, cond: str) -> None:
+        """Evaluate key detection, stability, uniqueness, and duplicate protection."""
+        self.merge_condition_detected = True
+        self.merge_condition = cond
+
+        if STABLE_KEY_RE.search(cond):
+            self.merge_key_detected = True
+        else:
+            self.merge_key_detected = False
+
+        if "=" in cond and not any(op in cond for op in ("!=", "<>", "<=", ">=", "<", ">", " rand(", " uuid()")):
+            self.merge_key_stable = True
+        else:
+            self.merge_key_stable = False if self.merge_key_detected else None
+
+        if self.has_deduplication:
+            self.source_duplicate_protection = True
+
+        if self._check_contract_uniqueness(cond):
+            self.merge_key_unique = True
+
     def _evaluate_deltatable_merge(self, source: str) -> None:
-        """Inspect DeltaTable merge condition and key stability."""
+        """Inspect DeltaTable merge condition and key safety."""
         merge_match = re.search(r"\.merge\s*\(([^,]+),\s*([^)]+)\)", source)
         if merge_match:
             cond = merge_match.group(2).strip().strip("'\"")
-            self.merge_condition = cond
-            # If condition matches a known ID pattern, consider key stable
-            if STABLE_KEY_RE.search(cond):
-                self.merge_key_stable = True
-            else:
-                self.merge_key_stable = False
+            self._evaluate_merge_condition(cond)
         else:
-            # Merge present without parseable condition
+            self.merge_condition_detected = True
             self.merge_key_stable = None
+            self.merge_key_detected = False
 
     def _evaluate_sql_merge(self, source: str) -> None:
-        """Inspect SQL MERGE statement condition and key stability."""
-        on_match = re.search(r"(?i)merge\s+into\s+[^\s]+\s+(?:as\s+[^\s]+\s+)?using\s+[^\s]+\s+(?:as\s+[^\s]+\s+)?on\s+([^;\n]+)", source)
+        """Inspect SQL MERGE statement condition and key safety."""
+        on_match = re.search(
+            r"(?i)merge\s+into\s+[^\s]+\s+(?:as\s+[^\s]+\s+)?using\s+[^\s]+\s+(?:as\s+[^\s]+\s+)?on\s+([^;\n]+)",
+            source,
+        )
         if on_match:
             cond = on_match.group(1).strip()
-            self.merge_condition = cond
-            if STABLE_KEY_RE.search(cond):
-                self.merge_key_stable = True
-            else:
-                self.merge_key_stable = False
+            self._evaluate_merge_condition(cond)
         else:
-            if self.merge_key_stable is None:
-                self.merge_key_stable = None
+            self.merge_condition_detected = True
+            self.merge_key_stable = None
+            self.merge_key_detected = False
 
     def analyze(self) -> RerunAnalysisResult:
         """Run full deterministic M5F forensic analysis."""
@@ -361,7 +419,12 @@ class RerunIdempotencyAnalyzer:
             )
 
         if self.is_merge:
-            if self.merge_key_stable is True:
+            # Strong evidence for PASS requires: key detected + stable equality + (key unique OR source deduplication)
+            if (
+                self.merge_key_detected
+                and self.merge_key_stable
+                and (self.merge_key_unique or self.source_duplicate_protection)
+            ):
                 finding = RerunFinding(
                     finding_id="RER-IDM-002-SAME",
                     rule_id="RER-IDM-002",
@@ -369,13 +432,27 @@ class RerunIdempotencyAnalyzer:
                     scenario=RerunScenarioKind.SAME_INPUT,
                     severity=Severity.INFO,
                     status=CheckpointStatus.PASS,
-                    title="Idempotent MERGE write with stable key evidence",
-                    description="Pipeline executes MERGE with stable unique key matching, ensuring safe same-input rerun idempotency.",
-                    evidence=[f"Condition: {self.merge_condition}", "Stable identifier key detected"],
-                    observed={"merge_condition": self.merge_condition, "key_stable": True},
-                    expected={"merge_key_stability": True},
+                    title="Idempotent MERGE write with verified key uniqueness/deduplication",
+                    description=(
+                        "Pipeline executes MERGE with stable unique key matching backed by verified key uniqueness "
+                        "or explicit source deduplication, ensuring safe same-input rerun idempotency."
+                    ),
+                    evidence=[
+                        f"MERGE condition: {self.merge_condition}",
+                        "Key expression detected: True",
+                        f"Source deduplication: {self.source_duplicate_protection}",
+                        f"Contract key uniqueness: {self.merge_key_unique}",
+                    ],
+                    observed={
+                        "merge_condition": self.merge_condition,
+                        "key_detected": True,
+                        "key_stable": True,
+                        "source_duplicate_protection": self.source_duplicate_protection,
+                        "key_unique": self.merge_key_unique,
+                    },
+                    expected={"idempotent_merge_evidence": True},
                     recommendation="",
-                    confidence=0.9,
+                    confidence=0.95,
                     provenance=EvidenceProvenanceKind.STATIC_CODE,
                 )
                 findings.append(finding)
@@ -383,40 +460,89 @@ class RerunIdempotencyAnalyzer:
                     scenario=RerunScenarioKind.SAME_INPUT,
                     status=CheckpointStatus.PASS,
                     severity=Severity.INFO,
-                    risk_summary="Idempotent: MERGE condition with stable keys prevents duplicate generation on rerun.",
+                    risk_summary="Idempotent: MERGE condition with stable keys and deduplication/uniqueness prevents duplicate generation on rerun.",
                     findings=findings,
                     evidence=[f"MERGE condition: {self.merge_condition}"],
-                    observed={"merge_condition": self.merge_condition, "key_stable": True},
+                    observed={
+                        "merge_condition": self.merge_condition,
+                        "key_stable": True,
+                        "key_unique_or_deduped": True,
+                    },
                     expected={"idempotent_write": True},
                 )
-            else:
-                # Merge condition unverified or missing key stability
+            elif self.merge_key_detected:
+                # Key expression detected (e.g. t.id = s.id), but NO uniqueness/deduplication evidence!
+                # Must NOT automatically be PASS -> UNKNOWN
                 finding = RerunFinding(
                     finding_id="RER-IDM-004-SAME",
                     rule_id="RER-IDM-004",
                     dimension=IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY,
                     scenario=RerunScenarioKind.SAME_INPUT,
                     severity=Severity.MEDIUM,
-                    status=CheckpointStatus.WARN if self.merge_key_stable is False else CheckpointStatus.UNKNOWN,
-                    title="MERGE write with unknown or unverified key safety",
-                    description="Pipeline utilizes MERGE, but key uniqueness or stability cannot be established from code evidence.",
-                    evidence=[f"Condition: {self.merge_condition or 'unknown'}"],
-                    observed={"merge_condition": self.merge_condition, "key_stable": self.merge_key_stable},
-                    expected={"merge_key_stability": True},
-                    recommendation="Ensure MERGE key is a unique primary key and source dataset is deduplicated before merge.",
-                    confidence=0.7,
+                    status=CheckpointStatus.UNKNOWN,
+                    title="MERGE write without verified key uniqueness or source deduplication",
+                    description=(
+                        f"MERGE condition contains key expression ('{self.merge_condition}'), but neither contract key "
+                        "uniqueness nor source deduplication is established. If source data contains duplicate keys, "
+                        "MERGE behavior is non-deterministic or will raise duplicate match runtime errors."
+                    ),
+                    evidence=[
+                        f"MERGE condition: {self.merge_condition}",
+                        "Key expression detected: True",
+                        "Source deduplication: False",
+                        "Contract key uniqueness: False",
+                    ],
+                    observed={
+                        "merge_condition": self.merge_condition,
+                        "key_detected": True,
+                        "key_stable": self.merge_key_stable,
+                        "source_duplicate_protection": False,
+                        "key_unique": False,
+                    },
+                    expected={"merge_key_uniqueness_or_deduplication": True},
+                    recommendation="Enforce dropDuplicates on the merge key in source dataset or establish unique key contract constraint.",
+                    confidence=0.75,
                     provenance=EvidenceProvenanceKind.STATIC_CODE,
                 )
                 findings.append(finding)
                 return ScenarioAssessment(
                     scenario=RerunScenarioKind.SAME_INPUT,
-                    status=finding.status,
+                    status=CheckpointStatus.UNKNOWN,
                     severity=Severity.MEDIUM,
-                    risk_summary="MERGE key safety cannot be established; potential duplicate or merge collision risk.",
+                    risk_summary="MERGE key detected, but uniqueness/deduplication evidence is missing; idempotency cannot be guaranteed.",
+                    findings=findings,
+                    evidence=[f"MERGE condition: {self.merge_condition}"],
+                    observed={"key_stable": self.merge_key_stable, "key_unique_or_deduped": False},
+                    expected={"key_stable": True, "key_unique_or_deduped": True},
+                )
+            else:
+                # Merge condition lacks stable identifier key
+                finding = RerunFinding(
+                    finding_id="RER-IDM-004-SAME",
+                    rule_id="RER-IDM-004",
+                    dimension=IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY,
+                    scenario=RerunScenarioKind.SAME_INPUT,
+                    severity=Severity.MEDIUM,
+                    status=CheckpointStatus.WARN,
+                    title="MERGE write with unknown or non-identifier key condition",
+                    description=f"Pipeline utilizes MERGE, but condition ('{self.merge_condition or 'unknown'}') lacks an identifier key; merge collision or duplicate risk.",
+                    evidence=[f"Condition: {self.merge_condition or 'unknown'}"],
+                    observed={"merge_condition": self.merge_condition, "key_detected": False},
+                    expected={"merge_key_detected": True},
+                    recommendation="Ensure MERGE joins on a unique primary key column.",
+                    confidence=0.8,
+                    provenance=EvidenceProvenanceKind.STATIC_CODE,
+                )
+                findings.append(finding)
+                return ScenarioAssessment(
+                    scenario=RerunScenarioKind.SAME_INPUT,
+                    status=CheckpointStatus.WARN,
+                    severity=Severity.MEDIUM,
+                    risk_summary="MERGE key condition lacks stable identifier; collision or duplicate risk.",
                     findings=findings,
                     evidence=[f"MERGE condition: {self.merge_condition or 'unknown'}"],
-                    observed={"key_stable": self.merge_key_stable},
-                    expected={"key_stable": True},
+                    observed={"key_detected": False},
+                    expected={"key_detected": True},
                 )
 
         if self.is_overwrite:
@@ -462,15 +588,59 @@ class RerunIdempotencyAnalyzer:
     def _analyze_incremental_input(self) -> ScenarioAssessment:
         findings: list[RerunFinding] = []
 
-        has_inc = self.has_incremental_filter or self.has_checkpoint or self.has_offset
-        if has_inc:
+        has_boundary = self.has_incremental_filter or self.has_offset or self.has_watermark
+
+        if has_boundary and self.has_checkpoint:
             ev_list = []
             if self.has_incremental_filter:
                 ev_list.append("Incremental predicate / timestamp filter detected")
-            if self.has_checkpoint:
-                ev_list.append("Checkpointing mechanism detected")
             if self.has_offset:
                 ev_list.append("Offset / stream tracking detected")
+            if self.has_watermark:
+                ev_list.append("Watermark lateness boundary detected")
+            ev_list.append("Checkpointing mechanism detected for recovery tracking")
+
+            finding = RerunFinding(
+                finding_id="RER-INC-001",
+                rule_id="RER-INC-001",
+                dimension=IdempotencyDimension.INPUT_IDEMPOTENCY,
+                scenario=RerunScenarioKind.INCREMENTAL_INPUT,
+                severity=Severity.INFO,
+                status=CheckpointStatus.PASS,
+                title="Incremental processing boundary verified with checkpoint tracking",
+                description="Pipeline establishes verified input boundaries using predicates/offsets/watermarks and maintains resilient checkpoint progress tracking.",
+                evidence=ev_list,
+                observed={
+                    "has_incremental_filter": self.has_incremental_filter,
+                    "has_offset": self.has_offset,
+                    "has_watermark": self.has_watermark,
+                    "has_checkpoint": True,
+                },
+                expected={"incremental_boundary_protection": True},
+                recommendation="",
+                confidence=0.9,
+                provenance=EvidenceProvenanceKind.STATIC_CODE,
+            )
+            findings.append(finding)
+            return ScenarioAssessment(
+                scenario=RerunScenarioKind.INCREMENTAL_INPUT,
+                status=CheckpointStatus.PASS,
+                severity=Severity.INFO,
+                risk_summary="Stable incremental boundaries identified.",
+                findings=findings,
+                evidence=ev_list,
+                observed={"incremental_boundary": True, "has_checkpoint": True},
+                expected={"incremental_boundary": True},
+            )
+
+        if has_boundary and not self.has_checkpoint:
+            ev_list = []
+            if self.has_incremental_filter:
+                ev_list.append("Incremental predicate / timestamp filter detected")
+            if self.has_offset:
+                ev_list.append("Offset / stream tracking detected")
+            if self.has_watermark:
+                ev_list.append("Watermark lateness boundary detected")
 
             finding = RerunFinding(
                 finding_id="RER-INC-001",
@@ -480,9 +650,14 @@ class RerunIdempotencyAnalyzer:
                 severity=Severity.INFO,
                 status=CheckpointStatus.PASS,
                 title="Incremental processing boundaries detected",
-                description="Pipeline establishes stable input boundaries using predicates, offsets, or checkpoints.",
+                description="Pipeline establishes stable input boundaries using predicates, offsets, or watermarks.",
                 evidence=ev_list,
-                observed={"has_incremental_filter": self.has_incremental_filter, "has_checkpoint": self.has_checkpoint, "has_offset": self.has_offset},
+                observed={
+                    "has_incremental_filter": self.has_incremental_filter,
+                    "has_offset": self.has_offset,
+                    "has_watermark": self.has_watermark,
+                    "has_checkpoint": False,
+                },
                 expected={"incremental_boundary_protection": True},
                 recommendation="",
                 confidence=0.85,
@@ -496,7 +671,42 @@ class RerunIdempotencyAnalyzer:
                 risk_summary="Stable incremental boundaries identified.",
                 findings=findings,
                 evidence=ev_list,
-                observed={"incremental_boundary": True},
+                observed={"incremental_boundary": True, "has_checkpoint": False},
+                expected={"incremental_boundary": True},
+            )
+
+        if self.has_checkpoint and not has_boundary:
+            # Checkpoint alone!
+            # Must NOT automatically establish idempotent input processing -> UNKNOWN
+            finding = RerunFinding(
+                finding_id="RER-INC-002",
+                rule_id="RER-INC-002",
+                dimension=IdempotencyDimension.INPUT_IDEMPOTENCY,
+                scenario=RerunScenarioKind.INCREMENTAL_INPUT,
+                severity=Severity.INFO,
+                status=CheckpointStatus.UNKNOWN,
+                title="Checkpoint detected without established incremental input boundary",
+                description=(
+                    "Checkpointing mechanism detected for state and recovery tracking, but an explicit incremental input "
+                    "boundary (predicate, offset, or watermark) could not be established statically. "
+                    "Rerun input boundary cannot be confirmed idempotent."
+                ),
+                evidence=["Checkpointing mechanism detected", "No incremental predicates, offsets, or watermarks found"],
+                observed={"has_checkpoint": True, "has_incremental_boundary": False},
+                expected={"incremental_boundary_established": True},
+                recommendation="Establish explicit incremental filtering or offset bounding alongside checkpointing.",
+                confidence=0.8,
+                provenance=EvidenceProvenanceKind.STATIC_CODE,
+            )
+            findings.append(finding)
+            return ScenarioAssessment(
+                scenario=RerunScenarioKind.INCREMENTAL_INPUT,
+                status=CheckpointStatus.UNKNOWN,
+                severity=Severity.INFO,
+                risk_summary="Checkpoint detected for recovery tracking, but actual incremental rerun boundary cannot be established.",
+                findings=findings,
+                evidence=finding.evidence,
+                observed={"has_checkpoint": True, "has_incremental_boundary": False},
                 expected={"incremental_boundary": True},
             )
 
@@ -539,7 +749,12 @@ class RerunIdempotencyAnalyzer:
                 expected={},
             )
 
-        if self.has_deduplication or (self.is_merge and self.merge_key_stable is True):
+        if self.has_deduplication or (
+            self.is_merge
+            and self.merge_key_detected
+            and self.merge_key_stable
+            and (self.merge_key_unique or self.source_duplicate_protection)
+        ):
             finding = RerunFinding(
                 finding_id="RER-DUP-003",
                 rule_id="RER-DUP-003",
@@ -548,9 +763,13 @@ class RerunIdempotencyAnalyzer:
                 severity=Severity.INFO,
                 status=CheckpointStatus.PASS,
                 title="Overlapping input safely handled via deduplication or merge",
-                description="Pipeline protects against duplicate ingestion from overlapping input windows via explicit deduplication or idempotent merge.",
-                evidence=["Deduplication (dropDuplicates/distinct) or stable MERGE present"],
-                observed={"has_deduplication": self.has_deduplication, "is_merge": self.is_merge},
+                description="Pipeline protects against duplicate ingestion from overlapping input windows via explicit deduplication or verified idempotent merge.",
+                evidence=["Deduplication (dropDuplicates/distinct) or verified unique MERGE present"],
+                observed={
+                    "has_deduplication": self.has_deduplication,
+                    "is_merge": self.is_merge,
+                    "key_unique_or_deduped": True,
+                },
                 expected={"overlap_protection": True},
                 recommendation="",
                 confidence=0.9,
@@ -566,6 +785,35 @@ class RerunIdempotencyAnalyzer:
                 evidence=finding.evidence,
                 observed={"protected": True},
                 expected={"protected": True},
+            )
+
+        if self.is_merge and self.merge_key_detected and not (self.merge_key_unique or self.source_duplicate_protection):
+            finding = RerunFinding(
+                finding_id="RER-DUP-005",
+                rule_id="RER-DUP-005",
+                dimension=IdempotencyDimension.TRANSFORMATION_IDEMPOTENCY,
+                scenario=RerunScenarioKind.OVERLAPPING_INPUT,
+                severity=Severity.MEDIUM,
+                status=CheckpointStatus.UNKNOWN,
+                title="Overlapping input safety unverified: MERGE key uniqueness unproven",
+                description="Pipeline uses MERGE for writes, but source deduplication or target key uniqueness is unverified; overlapping input records may cause merge collisions or duplicate inserts.",
+                evidence=[f"MERGE condition: {self.merge_condition}", "Source deduplication unverified"],
+                observed={"is_merge": True, "key_unique_or_deduped": False},
+                expected={"key_unique_or_deduped": True},
+                recommendation="Enforce dropDuplicates on merge key before merging overlapping input.",
+                confidence=0.75,
+                provenance=EvidenceProvenanceKind.STATIC_CODE,
+            )
+            findings.append(finding)
+            return ScenarioAssessment(
+                scenario=RerunScenarioKind.OVERLAPPING_INPUT,
+                status=CheckpointStatus.UNKNOWN,
+                severity=Severity.MEDIUM,
+                risk_summary="Overlapping input: MERGE key uniqueness unproven; potential merge collision.",
+                findings=findings,
+                evidence=finding.evidence,
+                observed={"key_unique_or_deduped": False},
+                expected={"key_unique_or_deduped": True},
             )
 
         if self.is_append and not self.has_deduplication:
@@ -623,7 +871,10 @@ class RerunIdempotencyAnalyzer:
                 expected={},
             )
 
-        if self.is_merge or (self.is_overwrite and self.is_partitioned_write):
+        if (
+            (self.is_merge and self.merge_key_detected and self.merge_key_stable and (self.merge_key_unique or self.source_duplicate_protection))
+            or (self.is_overwrite and self.is_partitioned_write)
+        ):
             finding = RerunFinding(
                 finding_id="RER-RET-004",
                 rule_id="RER-RET-004",
@@ -632,7 +883,7 @@ class RerunIdempotencyAnalyzer:
                 severity=Severity.INFO,
                 status=CheckpointStatus.PASS,
                 title="Transactional write supports safe partial failure recovery",
-                description="Pipeline uses ACID transactional MERGE or partitioned OVERWRITE, preventing uncommitted or duplicate state on partial failure recovery.",
+                description="Pipeline uses ACID transactional MERGE with verified keys or partitioned OVERWRITE, preventing uncommitted or duplicate state on partial failure recovery.",
                 evidence=[f"Write semantics: {', '.join(self.write_modes)}"],
                 observed={"write_modes": self.write_modes},
                 expected={"transactional_recovery": True},
@@ -760,7 +1011,12 @@ class RerunIdempotencyAnalyzer:
                     expected={"retry_safe": True},
                 )
 
-            if self.is_merge and self.merge_key_stable is True:
+            if (
+                self.is_merge
+                and self.merge_key_detected
+                and self.merge_key_stable
+                and (self.merge_key_unique or self.source_duplicate_protection)
+            ):
                 finding = RerunFinding(
                     finding_id="RER-RET-002",
                     rule_id="RER-RET-002",
@@ -769,9 +1025,13 @@ class RerunIdempotencyAnalyzer:
                     severity=Severity.INFO,
                     status=CheckpointStatus.PASS,
                     title="Job retry is safe with idempotent MERGE write",
-                    description=f"Job retries ({retries}) backed by idempotent MERGE with stable identifier keys.",
-                    evidence=[f"max_retries: {retries}", f"MERGE condition: {self.merge_condition}"],
-                    observed={"max_retries": retries, "is_merge": True, "key_stable": True},
+                    description=f"Job retries ({retries}) backed by idempotent MERGE with verified key uniqueness or source deduplication.",
+                    evidence=[
+                        f"max_retries: {retries}",
+                        f"MERGE condition: {self.merge_condition}",
+                        "Verified key uniqueness or source deduplication: True",
+                    ],
+                    observed={"max_retries": retries, "is_merge": True, "key_unique_or_deduped": True},
                     expected={"retry_safe": True},
                     recommendation="",
                     confidence=0.9,
@@ -782,14 +1042,14 @@ class RerunIdempotencyAnalyzer:
                     scenario=RerunScenarioKind.JOB_RETRY,
                     status=CheckpointStatus.PASS,
                     severity=Severity.INFO,
-                    risk_summary="Retry-safe: MERGE with stable keys allows safe automatic job retries.",
+                    risk_summary="Retry-safe: MERGE with verified keys allows safe automatic job retries.",
                     findings=findings,
                     evidence=finding.evidence,
                     observed={"max_retries": retries, "retry_safe": True},
                     expected={"retry_safe": True},
                 )
 
-            if self.is_merge and self.merge_key_stable is not True:
+            if self.is_merge:
                 finding = RerunFinding(
                     finding_id="RER-RET-003",
                     rule_id="RER-RET-003",
@@ -798,11 +1058,11 @@ class RerunIdempotencyAnalyzer:
                     severity=Severity.MEDIUM,
                     status=CheckpointStatus.WARN,
                     title="Job retry with unverified MERGE key safety",
-                    description=f"Job retries ({retries}) enabled with MERGE, but key uniqueness cannot be guaranteed statically.",
+                    description=f"Job retries ({retries}) enabled with MERGE, but key uniqueness or source deduplication cannot be guaranteed statically.",
                     evidence=[f"max_retries: {retries}", f"MERGE condition: {self.merge_condition or 'unknown'}"],
-                    observed={"max_retries": retries, "is_merge": True, "key_stable": False},
-                    expected={"merge_key_stable": True},
-                    recommendation="Verify unique constraints on MERGE target keys.",
+                    observed={"max_retries": retries, "is_merge": True, "key_unique_or_deduped": False},
+                    expected={"merge_key_unique_or_deduped": True},
+                    recommendation="Verify unique constraints on MERGE target keys or deduplicate source before merge.",
                     confidence=0.7,
                     provenance=EvidenceProvenanceKind.STATIC_CODE,
                 )
@@ -925,15 +1185,8 @@ class RerunIdempotencyAnalyzer:
     def _analyze_late_arriving_data(self) -> ScenarioAssessment:
         findings: list[RerunFinding] = []
 
-        if self.has_watermark or self.has_lookback or (self.is_merge and self.merge_key_stable is True):
-            reasons = []
-            if self.has_watermark:
-                reasons.append("Watermark handling (.withWatermark) configured")
-            if self.has_lookback:
-                reasons.append("Lookback window / date range buffer detected")
-            if self.is_merge:
-                reasons.append("Idempotent MERGE updates existing records regardless of arrival order")
-
+        if self.has_watermark:
+            reasons = ["Watermark handling (.withWatermark) configured for event-time lateness tracking"]
             finding = RerunFinding(
                 finding_id="RER-LATE-001",
                 rule_id="RER-LATE-001",
@@ -941,10 +1194,14 @@ class RerunIdempotencyAnalyzer:
                 scenario=RerunScenarioKind.LATE_ARRIVING_DATA,
                 severity=Severity.INFO,
                 status=CheckpointStatus.PASS,
-                title="Late-arriving data handled via watermark, lookback, or upsert",
-                description="Pipeline provides explicit handling for out-of-order or late-arriving records.",
+                title="Event-time lateness threshold detected via watermark",
+                description=(
+                    "Pipeline defines watermark threshold (.withWatermark) for streaming event-time lateness handling. "
+                    "Events arriving within the watermark window are processed, but unconstrained late data beyond the threshold "
+                    "is dropped by streaming semantics."
+                ),
                 evidence=reasons,
-                observed={"has_watermark": self.has_watermark, "has_lookback": self.has_lookback, "is_merge": self.is_merge},
+                observed={"has_watermark": True, "blanket_correctness": False},
                 expected={"late_data_handling": True},
                 recommendation="",
                 confidence=0.85,
@@ -955,14 +1212,115 @@ class RerunIdempotencyAnalyzer:
                 scenario=RerunScenarioKind.LATE_ARRIVING_DATA,
                 status=CheckpointStatus.PASS,
                 severity=Severity.INFO,
-                risk_summary="Late-arriving data handling strategy detected.",
+                risk_summary="Streaming event-time lateness handled up to configured watermark threshold.",
                 findings=findings,
                 evidence=reasons,
-                observed={"handled": True},
+                observed={"has_watermark": True, "blanket_correctness": False},
                 expected={"handled": True},
             )
 
-        # In accordance with specification: Missing evidence must remain UNKNOWN (never FAIL unless contract specifically requires it)
+        if self.has_lookback:
+            if self.has_deduplication or (self.is_merge and self.merge_key_detected):
+                reasons = ["Lookback window / date range buffer detected", "Deduplication or upsert write in place"]
+                finding = RerunFinding(
+                    finding_id="RER-LATE-002",
+                    rule_id="RER-LATE-002",
+                    dimension=IdempotencyDimension.LATE_DATA_HANDLING,
+                    scenario=RerunScenarioKind.LATE_ARRIVING_DATA,
+                    severity=Severity.INFO,
+                    status=CheckpointStatus.PASS,
+                    title="Late-data capture window protected by deduplication or upsert",
+                    description=(
+                        "Pipeline applies lookback window to capture late-arriving records, backed by deduplication "
+                        "or upsert write semantics to prevent duplicate insertion."
+                    ),
+                    evidence=reasons,
+                    observed={"has_lookback": True, "dedup_or_upsert": True},
+                    expected={"late_data_handling": True},
+                    recommendation="",
+                    confidence=0.85,
+                    provenance=EvidenceProvenanceKind.STATIC_CODE,
+                )
+                findings.append(finding)
+                return ScenarioAssessment(
+                    scenario=RerunScenarioKind.LATE_ARRIVING_DATA,
+                    status=CheckpointStatus.PASS,
+                    severity=Severity.INFO,
+                    risk_summary="Protected: lookback window captures late data with deduplication/upsert protection.",
+                    findings=findings,
+                    evidence=reasons,
+                    observed={"handled": True},
+                    expected={"handled": True},
+                )
+            elif self.is_append and not self.has_deduplication:
+                reasons = ["Lookback window detected with APPEND write mode", "No deduplication protection"]
+                finding = RerunFinding(
+                    finding_id="RER-LATE-004",
+                    rule_id="RER-LATE-004",
+                    dimension=IdempotencyDimension.LATE_DATA_HANDLING,
+                    scenario=RerunScenarioKind.LATE_ARRIVING_DATA,
+                    severity=Severity.MEDIUM,
+                    status=CheckpointStatus.WARN,
+                    title="Potential duplicate-data risk: lookback window with append write",
+                    description=(
+                        "Pipeline applies lookback window to capture late-arriving records but uses APPEND write mode "
+                        "without deduplication; records in the lookback window will be duplicated on rerun."
+                    ),
+                    evidence=reasons,
+                    observed={"has_lookback": True, "write_mode": "APPEND", "has_deduplication": False},
+                    expected={"deduplication_on_lookback": True},
+                    recommendation="Add dropDuplicates on primary keys or use MERGE when querying lookback windows.",
+                    confidence=0.85,
+                    provenance=EvidenceProvenanceKind.STATIC_CODE,
+                )
+                findings.append(finding)
+                return ScenarioAssessment(
+                    scenario=RerunScenarioKind.LATE_ARRIVING_DATA,
+                    status=CheckpointStatus.WARN,
+                    severity=Severity.MEDIUM,
+                    risk_summary="Potential duplicate-data risk: lookback window with append write duplicates overlapping records.",
+                    findings=findings,
+                    evidence=reasons,
+                    observed={"handled": False},
+                    expected={"handled": True},
+                )
+
+        if self.is_merge:
+            # MERGE alone without watermark or lookback
+            # Must NOT be blanket late-data PASS -> UNKNOWN
+            reasons = ["MERGE provides upsert capability", "No watermark or lookback capture window detected"]
+            finding = RerunFinding(
+                finding_id="RER-LATE-003",
+                rule_id="RER-LATE-003",
+                dimension=IdempotencyDimension.LATE_DATA_HANDLING,
+                scenario=RerunScenarioKind.LATE_ARRIVING_DATA,
+                severity=Severity.INFO,
+                status=CheckpointStatus.UNKNOWN,
+                title="MERGE upsert capability detected; late-data boundary unverified",
+                description=(
+                    "Pipeline uses MERGE which provides upsert capability for out-of-order records, but event-time "
+                    "lateness boundary, arrival window, and out-of-order resolution are not established statically."
+                ),
+                evidence=reasons,
+                observed={"is_merge": True, "has_watermark": False, "has_lookback": False},
+                expected={"late_data_boundary_verified": True},
+                recommendation="Define an explicit watermark or lookback window alongside MERGE.",
+                confidence=0.8,
+                provenance=EvidenceProvenanceKind.STATIC_CODE,
+            )
+            findings.append(finding)
+            return ScenarioAssessment(
+                scenario=RerunScenarioKind.LATE_ARRIVING_DATA,
+                status=CheckpointStatus.UNKNOWN,
+                severity=Severity.INFO,
+                risk_summary="MERGE upsert capability detected, but late-data boundary and ordering remain unverified.",
+                findings=findings,
+                evidence=reasons,
+                observed={"handled": False, "upsert_capable": True},
+                expected={"handled": True},
+            )
+
+        # In accordance with specification: Missing evidence must remain UNKNOWN
         return ScenarioAssessment(
             scenario=RerunScenarioKind.LATE_ARRIVING_DATA,
             status=CheckpointStatus.UNKNOWN,
@@ -1107,24 +1465,58 @@ class RerunIdempotencyAnalyzer:
         loss_findings: list[RerunFinding] = []
 
         if self.is_overwrite and not self.is_partitioned_write:
-            finding = RerunFinding(
-                finding_id="RER-LOSS-001",
-                rule_id="RER-LOSS-001",
-                dimension=IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY,
-                scenario=RerunScenarioKind.SAME_INPUT,
-                severity=Severity.MEDIUM,
-                status=CheckpointStatus.WARN,
-                title="Potential data-loss risk: unpartitioned full table overwrite",
-                description="Write uses OVERWRITE on an unpartitioned target; entire existing dataset is replaced destructively.",
-                evidence=["OVERWRITE mode without partition filters"],
-                observed={"write_mode": "OVERWRITE", "partitioned": False},
-                expected={"partition_isolated_overwrite": True},
-                recommendation="Partition target table or use dynamic partition replacement / MERGE.",
-                confidence=0.8,
-                provenance=EvidenceProvenanceKind.STATIC_CODE,
-            )
-            loss_findings.append(finding)
-            loss_sources.append("unpartitioned_full_table_overwrite")
+            # Check source completeness: filtered/incremental source vs complete source
+            is_partial_source = self.has_incremental_filter or self.has_offset or self.has_source_filter
+            if is_partial_source:
+                finding = RerunFinding(
+                    finding_id="RER-LOSS-001",
+                    rule_id="RER-LOSS-001",
+                    dimension=IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY,
+                    scenario=RerunScenarioKind.SAME_INPUT,
+                    severity=Severity.MEDIUM,
+                    status=CheckpointStatus.WARN,
+                    title="Potential data-loss risk: destructive replacement of unpartitioned target with partial source",
+                    description=(
+                        "Write uses OVERWRITE on an unpartitioned target with filtered or incremental source data. "
+                        "This presents a potential destructive replacement risk to existing historical data."
+                    ),
+                    evidence=[
+                        "OVERWRITE mode without partition filters",
+                        "Source read contains filters or incremental boundaries",
+                    ],
+                    observed={"write_mode": "OVERWRITE", "partitioned": False, "partial_source": True},
+                    expected={"partition_isolated_overwrite": True},
+                    recommendation="Scope overwrite to specific partitions or use dynamic partition replacement / MERGE.",
+                    confidence=0.8,
+                    provenance=EvidenceProvenanceKind.STATIC_CODE,
+                )
+                loss_findings.append(finding)
+                loss_sources.append("unpartitioned_partial_source_destructive_replacement")
+            else:
+                # Safe complete-source overwrite of a derived/rebuildable table
+                finding = RerunFinding(
+                    finding_id="RER-LOSS-002",
+                    rule_id="RER-LOSS-002",
+                    dimension=IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY,
+                    scenario=RerunScenarioKind.SAME_INPUT,
+                    severity=Severity.INFO,
+                    status=CheckpointStatus.PASS,
+                    title="Derived table complete rebuild via full overwrite",
+                    description=(
+                        "Destination table is completely regenerated from unfiltered source data via full table OVERWRITE. "
+                        "Safe rebuildable derived state without destructive partial replacement."
+                    ),
+                    evidence=[
+                        "Complete unfiltered source read",
+                        "OVERWRITE mode replaces rebuildable target table",
+                    ],
+                    observed={"write_mode": "OVERWRITE", "partitioned": False, "complete_source": True},
+                    expected={"rebuildable_target": True},
+                    recommendation="",
+                    confidence=0.85,
+                    provenance=EvidenceProvenanceKind.STATIC_CODE,
+                )
+                loss_findings.append(finding)
 
         if not loss_sources:
             if not self.raw_source.strip():
@@ -1138,7 +1530,7 @@ class RerunIdempotencyAnalyzer:
             return DataLossRiskAnalysis(
                 status=CheckpointStatus.PASS,
                 risk_level=Severity.INFO,
-                summary="No destructive replacement or data loss risk identified.",
+                summary="No destructive replacement or data-loss risk identified.",
                 potential_data_loss_sources=[],
                 findings=loss_findings,
             )
@@ -1146,7 +1538,7 @@ class RerunIdempotencyAnalyzer:
         return DataLossRiskAnalysis(
             status=CheckpointStatus.WARN,
             risk_level=Severity.MEDIUM,
-            summary="Potential data loss risk: unpartitioned overwrite replaces all existing destination records.",
+            summary="Potential data-loss risk: unpartitioned overwrite with filtered source presents potential destructive replacement risk.",
             potential_data_loss_sources=loss_sources,
             findings=loss_findings,
         )
@@ -1169,6 +1561,9 @@ class RerunIdempotencyAnalyzer:
             elif any(f.status == CheckpointStatus.WARN for f in dim_findings):
                 status = CheckpointStatus.WARN
                 max_sev = Severity.MEDIUM
+            elif any(f.status == CheckpointStatus.UNKNOWN for f in dim_findings):
+                status = CheckpointStatus.UNKNOWN
+                max_sev = Severity.INFO
             elif not dim_findings:
                 # Correlate with relevant scenario assessment if available
                 if dim == IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY:
@@ -1202,26 +1597,45 @@ class RerunIdempotencyAnalyzer:
                 findings=dim_findings,
             )
 
-        # Specification rule: Overall idempotency must NOT require every dimension to PASS.
-        # It fails if there is a blocking failure or contract mismatch.
-        # It warns if output write idempotency or retry warns.
-        # It passes if output write is idempotent (e.g. MERGE or overwrite) and no failures exist.
+        # 5. PIPELINE-LEVEL IDEMPOTENCY
+        # Separate OUTPUT_WRITE_IDEMPOTENCY from OVERALL PIPELINE RERUN SAFETY.
+        # Do not allow OUTPUT_WRITE_IDEMPOTENCY = PASS to automatically imply OVERALL IDEMPOTENCY = PASS
+        # if retry, partial failure, concurrency, input boundary, or other critical dimensions remain unsafe or materially unknown.
+        # A pipeline-level PASS requires sufficient evidence across the relevant execution path.
+        # UNKNOWN must remain UNKNOWN.
         overall = CheckpointStatus.UNKNOWN
         is_idempotent: bool | None = None
 
         write_dim = dimensions.get(IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY.value)
+        conc_dim = dimensions.get(IdempotencyDimension.CONCURRENT_EXECUTION_SAFETY.value)
+        retry_dim = dimensions.get(IdempotencyDimension.RETRY_IDEMPOTENCY.value)
+        part_dim = dimensions.get(IdempotencyDimension.PARTIAL_FAILURE_RECOVERY.value)
+
+        # 1. Any FAIL in any dimension -> FAIL
         if any(d.status == CheckpointStatus.FAIL for d in dimensions.values()):
             overall = CheckpointStatus.FAIL
             is_idempotent = False
-        elif write_dim and write_dim.status == CheckpointStatus.WARN:
+        # 2. Any WARN in any dimension -> WARN (not PASS!)
+        elif any(d.status == CheckpointStatus.WARN for d in dimensions.values()):
             overall = CheckpointStatus.WARN
             is_idempotent = False
-        elif write_dim and write_dim.status == CheckpointStatus.PASS:
-            overall = CheckpointStatus.PASS
-            is_idempotent = True
-        elif not self.raw_source.strip():
+        # 3. If output write is not PASS -> UNKNOWN
+        elif not write_dim or write_dim.status != CheckpointStatus.PASS:
             overall = CheckpointStatus.UNKNOWN
             is_idempotent = None
+        # 4. Output write is PASS: check critical rerun safety dimensions
+        # If partial failure, concurrency, or retry are UNKNOWN, preserve uncertainty!
+        elif (
+            (part_dim and part_dim.status == CheckpointStatus.UNKNOWN)
+            or (conc_dim and conc_dim.status == CheckpointStatus.UNKNOWN)
+            or (retry_dim and retry_dim.status == CheckpointStatus.UNKNOWN)
+        ):
+            overall = CheckpointStatus.UNKNOWN
+            is_idempotent = None
+        # 5. Output write is PASS and no critical dimension is FAIL, WARN, or UNKNOWN -> PASS
+        elif write_dim.status == CheckpointStatus.PASS:
+            overall = CheckpointStatus.PASS
+            is_idempotent = True
 
         return IdempotencyAssessment(
             overall_status=overall,
