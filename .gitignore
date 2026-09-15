@@ -1,10 +1,16 @@
 __pycache__/
+*.pyc
+*.pyo
 *.py[cod]
 *$py.class
 *.so
 .pytest_cache/
-htmlcov/
+.mypy_cache/
+.ruff_cache/
+build/
+dist/
 *.egg-info/
+htmlcov/
 .dvc/
 *.log
 .env
