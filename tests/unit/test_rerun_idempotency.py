@@ -1,0 +1,449 @@
+"""Unit tests for M5F: Rerun / Idempotency / Duplicate-Data Forensics.
+
+Verifies deterministic forensics across:
+- Scenarios A through V
+- Write semantics (APPEND, OVERWRITE, MERGE)
+- Duplicate-data risk and data-loss risk
+- Concurrency and retry safety correlation
+- Contract idempotency mismatch
+- Evidence preservation (empty vs unavailable)
+"""
+
+from __future__ import annotations
+
+from dpif.analyzers.rerun import RerunIdempotencyAnalyzer
+from dpif.code.parser import analyze_source
+from dpif.contract.loader import contract_cluster_job, load_contract_file
+from dpif.models import (
+    CheckpointStatus,
+    PipelineContract,
+    ReliabilityRules,
+    Severity,
+    Source,
+    SourceFormat,
+    SourceType,
+    Target,
+)
+from dpif.models.rerun import (
+    IdempotencyDimension,
+    RerunScenarioKind,
+)
+
+
+def _analyze(code_text: str, context: dict | None = None):
+    code_analysis = analyze_source(code_text, filename="pipeline.py") if code_text else None
+    if code_analysis:
+        code_analysis._raw_source = code_text
+    ctx = dict(context or {})
+    ctx["code_snippet"] = code_text
+    analyzer = RerunIdempotencyAnalyzer(code_analysis, context=ctx)
+    return analyzer.analyze()
+
+
+# -----------------------------------------------------------------------------
+# Scenario A: Append + same-input rerun -> Potential duplicate risk
+# -----------------------------------------------------------------------------
+def test_scenario_a_append_same_input_rerun():
+    code = """
+df = spark.read.table("raw_events")
+df.write.mode("append").saveAsTable("events_log")
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.SAME_INPUT.value]
+    assert sc.status == CheckpointStatus.WARN
+    assert sc.severity == Severity.HIGH
+    assert any(f.rule_id == "RER-DUP-001" for f in sc.findings)
+    assert res.duplicate_risk.status == CheckpointStatus.WARN
+    assert "Potential duplicate-data risk" in res.duplicate_risk.summary or any(
+        "duplicate" in f.title.lower() for f in res.duplicate_risk.findings
+    )
+
+
+# -----------------------------------------------------------------------------
+# Scenario B: Overwrite rerun -> Idempotent write, checks data-loss risk
+# -----------------------------------------------------------------------------
+def test_scenario_b_overwrite_rerun():
+    code = """
+df = spark.read.table("source")
+df.write.mode("overwrite").saveAsTable("dest_table")
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.SAME_INPUT.value]
+    assert sc.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-IDM-005" for f in sc.findings)
+    assert res.idempotency.dimensions[IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY.value].status == CheckpointStatus.PASS
+
+
+# -----------------------------------------------------------------------------
+# Scenario C: MERGE with stable key evidence -> PASS
+# -----------------------------------------------------------------------------
+def test_scenario_c_merge_stable_key_evidence():
+    code = """
+from delta.tables import DeltaTable
+target = DeltaTable.forName(spark, "users")
+target.alias("t").merge(df.alias("s"), "t.user_id = s.user_id").whenMatchedUpdateAll().whenNotMatchedInsertAll().execute()
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.SAME_INPUT.value]
+    assert sc.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-IDM-002" for f in sc.findings)
+    assert res.idempotency.overall_status == CheckpointStatus.PASS
+    assert res.idempotency.is_idempotent is True
+
+
+# -----------------------------------------------------------------------------
+# Scenario D: MERGE with unknown key safety -> UNKNOWN or WARN
+# -----------------------------------------------------------------------------
+def test_scenario_d_merge_unknown_key_safety():
+    code = """
+from delta.tables import DeltaTable
+target = DeltaTable.forName(spark, "users")
+target.alias("t").merge(df.alias("s"), "t.status != s.status").whenMatchedUpdateAll().execute()
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.SAME_INPUT.value]
+    assert sc.status in (CheckpointStatus.WARN, CheckpointStatus.UNKNOWN)
+    assert any(f.rule_id == "RER-IDM-004" for f in sc.findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario E: Overlapping input + deduplication -> PASS
+# -----------------------------------------------------------------------------
+def test_scenario_e_overlapping_input_with_dedup():
+    code = """
+df = spark.read.table("events").dropDuplicates(["event_id"])
+df.write.mode("append").saveAsTable("clean_events")
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.OVERLAPPING_INPUT.value]
+    assert sc.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-DUP-003" for f in sc.findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario F: Overlapping input without deduplication -> WARN / risk
+# -----------------------------------------------------------------------------
+def test_scenario_f_overlapping_input_without_dedup():
+    code = """
+df = spark.read.table("events")
+df.write.mode("append").saveAsTable("clean_events")
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.OVERLAPPING_INPUT.value]
+    assert sc.status == CheckpointStatus.WARN
+    assert any(f.rule_id == "RER-DUP-002" for f in sc.findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario G: Job retry + append -> duplicate risk under retry
+# -----------------------------------------------------------------------------
+def test_scenario_g_retry_append():
+    code = """
+df = spark.read.table("events")
+df.write.mode("append").saveAsTable("events_out")
+"""
+    ctx = {"job_config": {"settings": {"tasks": [{"max_retries": 3}]}}}
+    res = _analyze(code, ctx)
+    sc = res.scenarios[RerunScenarioKind.JOB_RETRY.value]
+    assert sc.status == CheckpointStatus.WARN
+    assert any(f.rule_id == "RER-RET-001" for f in sc.findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario H: Job retry + safe MERGE evidence -> retry safe
+# -----------------------------------------------------------------------------
+def test_scenario_h_retry_safe_merge():
+    code = """
+from delta.tables import DeltaTable
+target = DeltaTable.forName(spark, "events")
+target.alias("t").merge(df.alias("s"), "t.id = s.id").whenMatchedUpdateAll().execute()
+"""
+    ctx = {"job_config": {"settings": {"tasks": [{"max_retries": 2}]}}}
+    res = _analyze(code, ctx)
+    sc = res.scenarios[RerunScenarioKind.JOB_RETRY.value]
+    assert sc.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-RET-002" for f in sc.findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario I: Concurrent execution -> Concurrency race condition
+# -----------------------------------------------------------------------------
+def test_scenario_i_concurrent_execution():
+    code = """
+df = spark.read.table("events")
+df.write.mode("append").saveAsTable("shared_table")
+"""
+    ctx = {"job_config": {"settings": {"max_concurrent_runs": 4}}}
+    res = _analyze(code, ctx)
+    sc = res.scenarios[RerunScenarioKind.CONCURRENT_EXECUTION.value]
+    assert sc.status == CheckpointStatus.WARN
+    assert any(f.rule_id == "RER-CON-001" for f in sc.findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario J: Partial failure + append -> duplicate risk
+# -----------------------------------------------------------------------------
+def test_scenario_j_partial_failure_append():
+    code = """
+df = spark.read.table("events")
+df.write.mode("append").saveAsTable("stage1")
+spark.sql("SELECT * FROM invalid_table")
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.PARTIAL_FAILURE.value]
+    assert sc.status == CheckpointStatus.WARN
+    assert any(f.rule_id == "RER-DUP-004" for f in sc.findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario K: Partial failure + idempotent write -> transactional recovery
+# -----------------------------------------------------------------------------
+def test_scenario_k_partial_failure_idempotent_write():
+    code = """
+from delta.tables import DeltaTable
+target = DeltaTable.forName(spark, "target")
+target.alias("t").merge(df.alias("s"), "t.id = s.id").whenMatchedUpdateAll().execute()
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.PARTIAL_FAILURE.value]
+    assert sc.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-RET-004" for f in sc.findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario L: Incremental filtering -> predicate detection
+# -----------------------------------------------------------------------------
+def test_scenario_l_incremental_filtering():
+    code = """
+df = spark.read.table("events").filter("created_at >= current_date() - interval 1 day")
+df.write.mode("append").saveAsTable("daily_log")
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.INCREMENTAL_INPUT.value]
+    assert sc.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-INC-001" for f in sc.findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario M: Checkpoint evidence
+# -----------------------------------------------------------------------------
+def test_scenario_m_checkpoint_evidence():
+    code = """
+df = spark.readStream.table("stream_in")
+df.writeStream.option("checkpointLocation", "/tmp/checkpoints/p1").start()
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.INCREMENTAL_INPUT.value]
+    assert sc.status == CheckpointStatus.PASS
+    assert any("Checkpointing mechanism detected" in ev for ev in sc.evidence)
+
+
+# -----------------------------------------------------------------------------
+# Scenario N: Offset evidence
+# -----------------------------------------------------------------------------
+def test_scenario_n_offset_evidence():
+    code = """
+df = spark.read.format("delta").option("startingVersion", 10).load("/data")
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.INCREMENTAL_INPUT.value]
+    assert sc.status == CheckpointStatus.PASS
+    assert any("Offset" in ev for ev in sc.evidence)
+
+
+# -----------------------------------------------------------------------------
+# Scenario O: Watermark evidence
+# -----------------------------------------------------------------------------
+def test_scenario_o_watermark_evidence():
+    code = """
+df = spark.readStream.table("events").withWatermark("timestamp", "10 minutes")
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.LATE_ARRIVING_DATA.value]
+    assert sc.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-LATE-001" for f in sc.findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario P: Late-arriving-data handling via lookback
+# -----------------------------------------------------------------------------
+def test_scenario_p_late_arriving_data_lookback():
+    code = """
+df = spark.read.table("events").filter("event_time >= date_sub(current_date(), 7)")
+"""
+    res = _analyze(code)
+    sc = res.scenarios[RerunScenarioKind.LATE_ARRIVING_DATA.value]
+    assert sc.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-LATE-001" for f in sc.findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario Q: Contract idempotency mismatch
+# -----------------------------------------------------------------------------
+def test_scenario_q_contract_idempotency_mismatch():
+    code = """
+df = spark.read.table("source")
+df.write.mode("append").saveAsTable("dest")
+"""
+    contract = PipelineContract(
+        contract_id="test_contract",
+        pipeline_name="mismatch_pipeline",
+        source=Source(
+            source_id="src_1",
+            name="source_name",
+            type=SourceType.LOCAL_FILE,
+            path="/data/in",
+            format=SourceFormat.PARQUET,
+        ),
+        target=Target(
+            target_id="tgt_1",
+            type="table",
+            path="/data/out",
+            format="parquet",
+        ),
+        reliability=ReliabilityRules(idempotent=True),
+    )
+
+    res = _analyze(code, {"pipeline_contract": contract})
+    assert res.overall_status == CheckpointStatus.FAIL
+    assert any(f.rule_id == "RER-IDM-003" and f.status == CheckpointStatus.FAIL for f in res.all_findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario R: Missing evidence -> UNKNOWN
+# -----------------------------------------------------------------------------
+def test_scenario_r_missing_evidence_unknown():
+    res = _analyze("", {})
+    assert res.scenarios[RerunScenarioKind.SAME_INPUT.value].status == CheckpointStatus.UNKNOWN
+    assert res.idempotency.overall_status == CheckpointStatus.UNKNOWN
+    assert res.duplicate_risk.status == CheckpointStatus.UNKNOWN
+    assert res.data_loss_risk.status == CheckpointStatus.UNKNOWN
+
+
+# -----------------------------------------------------------------------------
+# Scenario S: Empty historical runs -> available empty
+# -----------------------------------------------------------------------------
+def test_scenario_s_empty_historical_runs():
+    code = "df = spark.read.table('t')"
+    res = _analyze(code, {"historical_runs": []})
+    assert res.pipeline_name is not None
+    # Empty history does not equate to missing context
+
+
+# -----------------------------------------------------------------------------
+# Scenario T: Unavailable historical runs -> preserved as None
+# -----------------------------------------------------------------------------
+def test_scenario_t_unavailable_historical_runs():
+    code = "df = spark.read.table('t')"
+    analyzer = RerunIdempotencyAnalyzer(None, {"code_snippet": code, "historical_runs": None})
+    assert analyzer.historical_runs is None
+
+
+# -----------------------------------------------------------------------------
+# Scenario U: Overwrite potential data-loss risk
+# -----------------------------------------------------------------------------
+def test_scenario_u_overwrite_data_loss_risk():
+    code = """
+df = spark.read.table("in")
+df.write.mode("overwrite").saveAsTable("unpartitioned_dest")
+"""
+    res = _analyze(code)
+    assert res.data_loss_risk.status == CheckpointStatus.WARN
+    assert any(f.rule_id == "RER-LOSS-001" for f in res.data_loss_risk.findings)
+
+
+# -----------------------------------------------------------------------------
+# Scenario V: Repeated full processing performance risk
+# -----------------------------------------------------------------------------
+def test_scenario_v_repeated_full_processing_perf_risk():
+    code = """
+df = spark.read.table("full_source_table")
+df.write.mode("append").saveAsTable("full_dest_table")
+"""
+    res = _analyze(code)
+    assert any(f.rule_id == "RER-PERF-001" for f in res.performance_risks)
+
+
+# -----------------------------------------------------------------------------
+# Offline fixture pipeline (deterministic, no runtime or network evidence):
+#   tests/fixtures/code/rerun_retry_risk_pipeline.py
+#   tests/fixtures/contracts/rerun_retry_risk_pipeline.yaml
+# APPEND write + checkpointLocation + max_retries=3 + max_concurrent_runs=1.
+# -----------------------------------------------------------------------------
+def _analyze_rerun_fixture(contracts_dir, code_dir):
+    contract = load_contract_file(contracts_dir / "rerun_retry_risk_pipeline.yaml")
+    code_text = (code_dir / "rerun_retry_risk_pipeline.py").read_text(encoding="utf-8")
+    _, job_config = contract_cluster_job(contract)
+    return _analyze(code_text, {"pipeline_contract": contract, "job_config": job_config})
+
+
+# -----------------------------------------------------------------------------
+# Scenario W: Fixture demonstrates retry risk (not a concurrency risk)
+# -----------------------------------------------------------------------------
+def test_scenario_w_fixture_retry_risk(contracts_dir, code_dir):
+    res = _analyze_rerun_fixture(contracts_dir, code_dir)
+    sc = res.scenarios[RerunScenarioKind.JOB_RETRY.value]
+    assert sc.status == CheckpointStatus.WARN
+    finding = next(f for f in sc.findings if f.rule_id == "RER-RET-001")
+    assert finding.severity == Severity.HIGH
+    assert finding.observed["max_retries"] == 3
+    assert finding.observed["write_mode"] == "APPEND"
+    assert (
+        res.idempotency.dimensions[IdempotencyDimension.RETRY_IDEMPOTENCY.value].status
+        == CheckpointStatus.WARN
+    )
+    # max_concurrent_runs=1 keeps the retry risk from being a race-condition risk.
+    assert (
+        res.scenarios[RerunScenarioKind.CONCURRENT_EXECUTION.value].status
+        == CheckpointStatus.PASS
+    )
+
+
+# -----------------------------------------------------------------------------
+# Scenario X: Fixture carries real checkpoint evidence for incremental input
+# -----------------------------------------------------------------------------
+def test_scenario_x_fixture_checkpoint_evidence(contracts_dir, code_dir):
+    res = _analyze_rerun_fixture(contracts_dir, code_dir)
+    sc = res.scenarios[RerunScenarioKind.INCREMENTAL_INPUT.value]
+    assert sc.status == CheckpointStatus.PASS
+    finding = next(f for f in sc.findings if f.rule_id == "RER-INC-001")
+    assert "Checkpointing mechanism detected" in sc.evidence
+    assert finding.observed["has_checkpoint"] is True
+
+
+# -----------------------------------------------------------------------------
+# Scenario Y: Fixture duplicate-data + idempotency assessment
+# -----------------------------------------------------------------------------
+def test_scenario_y_fixture_duplicate_and_idempotency(contracts_dir, code_dir):
+    res = _analyze_rerun_fixture(contracts_dir, code_dir)
+    for scenario in (
+        RerunScenarioKind.SAME_INPUT,
+        RerunScenarioKind.OVERLAPPING_INPUT,
+        RerunScenarioKind.PARTIAL_FAILURE,
+    ):
+        assert res.scenarios[scenario.value].status == CheckpointStatus.WARN, scenario
+    assert any(f.rule_id == "RER-DUP-001" for f in res.all_findings)
+    assert res.duplicate_risk.status == CheckpointStatus.WARN
+    assert res.duplicate_risk.risk_level == Severity.HIGH
+    assert len(res.duplicate_risk.potential_duplicate_sources) == 4
+    # An append-only write cannot lose data: it can only duplicate it.
+    assert res.data_loss_risk.status == CheckpointStatus.PASS
+    assert res.idempotency.overall_status == CheckpointStatus.WARN
+    assert res.idempotency.is_idempotent is False
+    assert res.overall_status == CheckpointStatus.WARN
+
+
+# -----------------------------------------------------------------------------
+# Scenario Z: Fixture raises no FAIL and keeps unproven areas UNKNOWN
+# -----------------------------------------------------------------------------
+def test_scenario_z_fixture_no_fail_and_honest_unknowns(contracts_dir, code_dir):
+    res = _analyze_rerun_fixture(contracts_dir, code_dir)
+    assert res.pipeline_name == "payment_events_rerun_fixture"
+    assert not [f for f in res.all_findings if f.status == CheckpointStatus.FAIL]
+    # The contract declares reliability.idempotent: false, so the honest
+    # non-idempotent implementation must NOT be reported as a contract mismatch.
+    assert not [f for f in res.all_findings if f.rule_id == "RER-IDM-003"]
+    # No watermark and no upsert: late data is UNKNOWN, never a fabricated PASS.
+    late = res.scenarios[RerunScenarioKind.LATE_ARRIVING_DATA.value]
+    assert late.status == CheckpointStatus.UNKNOWN
+    assert not late.findings

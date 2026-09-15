@@ -1,0 +1,40 @@
+pipeline:
+  name: customer_merge_upsert
+  environment: production
+  owner: data-engineering
+source:
+  type: delta
+  format: delta
+  path: abfss://landing@acct.dfs.core.windows.net/customers/
+  expected_daily_volume_gb: 150
+  peak_daily_volume_gb: 300
+  growth_rate_percent: 5
+processing:
+  type: incremental
+  language: pyspark
+target:
+  type: delta
+  catalog: prod
+  schema: marts
+  path: abfss://curated@acct.dfs.core.windows.net/customers/
+  format: delta
+sla:
+  max_runtime_minutes: 45
+schedule:
+  frequency: daily
+  time: "02:30"
+reliability:
+  retry_count: 2
+  idempotent: true
+  retry_safety: true
+scalability:
+  forecast_horizon_days: 180
+cluster:
+  num_workers: 4
+  spark_version: "15.4.x-scala2.12"
+  node_type: Standard_D4ds_v5
+job:
+  max_retries: 2
+  max_concurrent_runs: 1
+  timeout_seconds: 2700
+code_path: ../code/merge_upsert_pipeline.py

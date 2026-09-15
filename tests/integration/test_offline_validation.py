@@ -362,6 +362,38 @@ def test_evidence_coverage_reported_not_scored(contracts_dir, metadata_dir, code
     assert 0.0 <= cov.coverage_percentage <= 100.0
 
 
+def test_cli_rerun_fixture_reports_m5f_signals(repo_root):
+    """Offline fixture pipeline drives deterministic M5F retry/duplicate evidence."""
+    from dpif.cli import cli
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "validate",
+            "--contract",
+            str(repo_root / "tests" / "fixtures" / "contracts" / "rerun_retry_risk_pipeline.yaml"),
+            "--offline",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "RERUN / IDEMPOTENCY FORENSICS (M5F)" in result.output
+    assert "Overall Idempotency Status: WARN" in result.output
+    assert "Pipeline Name:              payment_events_rerun_fixture" in result.output
+    # Retry risk: max_retries=3 on a non-idempotent APPEND write.
+    assert "duplicate data risk on automatic retry" in result.output
+    # Duplicate-data risk: same-input rerun appends duplicate rows.
+    assert "repeated execution appends duplicate rows" in result.output
+    assert "Status:     [WARN] (HIGH)" in result.output
+    # Checkpoint evidence plus concurrency locked to one run.
+    assert "Stable incremental boundaries identified." in result.output
+    assert "Concurrency locked to 1; concurrent collision prevented." in result.output
+    # Unproven late-data handling stays UNKNOWN, and the contract declaring
+    # reliability.idempotent: false raises no mismatch FAIL.
+    assert "[UNKNOWN] No evidence of watermark" in result.output
+    assert "Contract Idempotency Mismatch" not in result.output
+
+
 def test_cli_data_section_and_coverage(repo_root):
     from dpif.cli import cli
 

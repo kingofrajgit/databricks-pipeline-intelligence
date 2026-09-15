@@ -1,0 +1,42 @@
+pipeline:
+  name: payment_events_rerun_fixture
+  environment: production
+  owner: data-engineering
+source:
+  type: delta
+  format: delta
+  path: abfss://landing@acct.dfs.core.windows.net/payment_events/
+  expected_daily_volume_gb: 120
+  peak_daily_volume_gb: 300
+  growth_rate_percent: 5
+processing:
+  type: batch
+  language: pyspark
+target:
+  type: delta
+  catalog: prod
+  schema: bronze
+  path: abfss://curated@acct.dfs.core.windows.net/payment_events/
+  format: delta
+sla:
+  max_runtime_minutes: 30
+schedule:
+  frequency: daily
+  time: "01:00"
+# The contract honestly declares this pipeline NON-idempotent: the append-only
+# write below is not retry-safe, so no RER-IDM-003 contract mismatch is raised.
+reliability:
+  retry_count: 3
+  idempotent: false
+  retry_safety: false
+scalability:
+  forecast_horizon_days: 180
+cluster:
+  num_workers: 4
+  spark_version: "15.4.x-scala2.12"
+  node_type: Standard_D4ds_v5
+job:
+  max_retries: 3
+  max_concurrent_runs: 1
+  timeout_seconds: 1800
+code_path: ../code/rerun_retry_risk_pipeline.py

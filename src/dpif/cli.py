@@ -447,6 +447,15 @@ def _run_offline_validation(
 
     context["implementation_forensics"] = impl_assessment
 
+    from dpif.analyzers.rerun import RerunIdempotencyAnalyzer
+
+    rerun_ctx = dict(rule_context)
+    rerun_ctx.update(context)
+    rerun_analyzer = RerunIdempotencyAnalyzer(analysis, context=rerun_ctx)
+    rerun_assessment = rerun_analyzer.analyze()
+
+    context["rerun_analysis"] = rerun_assessment
+
     assessment = context.get("production_readiness_assessment")
     if assessment is None:
         from dpif.readiness.engine import evaluate_production_readiness
@@ -464,6 +473,7 @@ def _run_offline_validation(
     if json_output:
         payload = assessment.to_dict()
         payload["implementation_forensics"] = impl_assessment.to_dict()
+        payload["rerun_analysis"] = rerun_assessment.to_dict()
         payload["checkpoints"] = {
             k: {
                 "checkpoint_id": v.checkpoint_id,
@@ -483,6 +493,7 @@ def _run_offline_validation(
     _display_data_section(contract, profile, coverage, growth, results)
     _display_code_section(analysis, build_flow(analysis), results, profile.total_gb)
     _display_implementation_forensics_section(impl_assessment)
+    _display_rerun_analysis_section(rerun_assessment)
     if runtime_obj:
         _display_performance_section(runtime_obj, results)
         _display_correlation_section(correlations)
@@ -681,6 +692,56 @@ def _display_implementation_forensics_section(impl_assessment: Any) -> None:
             if f.recommendation:
                 click.echo(f"      Recommendation: {f.recommendation}")
     click.echo("")
+
+
+def _display_rerun_analysis_section(rerun_assessment: Any) -> None:
+    click.echo("RERUN / IDEMPOTENCY FORENSICS (M5F)")
+    click.echo("-" * 60)
+    click.echo(f"  Overall Idempotency Status: {rerun_assessment.idempotency.overall_status.value}")
+    click.echo(f"  Pipeline Name:              {rerun_assessment.pipeline_name}")
+    click.echo("")
+    click.echo("  Rerun Analysis (7 Scenarios):")
+    for sc_name, sc_data in sorted(rerun_assessment.scenarios.items()):
+        click.echo(f"    - {sc_name:<25}: [{sc_data.status.value:<4}] {sc_data.risk_summary}")
+    click.echo("")
+    click.echo("  Idempotency Dimensions:")
+    for dim_name, dim_data in sorted(rerun_assessment.idempotency.dimensions.items()):
+        click.echo(f"    - {dim_name:<30}: [{dim_data.status.value:<4}] {dim_data.summary}")
+    click.echo("")
+    click.echo("  Duplicate-Data Risk:")
+    click.echo(
+        f"    Status:     [{rerun_assessment.duplicate_risk.status.value}] ({rerun_assessment.duplicate_risk.risk_level.value})"
+    )
+    click.echo(f"    Summary:    {rerun_assessment.duplicate_risk.summary}")
+    if rerun_assessment.duplicate_risk.potential_duplicate_sources:
+        for src in rerun_assessment.duplicate_risk.potential_duplicate_sources:
+            click.echo(f"      * {src}")
+    click.echo("")
+    click.echo("  Data-Loss Risk:")
+    click.echo(
+        f"    Status:     [{rerun_assessment.data_loss_risk.status.value}] ({rerun_assessment.data_loss_risk.risk_level.value})"
+    )
+    click.echo(f"    Summary:    {rerun_assessment.data_loss_risk.summary}")
+    if rerun_assessment.data_loss_risk.potential_data_loss_sources:
+        for src in rerun_assessment.data_loss_risk.potential_data_loss_sources:
+            click.echo(f"      * {src}")
+    click.echo("")
+    retry_sc = rerun_assessment.scenarios.get("JOB_RETRY")
+    click.echo("  Retry Safety:")
+    if retry_sc:
+        click.echo(f"    [{retry_sc.status.value}] {retry_sc.risk_summary}")
+    click.echo("")
+    conc_sc = rerun_assessment.scenarios.get("CONCURRENT_EXECUTION")
+    click.echo("  Concurrency Safety:")
+    if conc_sc:
+        click.echo(f"    [{conc_sc.status.value}] {conc_sc.risk_summary}")
+    click.echo("")
+    late_sc = rerun_assessment.scenarios.get("LATE_ARRIVING_DATA")
+    click.echo("  Late-Data Handling:")
+    if late_sc:
+        click.echo(f"    [{late_sc.status.value}] {late_sc.risk_summary}")
+    click.echo("")
+
 
 
 def _display_performance_section(runtime_run: Any, results: dict) -> None:
