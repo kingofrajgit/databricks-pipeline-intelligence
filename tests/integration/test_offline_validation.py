@@ -477,3 +477,59 @@ def test_cli_three_layer_alignment_json_m5g(repo_root):
     assert "compute_runtime" in align_data["dimensions"]
     assert "processing_strategy" in align_data["dimensions"]
     assert "target_storage_format" in align_data["dimensions"]
+
+
+def test_cli_evidence_sufficiency_m5h_signals(repo_root):
+    """Offline CLI run outputs Evidence Coverage & Decision Sufficiency (M5H)."""
+    from dpif.cli import cli
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "validate",
+            "--contract",
+            str(repo_root / "tests" / "fixtures" / "contracts" / "small_batch_pipeline.yaml"),
+            "--offline",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "EVIDENCE COVERAGE & DECISION SUFFICIENCY (M5H)" in result.output
+    assert "Overall Confidence:" in result.output
+    assert "Decision Sufficiency:" in result.output
+    assert "16-Domain Evidence Coverage:" in result.output
+    assert "Key Pipeline Decisions:" in result.output
+    assert "source" in result.output
+    assert "runtime" in result.output
+    assert "historical_runs" in result.output
+
+
+def test_cli_evidence_sufficiency_json_m5h(repo_root):
+    """Offline CLI run with --json includes evidence_sufficiency in JSON payload."""
+    import json
+
+    from dpif.cli import cli
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "validate",
+            "--contract",
+            str(repo_root / "tests" / "fixtures" / "contracts" / "small_batch_pipeline.yaml"),
+            "--offline",
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert "evidence_sufficiency" in payload
+    suff_data = payload["evidence_sufficiency"]
+    assert "overall_confidence" in suff_data
+    assert "overall_decision_sufficiency" in suff_data
+    assert "domain_coverages" in suff_data
+    assert len(suff_data["domain_coverages"]) == 16
+    assert "source" in suff_data["domain_coverages"]
+    assert "runtime" in suff_data["domain_coverages"]
+    assert "decisions" in suff_data
+    assert len(suff_data["decisions"]) >= 5

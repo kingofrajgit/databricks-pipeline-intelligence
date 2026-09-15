@@ -465,6 +465,16 @@ def _run_offline_validation(
 
     context["alignment_analysis"] = alignment_assessment
 
+    from dpif.analyzers.sufficiency import EvidenceSufficiencyAnalyzer
+
+    sufficiency_ctx = dict(rule_context)
+    sufficiency_ctx.update(context)
+    sufficiency_ctx["checkpoints"] = results
+    sufficiency_analyzer = EvidenceSufficiencyAnalyzer(analysis, context=sufficiency_ctx)
+    sufficiency_assessment = sufficiency_analyzer.analyze()
+
+    context["evidence_sufficiency"] = sufficiency_assessment
+
     assessment = context.get("production_readiness_assessment")
     if assessment is None:
         from dpif.readiness.engine import evaluate_production_readiness
@@ -484,6 +494,7 @@ def _run_offline_validation(
         payload["implementation_forensics"] = impl_assessment.to_dict()
         payload["rerun_analysis"] = rerun_assessment.to_dict()
         payload["alignment_analysis"] = alignment_assessment.to_dict()
+        payload["evidence_sufficiency"] = sufficiency_assessment.to_dict()
         payload["checkpoints"] = {
             k: {
                 "checkpoint_id": v.checkpoint_id,
@@ -505,6 +516,7 @@ def _run_offline_validation(
     _display_implementation_forensics_section(impl_assessment)
     _display_rerun_analysis_section(rerun_assessment)
     _display_alignment_forensics_section(alignment_assessment)
+    _display_evidence_sufficiency_section(sufficiency_assessment)
     if runtime_obj:
         _display_performance_section(runtime_obj, results)
         _display_correlation_section(correlations)
@@ -784,6 +796,43 @@ def _display_alignment_forensics_section(alignment_assessment: Any) -> None:
             click.echo(f"      Description:    {f.description}")
             if f.recommendation:
                 click.echo(f"      Recommendation: {f.recommendation}")
+    click.echo("")
+
+
+def _display_evidence_sufficiency_section(sufficiency: Any) -> None:
+    click.echo("EVIDENCE COVERAGE & DECISION SUFFICIENCY (M5H)")
+    click.echo("-" * 60)
+    click.echo(f"  Overall Confidence:       [{sufficiency.overall_confidence.value}]")
+    suff_label = "SUFFICIENT" if sufficiency.overall_decision_sufficiency else "INSUFFICIENT"
+    click.echo(f"  Decision Sufficiency:     [{suff_label}]")
+    click.echo(
+        f"  Evidence Coverage Score:  {sufficiency.coverage_score}% "
+        f"({sufficiency.domains_sufficient}/{sufficiency.domains_evaluated} domains sufficient)"
+    )
+    click.echo("")
+    click.echo("  16-Domain Evidence Coverage:")
+    for d_name, d_cov in sorted(sufficiency.domain_coverages.items()):
+        status_tag = "SUFFICIENT" if d_cov.decision_sufficient else "INSUFFICIENT"
+        click.echo(
+            f"    - {d_name:<26}: [{d_cov.confidence.value:<12}] [{d_cov.quality.value:<12}] "
+            f"({int(d_cov.completeness_score * 100):>3}% complete) [{status_tag}]"
+        )
+    click.echo("")
+    click.echo("  Key Pipeline Decisions:")
+    for dec in sufficiency.decisions:
+        dec_suff = "SUFFICIENT" if dec.is_sufficient else "INSUFFICIENT"
+        click.echo(
+            f"    [{dec.decision_status:<7}] {dec.decision_name:<24} [{dec.confidence.value:<12}] [{dec_suff}]"
+        )
+        click.echo(f"      Rationale: {dec.rationale}")
+        if dec.required_evidence:
+            req_str = "; ".join(dec.required_evidence)
+            click.echo(f"      Required Evidence: {req_str}")
+    if sufficiency.critical_missing_evidence:
+        click.echo("")
+        click.echo("  Critical Missing Evidence Required for Release:")
+        for req in sufficiency.critical_missing_evidence[:5]:
+            click.echo(f"    * {req}")
     click.echo("")
 
 
