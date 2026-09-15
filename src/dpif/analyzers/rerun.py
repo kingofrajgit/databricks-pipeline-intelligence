@@ -1142,6 +1142,46 @@ class RerunIdempotencyAnalyzer:
                     expected={"concurrency_safe": True},
                 )
 
+            if self.is_merge:
+                finding = RerunFinding(
+                    finding_id="RER-CON-003",
+                    rule_id="RER-CON-003",
+                    dimension=IdempotencyDimension.CONCURRENT_EXECUTION_SAFETY,
+                    scenario=RerunScenarioKind.CONCURRENT_EXECUTION,
+                    severity=Severity.MEDIUM,
+                    status=CheckpointStatus.WARN,
+                    title="Concurrent MERGE execution without proven partition or key range isolation",
+                    description=(
+                        f"Job allows concurrent runs (max_concurrent_runs={max_concurrent}) with MERGE INTO target. "
+                        "Concurrent MERGE executions are permitted; static evidence does not establish that concurrent "
+                        "source/key ranges are isolated, which can cause concurrent transaction conflicts or write skew."
+                    ),
+                    evidence=[
+                        f"max_concurrent_runs: {max_concurrent}",
+                        "Target write mode: MERGE",
+                        "Concurrent MERGE executions are permitted; static evidence does not establish that concurrent source/key ranges are isolated.",
+                    ],
+                    observed={"max_concurrent_runs": max_concurrent, "is_merge": True, "key_isolated": False},
+                    expected={"concurrency_isolation": True},
+                    recommendation="Limit max_concurrent_runs to 1 or partition MERGE target to isolate concurrent commit ranges.",
+                    confidence=0.85,
+                    provenance=EvidenceProvenanceKind.STATIC_CODE,
+                )
+                findings.append(finding)
+                return ScenarioAssessment(
+                    scenario=RerunScenarioKind.CONCURRENT_EXECUTION,
+                    status=CheckpointStatus.WARN,
+                    severity=Severity.MEDIUM,
+                    risk_summary=(
+                        f"Concurrent MERGE executions permitted ({max_concurrent} runs); "
+                        "static evidence does not establish that concurrent source/key ranges are isolated."
+                    ),
+                    findings=findings,
+                    evidence=finding.evidence,
+                    observed={"max_concurrent_runs": max_concurrent, "concurrency_safe": False},
+                    expected={"concurrency_safe": True},
+                )
+
         if max_concurrent == 1:
             finding = RerunFinding(
                 finding_id="RER-CON-002",
@@ -1420,43 +1460,100 @@ class RerunIdempotencyAnalyzer:
     # Risk Aggregations
     # -------------------------------------------------------------------------
 
+    def _is_target_rebuildable(self) -> bool:
+        """Determine whether evidence exists that the target is an explicitly rebuildable derived state."""
+        if self.context.get("target_rebuildable") or self.context.get("is_derived"):
+            return True
+
+        if self.contract:
+            tgt = getattr(self.contract, "target", None)
+            if tgt:
+                tgt_type = getattr(tgt, "type", "").lower()
+                if tgt_type in ("derived", "rebuildable", "staging", "transient", "materialized_view", "view"):
+                    return True
+                if getattr(tgt, "rebuildable", False) or getattr(tgt, "is_derived", False):
+                    return True
+            if getattr(self.contract, "rebuildable", False) or getattr(self.contract, "is_derived", False):
+                return True
+
+        source_lower = self.raw_source.lower()
+        if any(
+            marker in source_lower
+            for marker in (
+                "# target: rebuildable",
+                "# target: derived",
+                "# rebuildable: true",
+                "target_rebuildable = true",
+                "is_derived = true",
+                "@rebuildable",
+                "@derived",
+            )
+        ):
+            return True
+
+        return False
+
     def _build_duplicate_risk_analysis(self, findings: list[RerunFinding]) -> DuplicateDataRiskAnalysis:
         dup_sources: list[str] = []
         max_sev = Severity.INFO
-        status = CheckpointStatus.PASS
 
-        dup_findings = [f for f in findings if "DUP" in f.rule_id or f.rule_id in ("RER-RET-001", "RER-IDM-003")]
+        dup_findings = [
+            f for f in findings
+            if "DUP" in f.rule_id or f.rule_id in ("RER-RET-001", "RER-IDM-003", "RER-IDM-004")
+        ]
         for f in dup_findings:
             if f.status in (CheckpointStatus.WARN, CheckpointStatus.FAIL):
-                status = CheckpointStatus.FAIL if f.status == CheckpointStatus.FAIL else CheckpointStatus.WARN
                 if f.severity == Severity.HIGH:
                     max_sev = Severity.HIGH
                 elif f.severity == Severity.MEDIUM and max_sev != Severity.HIGH:
                     max_sev = Severity.MEDIUM
                 dup_sources.append(f.title)
 
-        if not dup_sources:
-            if not self.raw_source.strip():
-                return DuplicateDataRiskAnalysis(
-                    status=CheckpointStatus.UNKNOWN,
-                    risk_level=Severity.INFO,
-                    summary="Duplicate-data risk cannot be evaluated without code or write evidence.",
-                    potential_duplicate_sources=[],
-                    findings=[],
-                )
+        if dup_sources:
+            has_fail = any(f.status == CheckpointStatus.FAIL for f in dup_findings)
             return DuplicateDataRiskAnalysis(
-                status=CheckpointStatus.PASS,
+                status=CheckpointStatus.FAIL if has_fail else CheckpointStatus.WARN,
+                risk_level=max_sev,
+                summary=f"Potential duplicate-data risk identified across {len(dup_sources)} source(s).",
+                potential_duplicate_sources=dup_sources,
+                findings=dup_findings,
+            )
+
+        if not self.raw_source.strip():
+            return DuplicateDataRiskAnalysis(
+                status=CheckpointStatus.UNKNOWN,
                 risk_level=Severity.INFO,
-                summary="No duplicate-data risk identified; write protections or deduplication in place.",
+                summary="Duplicate-data risk cannot be evaluated without code or write evidence.",
+                potential_duplicate_sources=[],
+                findings=[],
+            )
+
+        has_unknown = any(f.status == CheckpointStatus.UNKNOWN for f in dup_findings)
+        has_established_protection = (
+            self.has_deduplication
+            or (
+                self.is_merge
+                and self.merge_key_detected
+                and self.merge_key_stable
+                and (self.merge_key_unique or self.source_duplicate_protection)
+            )
+            or self.is_overwrite
+        )
+
+        if has_unknown or not has_established_protection:
+            return DuplicateDataRiskAnalysis(
+                status=CheckpointStatus.UNKNOWN,
+                risk_level=Severity.INFO,
+                summary="Duplicate-data risk cannot be determined; key uniqueness, source deduplication, or write protections are unverified.",
                 potential_duplicate_sources=[],
                 findings=dup_findings,
             )
 
         return DuplicateDataRiskAnalysis(
-            status=status,
-            risk_level=max_sev,
-            summary=f"Potential duplicate-data risk identified across {len(dup_sources)} source(s).",
-            potential_duplicate_sources=dup_sources,
+            status=CheckpointStatus.PASS,
+            risk_level=Severity.INFO,
+            summary="No duplicate-data risk identified; write protections or deduplication in place.",
+            potential_duplicate_sources=[],
             findings=dup_findings,
         )
 
@@ -1492,8 +1589,8 @@ class RerunIdempotencyAnalyzer:
                 )
                 loss_findings.append(finding)
                 loss_sources.append("unpartitioned_partial_source_destructive_replacement")
-            else:
-                # Safe complete-source overwrite of a derived/rebuildable table
+            elif self._is_target_rebuildable():
+                # Safe complete-source overwrite of an explicitly declared derived/rebuildable table
                 finding = RerunFinding(
                     finding_id="RER-LOSS-002",
                     rule_id="RER-LOSS-002",
@@ -1503,43 +1600,95 @@ class RerunIdempotencyAnalyzer:
                     status=CheckpointStatus.PASS,
                     title="Derived table complete rebuild via full overwrite",
                     description=(
-                        "Destination table is completely regenerated from unfiltered source data via full table OVERWRITE. "
-                        "Safe rebuildable derived state without destructive partial replacement."
+                        "Destination table is explicitly declared as rebuildable derived state and is completely "
+                        "regenerated from unfiltered source data via full table OVERWRITE."
                     ),
                     evidence=[
                         "Complete unfiltered source read",
+                        "Target is explicitly declared rebuildable / derived state",
                         "OVERWRITE mode replaces rebuildable target table",
                     ],
-                    observed={"write_mode": "OVERWRITE", "partitioned": False, "complete_source": True},
+                    observed={
+                        "write_mode": "OVERWRITE",
+                        "partitioned": False,
+                        "complete_source": True,
+                        "rebuildable_target": True,
+                    },
                     expected={"rebuildable_target": True},
                     recommendation="",
                     confidence=0.85,
                     provenance=EvidenceProvenanceKind.STATIC_CODE,
                 )
                 loss_findings.append(finding)
-
-        if not loss_sources:
-            if not self.raw_source.strip():
-                return DataLossRiskAnalysis(
+            else:
+                # Complete source + overwrite + unknown target semantics
+                # Static analysis has not proven the target is rebuildable derived state!
+                # Must remain UNKNOWN, not PASS.
+                finding = RerunFinding(
+                    finding_id="RER-LOSS-003",
+                    rule_id="RER-LOSS-003",
+                    dimension=IdempotencyDimension.OUTPUT_WRITE_IDEMPOTENCY,
+                    scenario=RerunScenarioKind.SAME_INPUT,
+                    severity=Severity.INFO,
                     status=CheckpointStatus.UNKNOWN,
-                    risk_level=Severity.INFO,
-                    summary="Data loss risk cannot be evaluated without code or write evidence.",
-                    potential_data_loss_sources=[],
-                    findings=[],
+                    title="Complete-source overwrite without verified target rebuildability",
+                    description=(
+                        "Pipeline performs full table OVERWRITE from unfiltered source data. While same-input write "
+                        "is idempotent, static evidence does not establish whether the target is safe rebuildable derived state "
+                        "or represents critical persistent data subject to complete replacement."
+                    ),
+                    evidence=[
+                        "OVERWRITE mode on unpartitioned target",
+                        "Complete unfiltered source read",
+                        "Target rebuildability or derived status is unverified",
+                    ],
+                    observed={
+                        "write_mode": "OVERWRITE",
+                        "partitioned": False,
+                        "complete_source": True,
+                        "rebuildable_target": False,
+                    },
+                    expected={"target_rebuildability_verified": True},
+                    recommendation="Explicitly document target table retention and rebuildability semantics in contract or metadata.",
+                    confidence=0.75,
+                    provenance=EvidenceProvenanceKind.STATIC_CODE,
                 )
+                loss_findings.append(finding)
+
+        if loss_sources:
             return DataLossRiskAnalysis(
-                status=CheckpointStatus.PASS,
+                status=CheckpointStatus.WARN,
+                risk_level=Severity.MEDIUM,
+                summary="Potential data-loss risk: unpartitioned overwrite with filtered source presents potential destructive replacement risk.",
+                potential_data_loss_sources=loss_sources,
+                findings=loss_findings,
+            )
+
+        if any(f.status == CheckpointStatus.UNKNOWN for f in loss_findings) or (
+            self.is_overwrite and not self.is_partitioned_write and not self._is_target_rebuildable()
+        ):
+            return DataLossRiskAnalysis(
+                status=CheckpointStatus.UNKNOWN,
                 risk_level=Severity.INFO,
-                summary="No destructive replacement or data-loss risk identified.",
+                summary="Data-loss safety cannot be confirmed; complete-source overwrite lacks target rebuildability evidence.",
                 potential_data_loss_sources=[],
                 findings=loss_findings,
             )
 
+        if not self.raw_source.strip():
+            return DataLossRiskAnalysis(
+                status=CheckpointStatus.UNKNOWN,
+                risk_level=Severity.INFO,
+                summary="Data loss risk cannot be evaluated without code or write evidence.",
+                potential_data_loss_sources=[],
+                findings=[],
+            )
+
         return DataLossRiskAnalysis(
-            status=CheckpointStatus.WARN,
-            risk_level=Severity.MEDIUM,
-            summary="Potential data-loss risk: unpartitioned overwrite with filtered source presents potential destructive replacement risk.",
-            potential_data_loss_sources=loss_sources,
+            status=CheckpointStatus.PASS,
+            risk_level=Severity.INFO,
+            summary="No destructive replacement or data-loss risk identified.",
+            potential_data_loss_sources=[],
             findings=loss_findings,
         )
 

@@ -557,8 +557,9 @@ df.write.mode("overwrite").saveAsTable("unpartitioned_dest")
 
 
 def test_regression_h_safe_complete_source_overwrite_non_failing():
-    """6H: Safe complete-source overwrite -> appropriate non-failing assessment (PASS)."""
+    """6H: Safe complete-source overwrite -> appropriate non-failing assessment (PASS) with rebuildable target."""
     code = """
+# target: rebuildable
 df = spark.read.table("complete_source")
 df.write.mode("overwrite").saveAsTable("derived_target")
 """
@@ -594,3 +595,108 @@ df.write.mode("overwrite").saveAsTable("unpartitioned_dest")
     assert res.idempotency.dimensions[IdempotencyDimension.PARTIAL_FAILURE_RECOVERY.value].status == CheckpointStatus.UNKNOWN
     assert res.idempotency.overall_status == CheckpointStatus.UNKNOWN
     assert res.idempotency.is_idempotent is None
+
+
+# =============================================================================
+# Focused Semantic Hardening Regression Tests: Issues 1, 2, and 3
+# =============================================================================
+
+
+def test_issue1_duplicate_risk_merge_id_key_no_uniqueness_unknown():
+    """Issue 1: MERGE t.id = s.id without uniqueness or deduplication yields Idempotency=UNKNOWN and Duplicate-risk=UNKNOWN."""
+    code = """
+from delta.tables import DeltaTable
+target = DeltaTable.forName(spark, "users")
+target.alias("t").merge(df.alias("s"), "t.id = s.id").whenMatchedUpdateAll().execute()
+"""
+    res = _analyze(code)
+    # Missing uniqueness evidence must keep Idempotency UNKNOWN
+    assert res.idempotency.overall_status == CheckpointStatus.UNKNOWN
+    # Duplicate-risk must NOT become PASS without established duplicate protection
+    assert res.duplicate_risk.status == CheckpointStatus.UNKNOWN
+    assert any(f.rule_id == "RER-IDM-004" for f in res.duplicate_risk.findings)
+
+
+def test_issue2_concurrent_merge_max_runs_4_warns():
+    """Issue 2A: max_concurrent_runs=4 + MERGE -> WARN with static isolation notice."""
+    code = """
+from delta.tables import DeltaTable
+df_clean = df.dropDuplicates(["id"])
+target = DeltaTable.forName(spark, "users")
+target.alias("t").merge(df_clean.alias("s"), "t.id = s.id").whenMatchedUpdateAll().execute()
+"""
+    ctx = {"job_config": {"settings": {"max_concurrent_runs": 4}}}
+    res = _analyze(code, ctx)
+    conc_dim = res.idempotency.dimensions[IdempotencyDimension.CONCURRENT_EXECUTION_SAFETY.value]
+    assert conc_dim.status == CheckpointStatus.WARN
+    assert any(f.rule_id == "RER-CON-003" for f in conc_dim.findings)
+    finding = next(f for f in conc_dim.findings if f.rule_id == "RER-CON-003")
+    assert "Concurrent MERGE executions are permitted; static evidence does not establish that concurrent source/key ranges are isolated." in finding.evidence
+    # Concurrency WARN prevents overall PASS
+    assert res.idempotency.overall_status == CheckpointStatus.WARN
+
+
+def test_issue2_concurrent_merge_max_runs_1_passes():
+    """Issue 2B: max_concurrent_runs=1 + MERGE -> PASS."""
+    code = """
+from delta.tables import DeltaTable
+df_clean = df.dropDuplicates(["id"])
+target = DeltaTable.forName(spark, "users")
+target.alias("t").merge(df_clean.alias("s"), "t.id = s.id").whenMatchedUpdateAll().execute()
+"""
+    ctx = {"job_config": {"settings": {"max_concurrent_runs": 1}}}
+    res = _analyze(code, ctx)
+    conc_dim = res.idempotency.dimensions[IdempotencyDimension.CONCURRENT_EXECUTION_SAFETY.value]
+    assert conc_dim.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-CON-002" for f in conc_dim.findings)
+
+
+def test_issue2_concurrent_merge_max_runs_unavailable_unknown():
+    """Issue 2C: max_concurrent_runs unavailable -> UNKNOWN."""
+    code = """
+from delta.tables import DeltaTable
+df_clean = df.dropDuplicates(["id"])
+target = DeltaTable.forName(spark, "users")
+target.alias("t").merge(df_clean.alias("s"), "t.id = s.id").whenMatchedUpdateAll().execute()
+"""
+    res = _analyze(code, {})
+    conc_dim = res.idempotency.dimensions[IdempotencyDimension.CONCURRENT_EXECUTION_SAFETY.value]
+    assert conc_dim.status == CheckpointStatus.UNKNOWN
+
+
+def test_issue3_complete_source_overwrite_unknown_target_semantics_unknown():
+    """Issue 3A: Complete source + overwrite + unknown target semantics -> UNKNOWN data-loss risk."""
+    code = """
+df = spark.read.table("complete_source")
+df.write.mode("overwrite").saveAsTable("some_target")
+"""
+    res = _analyze(code)
+    # Write idempotency on same input is PASS
+    assert res.scenarios[RerunScenarioKind.SAME_INPUT.value].status == CheckpointStatus.PASS
+    # But data loss safety remains UNKNOWN because rebuildability is not established
+    assert res.data_loss_risk.status == CheckpointStatus.UNKNOWN
+    assert any(f.rule_id == "RER-LOSS-003" for f in res.data_loss_risk.findings)
+
+
+def test_issue3_explicitly_declared_rebuildable_derived_target_passes():
+    """Issue 3B: Explicitly declared rebuildable derived target -> PASS data-loss risk."""
+    code = """
+# target: rebuildable
+df = spark.read.table("complete_source")
+df.write.mode("overwrite").saveAsTable("derived_target")
+"""
+    res = _analyze(code)
+    assert res.data_loss_risk.status == CheckpointStatus.PASS
+    assert any(f.rule_id == "RER-LOSS-002" for f in res.data_loss_risk.findings)
+
+
+def test_issue3_filtered_source_overwrite_warns():
+    """Issue 3C: Filtered source + overwrite -> WARN potential destructive replacement risk."""
+    code = """
+df = spark.read.table("in").filter("status = 'ACTIVE'")
+df.write.mode("overwrite").saveAsTable("unpartitioned_target")
+"""
+    res = _analyze(code)
+    assert res.data_loss_risk.status == CheckpointStatus.WARN
+    assert any(f.rule_id == "RER-LOSS-001" for f in res.data_loss_risk.findings)
+
