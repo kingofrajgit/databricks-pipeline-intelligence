@@ -421,3 +421,59 @@ def test_cli_data_section_and_coverage(repo_root):
         "Runtime prediction unavailable",
     ):
         assert section in result.output, section
+
+
+def test_cli_three_layer_alignment_m5g_signals(repo_root):
+    """Offline CLI run outputs Three-Layer Alignment & Drift Forensics (M5G)."""
+    from dpif.cli import cli
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "validate",
+            "--contract",
+            str(repo_root / "tests" / "fixtures" / "contracts" / "small_batch_pipeline.yaml"),
+            "--offline",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "THREE-LAYER ALIGNMENT & DRIFT FORENSICS (M5G)" in result.output
+    assert "Overall Alignment Status:" in result.output
+    assert "Dimensions Assessment (9 Dimensions):" in result.output
+    assert "compute_runtime" in result.output
+    assert "cluster_sizing_scaling" in result.output
+    assert "processing_strategy" in result.output
+    assert "target_storage_format" in result.output
+    assert "sla_execution_limits" in result.output
+    assert "reliability_retry_policy" in result.output
+
+
+def test_cli_three_layer_alignment_json_m5g(repo_root):
+    """Offline CLI run with --json includes alignment_analysis in JSON payload."""
+    import json
+
+    from dpif.cli import cli
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "validate",
+            "--contract",
+            str(repo_root / "tests" / "fixtures" / "contracts" / "small_batch_pipeline.yaml"),
+            "--offline",
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert "alignment_analysis" in payload
+    align_data = payload["alignment_analysis"]
+    assert "overall_status" in align_data
+    assert "drift_severity" in align_data
+    assert "dimensions" in align_data
+    assert len(align_data["dimensions"]) == 9
+    assert "compute_runtime" in align_data["dimensions"]
+    assert "processing_strategy" in align_data["dimensions"]
+    assert "target_storage_format" in align_data["dimensions"]

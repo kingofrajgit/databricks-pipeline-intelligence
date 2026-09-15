@@ -456,6 +456,15 @@ def _run_offline_validation(
 
     context["rerun_analysis"] = rerun_assessment
 
+    from dpif.analyzers.alignment import ThreeLayerAlignmentAnalyzer
+
+    alignment_ctx = dict(rule_context)
+    alignment_ctx.update(context)
+    alignment_analyzer = ThreeLayerAlignmentAnalyzer(analysis, context=alignment_ctx)
+    alignment_assessment = alignment_analyzer.analyze()
+
+    context["alignment_analysis"] = alignment_assessment
+
     assessment = context.get("production_readiness_assessment")
     if assessment is None:
         from dpif.readiness.engine import evaluate_production_readiness
@@ -474,6 +483,7 @@ def _run_offline_validation(
         payload = assessment.to_dict()
         payload["implementation_forensics"] = impl_assessment.to_dict()
         payload["rerun_analysis"] = rerun_assessment.to_dict()
+        payload["alignment_analysis"] = alignment_assessment.to_dict()
         payload["checkpoints"] = {
             k: {
                 "checkpoint_id": v.checkpoint_id,
@@ -494,6 +504,7 @@ def _run_offline_validation(
     _display_code_section(analysis, build_flow(analysis), results, profile.total_gb)
     _display_implementation_forensics_section(impl_assessment)
     _display_rerun_analysis_section(rerun_assessment)
+    _display_alignment_forensics_section(alignment_assessment)
     if runtime_obj:
         _display_performance_section(runtime_obj, results)
         _display_correlation_section(correlations)
@@ -742,6 +753,38 @@ def _display_rerun_analysis_section(rerun_assessment: Any) -> None:
         click.echo(f"    [{late_sc.status.value}] {late_sc.risk_summary}")
     click.echo("")
 
+
+def _display_alignment_forensics_section(alignment_assessment: Any) -> None:
+    click.echo("THREE-LAYER ALIGNMENT & DRIFT FORENSICS (M5G)")
+    click.echo("-" * 60)
+    click.echo(f"  Overall Alignment Status: [{alignment_assessment.overall_status.value}]")
+    click.echo(f"  Drift Severity:           [{alignment_assessment.drift_severity.value}]")
+    blocking_count = sum(1 for f in alignment_assessment.findings if f.blocking)
+    click.echo(
+        f"  Total Drifts Detected:    {alignment_assessment.total_drifts} "
+        f"({blocking_count} blocking)"
+    )
+    click.echo("")
+    click.echo("  Dimensions Assessment (9 Dimensions):")
+    for dim_name, dim_data in sorted(alignment_assessment.dimensions.items()):
+        click.echo(
+            f"    - {dim_name:<26}: [{dim_data.status.value:<4}] ({dim_data.drift_severity.value:<8}) {dim_data.summary}"
+        )
+    if alignment_assessment.findings:
+        click.echo("")
+        click.echo("  Layer Divergence Details:")
+        for f in alignment_assessment.findings:
+            prov = getattr(f.provenance, "value", str(f.provenance))
+            click.echo(
+                f"    [{f.status.value}] {f.rule_id} - {f.title} ({f.divergence_kind.value}) [{prov}]"
+            )
+            click.echo(f"      Expected:       {f.expected}")
+            click.echo(f"      Implemented:    {f.implemented}")
+            click.echo(f"      Actual:         {f.actual}")
+            click.echo(f"      Description:    {f.description}")
+            if f.recommendation:
+                click.echo(f"      Recommendation: {f.recommendation}")
+    click.echo("")
 
 
 def _display_performance_section(runtime_run: Any, results: dict) -> None:

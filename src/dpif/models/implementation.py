@@ -40,6 +40,7 @@ class EvidenceProvenanceKind(StrEnum):
     HISTORICAL_RUN = "HISTORICAL_RUN"
     FIXTURE = "FIXTURE"
     CONTRACT = "CONTRACT"
+    JOB_CONFIG = "JOB_CONFIG"
     METADATA = "METADATA"
 
 
