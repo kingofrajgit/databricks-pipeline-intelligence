@@ -533,3 +533,59 @@ def test_cli_evidence_sufficiency_json_m5h(repo_root):
     assert "runtime" in suff_data["domain_coverages"]
     assert "decisions" in suff_data
     assert len(suff_data["decisions"]) >= 5
+
+
+def test_cli_decision_risk_synthesis_m5i_signals(repo_root):
+    """Offline CLI run outputs Decision & Risk Synthesis (M5I)."""
+    from dpif.cli import cli
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "validate",
+            "--contract",
+            str(repo_root / "tests" / "fixtures" / "contracts" / "small_batch_pipeline.yaml"),
+            "--offline",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    assert "DECISION & RISK SYNTHESIS (M5I)" in result.output
+    assert "FINAL DECISION:" in result.output
+    assert "CONFIDENCE:" in result.output
+    assert "DECISION SUFFICIENCY:" in result.output
+    assert "TOP RISKS" in result.output
+    assert "REQUIRED ACTIONS:" in result.output
+
+
+def test_cli_decision_risk_synthesis_json_m5i(repo_root):
+    """Offline CLI run with --json includes decision_risk_synthesis in JSON payload."""
+    import json
+
+    from dpif.cli import cli
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "validate",
+            "--contract",
+            str(repo_root / "tests" / "fixtures" / "contracts" / "small_batch_pipeline.yaml"),
+            "--offline",
+            "--json",
+        ],
+    )
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert "decision_risk_synthesis" in payload
+    drs = payload["decision_risk_synthesis"]
+    assert "final_decision" in drs
+    assert "confidence" in drs
+    assert "decision_sufficiency" in drs
+    assert "blockers" in drs
+    assert "top_risks" in drs
+    assert "all_risks" in drs
+    assert "risk_chains" in drs
+    assert "remediations" in drs
+    assert "domain_summaries" in drs
+    assert len(drs["domain_summaries"]) == 16

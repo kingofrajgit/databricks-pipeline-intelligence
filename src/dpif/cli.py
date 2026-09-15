@@ -489,12 +489,29 @@ def _run_offline_validation(
             historical_runs=historical_objs,
         )
 
+    from dpif.analyzers.synthesis import DecisionRiskSynthesisAnalyzer
+
+    synthesis_analyzer = DecisionRiskSynthesisAnalyzer(
+        checkpoints=results,
+        readiness=assessment,
+        implementation_forensics=impl_assessment,
+        rerun_analysis=rerun_assessment,
+        alignment_analysis=alignment_assessment,
+        evidence_sufficiency=sufficiency_assessment,
+        contract=contract,
+        profile=profile,
+        context=context,
+    )
+    synthesis_assessment = synthesis_analyzer.analyze()
+    context["decision_risk_synthesis"] = synthesis_assessment
+
     if json_output:
         payload = assessment.to_dict()
         payload["implementation_forensics"] = impl_assessment.to_dict()
         payload["rerun_analysis"] = rerun_assessment.to_dict()
         payload["alignment_analysis"] = alignment_assessment.to_dict()
         payload["evidence_sufficiency"] = sufficiency_assessment.to_dict()
+        payload["decision_risk_synthesis"] = synthesis_assessment.to_dict()
         payload["checkpoints"] = {
             k: {
                 "checkpoint_id": v.checkpoint_id,
@@ -524,6 +541,7 @@ def _run_offline_validation(
     _display_findings(results)
     _display_score(score, readiness)
     _display_final_readiness_section(assessment)
+    _display_decision_risk_synthesis_section(synthesis_assessment)
     # Exit 0: validation completed (even with FAIL findings).
 
 
@@ -1005,6 +1023,62 @@ def _display_final_readiness_section(assessment: Any) -> None:
             click.echo(f"      - [{pri}] {act.title}")
             if act.recommendation:
                 click.echo(f"        Action: {act.recommendation[:85]}")
+        click.echo("")
+
+
+def _display_decision_risk_synthesis_section(synthesis: Any) -> None:
+    click.echo("=" * 60)
+    click.echo("DECISION & RISK SYNTHESIS (M5I)")
+    click.echo("=" * 60)
+    click.echo(f"    FINAL DECISION:        {synthesis.final_decision.value}")
+    click.echo(f"    CONFIDENCE:            {synthesis.confidence.value}")
+    suff_str = "TRUE" if synthesis.decision_sufficiency else "FALSE"
+    click.echo(f"    DECISION SUFFICIENCY:  {suff_str}")
+    click.echo(f"    QUALITY SCORE:         {synthesis.quality_score:.1f}/100")
+    if synthesis.score_override_reason:
+        click.echo(f"    SCORE OVERRIDE REASON: {synthesis.score_override_reason}")
+    click.echo("")
+
+    if synthesis.decision_explanation:
+        click.echo("    DECISION RATIONALE:")
+        for idx, exp in enumerate(synthesis.decision_explanation, 1):
+            click.echo(f"      {idx}. {exp}")
+        click.echo("")
+
+    if synthesis.blockers:
+        click.echo(f"    BLOCKERS ({len(synthesis.blockers)}):")
+        for idx, b in enumerate(synthesis.blockers, 1):
+            click.echo(f"      {idx}. [{b.severity.value}] {b.title}")
+            click.echo(f"         Resolution: {b.resolution_requirement}")
+        click.echo("")
+
+    if synthesis.top_risks:
+        click.echo(f"    TOP RISKS ({len(synthesis.top_risks)}):")
+        for idx, r in enumerate(synthesis.top_risks, 1):
+            click.echo(f"      {idx}. [{r.severity.value}] {r.title} ({r.category.value})")
+            if r.consequence:
+                click.echo(f"         Consequence: {r.consequence[:90]}")
+        click.echo("")
+
+    if synthesis.risk_chains:
+        click.echo("    CAUSAL RISK CHAINS:")
+        for c in synthesis.risk_chains[:2]:
+            click.echo(f"      - {c.title}:")
+            click.echo(f"        {' -> '.join(c.steps[:3])} -> {c.ultimate_impact}")
+        click.echo("")
+
+    if synthesis.missing_evidence:
+        click.echo("    MISSING EVIDENCE:")
+        for idx, ev in enumerate(synthesis.missing_evidence[:5], 1):
+            click.echo(f"      {idx}. {ev}")
+        click.echo("")
+
+    if synthesis.remediations:
+        click.echo("    REQUIRED ACTIONS:")
+        for idx, rem in enumerate(synthesis.remediations[:5], 1):
+            click.echo(f"      {idx}. [{rem.priority}] {rem.title}")
+            if rem.description:
+                click.echo(f"         Action: {rem.description[:85]}")
         click.echo("")
 
 
