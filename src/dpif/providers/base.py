@@ -293,6 +293,14 @@ class DatabricksEvidenceProvider:
                     elif cat == EvidenceCategory.HISTORICAL_RUNS:
                         if isinstance(res, dict) and isinstance(res.get("runs"), list):
                             hist_runs = res["runs"]
+                        elif isinstance(res, dict) and isinstance(res.get("result"), list):
+                            hist_runs = res["result"]
+                        elif (
+                            isinstance(res, dict)
+                            and res.get("runs") is None
+                            and isinstance(res.get("has_more"), bool)
+                        ):
+                            hist_runs = []
                         elif isinstance(res, list):
                             hist_runs = res
                         else:

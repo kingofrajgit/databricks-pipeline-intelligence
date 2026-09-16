@@ -469,6 +469,91 @@ def test_m5d_historical_runs_malformed_structure():
     assert hist_item.error.error_code == AcquisitionErrorCode.MALFORMED_RESPONSE
 
 
+def test_m5d_empty_historical_runs_has_more_false():
+    """Test 1: HTTP 200 with {'has_more': False} (zero runs omitted by Databricks) -> payload == []."""
+    mock_session = MagicMock(spec=requests.Session)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = {"has_more": False}
+    mock_session.request.return_value = mock_resp
+
+    conn = LiveDatabricksConnector(
+        host="https://mock.cloud.databricks.com",
+        token="dapi_mock_token_123",
+        session=mock_session,
+    )
+    provider = DatabricksEvidenceProvider(connector=conn)
+    evidence = provider.acquire_pipeline_evidence(
+        pipeline_id="p1", job_id=4567, include_historical_runs=True
+    )
+
+    hist_item = evidence.items[EvidenceCategory.HISTORICAL_RUNS.value]
+    assert hist_item.is_available is True
+    assert hist_item.payload == []
+    assert hist_item.provenance.source_type == "LIVE_API"
+    assert hist_item.error is None
+
+
+def test_m5d_historical_runs_raw_list():
+    """Test 4: HTTP 200 with raw list response [...] -> preserved."""
+    mock_session = MagicMock(spec=requests.Session)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = MOCK_HISTORICAL_RUNS_LIST
+    mock_session.request.return_value = mock_resp
+
+    conn = LiveDatabricksConnector(
+        host="https://mock.cloud.databricks.com",
+        token="dapi_mock_token_123",
+        session=mock_session,
+    )
+    provider = DatabricksEvidenceProvider(connector=conn)
+    evidence = provider.acquire_pipeline_evidence(
+        pipeline_id="p1", job_id=4567, include_historical_runs=True
+    )
+
+    hist_item = evidence.items[EvidenceCategory.HISTORICAL_RUNS.value]
+    assert hist_item.is_available is True
+    assert isinstance(hist_item.payload, list)
+    assert len(hist_item.payload) == len(MOCK_HISTORICAL_RUNS_LIST)
+    assert hist_item.payload[0]["run_id"] == 999100
+
+
+@pytest.mark.parametrize(
+    "invalid_payload",
+    [
+        {"hello": "world"},
+        {"runs": "not_a_list"},
+        {"runs": 123},
+        {"has_more": "not_a_bool"},
+        {"has_more": 123},
+    ],
+)
+def test_m5d_historical_runs_malformed_variations(invalid_payload):
+    """Test 5: Malformed payloads not conforming to valid Databricks runs response produce MALFORMED_RESPONSE."""
+    mock_session = MagicMock(spec=requests.Session)
+    mock_resp = MagicMock()
+    mock_resp.status_code = 200
+    mock_resp.json.return_value = invalid_payload
+    mock_session.request.return_value = mock_resp
+
+    conn = LiveDatabricksConnector(
+        host="https://mock.cloud.databricks.com",
+        token="dapi_mock_token_123",
+        session=mock_session,
+    )
+    provider = DatabricksEvidenceProvider(connector=conn)
+    evidence = provider.acquire_pipeline_evidence(
+        pipeline_id="p1", job_id=4567, include_historical_runs=True
+    )
+
+    hist_item = evidence.items[EvidenceCategory.HISTORICAL_RUNS.value]
+    assert hist_item.is_available is False
+    assert hist_item.payload is None
+    assert hist_item.error is not None
+    assert hist_item.error.error_code == AcquisitionErrorCode.MALFORMED_RESPONSE
+
+
 def test_m5d_credential_sanitization_in_run_payload():
     """Q. Test sensitive credentials in run payload spark_env_vars are masked."""
     sanitized = sanitize_job_payload(
