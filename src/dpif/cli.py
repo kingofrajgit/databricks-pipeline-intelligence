@@ -1034,7 +1034,8 @@ def _display_decision_risk_synthesis_section(synthesis: Any) -> None:
     click.echo(f"    CONFIDENCE:            {synthesis.confidence.value}")
     suff_str = "TRUE" if synthesis.decision_sufficiency else "FALSE"
     click.echo(f"    DECISION SUFFICIENCY:  {suff_str}")
-    click.echo(f"    QUALITY SCORE:         {synthesis.quality_score:.1f}/100")
+    band_str = f" ({synthesis.score_band})" if hasattr(synthesis, "score_band") and synthesis.score_band else ""
+    click.echo(f"    QUALITY SCORE:         {synthesis.quality_score:.1f}/100{band_str}")
     if synthesis.score_override_reason:
         click.echo(f"    SCORE OVERRIDE REASON: {synthesis.score_override_reason}")
     click.echo("")

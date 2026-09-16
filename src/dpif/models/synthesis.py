@@ -205,6 +205,7 @@ class DecisionRiskSynthesisResult(BaseModel):
 
     final_decision: FinalDecisionStatus
     quality_score: float
+    score_band: str = "GOOD"
     confidence: ConfidenceLevel
     decision_sufficiency: bool
     decision_explanation: list[str] = Field(default_factory=list)
@@ -222,6 +223,7 @@ class DecisionRiskSynthesisResult(BaseModel):
         return {
             "final_decision": self.final_decision.value,
             "quality_score": round(self.quality_score, 1),
+            "score_band": self.score_band,
             "confidence": self.confidence.value,
             "decision_sufficiency": self.decision_sufficiency,
             "decision_explanation": self.decision_explanation,

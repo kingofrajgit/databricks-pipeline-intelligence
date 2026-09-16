@@ -54,6 +54,7 @@ from dpif.readiness.models import (
     DomainCoverage,
     ProductionReadinessAssessment,
     ProductionReadinessStatus,
+    ReadinessPolicy,
 )
 
 
@@ -760,3 +761,248 @@ def test_scenario_20_representative_pipelines(repo_root, fixture_name):
     assert "decision_sufficiency" in drs
     assert "all_risks" in drs
     assert "domain_summaries" in drs
+
+
+# ---------------------------------------------------------------------------
+# Test Scenarios 21 to 29: Hardened Score / Blocker Semantics
+# ---------------------------------------------------------------------------
+
+
+def test_scenario_21_score_below_80_without_explicit_score_policy():
+    """Requirement 1: Score below 80 without explicit score policy does NOT create blocker."""
+    cps = _make_clean_checkpoints()
+    readiness = _make_dummy_readiness(
+        status=ProductionReadinessStatus.PRODUCTION_READY,
+        score=79.0,
+        decision_reasons=["All production gates satisfied."],
+    )
+    sufficiency = _make_dummy_sufficiency()
+
+    analyzer = DecisionRiskSynthesisAnalyzer(
+        checkpoints=cps,
+        readiness=readiness,
+        evidence_sufficiency=sufficiency,
+    )
+    res = analyzer.analyze()
+    assert len(res.blockers) == 0
+    assert res.final_decision == FinalDecisionStatus.PRODUCTION_READY
+    assert res.score_override_reason is None
+    assert res.score_band == "NEEDS_IMPROVEMENT"
+
+
+def test_scenario_22_score_below_80_with_explicit_cp024_score_policy():
+    """Requirement 2: Score below 80 with explicit CP-024 score policy creates valid blocker."""
+    cps = _make_clean_checkpoints()
+    # CP-024 explicitly failed on score gating
+    readiness = _make_dummy_readiness(
+        status=ProductionReadinessStatus.NOT_PRODUCTION_READY,
+        score=79.0,
+        decision_reasons=["Quality score (79.0/100) is below the minimum threshold (80.0/100)."],
+    )
+    sufficiency = _make_dummy_sufficiency()
+
+    analyzer = DecisionRiskSynthesisAnalyzer(
+        checkpoints=cps,
+        readiness=readiness,
+        evidence_sufficiency=sufficiency,
+    )
+    res = analyzer.analyze()
+    assert len(res.blockers) == 1
+    blocker = res.blockers[0]
+    assert blocker.source == "CP-024-DECISION"
+    assert "below" in blocker.title.lower() or "below" in blocker.description.lower()
+    assert res.final_decision == FinalDecisionStatus.NOT_PRODUCTION_READY
+
+
+def test_scenario_23_high_score_with_critical_blocker():
+    """Requirement 3: High score (95) with critical blocker -> NOT_PRODUCTION_READY, score cannot override."""
+    cps = _make_clean_checkpoints()
+    crit_finding = _make_finding(
+        rule_id="SEC-001",
+        name="Hardcoded Secret Detected",
+        status=CheckpointStatus.FAIL,
+        severity=Severity.CRITICAL,
+        category="security",
+        blocking=True,
+    )
+    cps["CP-020"] = Checkpoint(
+        checkpoint_id="CP-020",
+        name="Security Validation",
+        category="security",
+        status=CheckpointStatus.FAIL,
+        severity=Severity.CRITICAL,
+        findings=[crit_finding],
+    )
+    readiness = _make_dummy_readiness(
+        status=ProductionReadinessStatus.NOT_PRODUCTION_READY,
+        score=95.0,
+        blocking_findings=[crit_finding],
+        critical_findings=[crit_finding],
+    )
+    sufficiency = _make_dummy_sufficiency()
+
+    analyzer = DecisionRiskSynthesisAnalyzer(
+        checkpoints=cps,
+        readiness=readiness,
+        evidence_sufficiency=sufficiency,
+    )
+    res = analyzer.analyze()
+    assert res.final_decision == FinalDecisionStatus.NOT_PRODUCTION_READY
+    assert len(res.blockers) >= 1
+    assert res.score_override_reason is not None
+    assert "95.0/100" in res.score_override_reason
+    assert "overridden" in res.score_override_reason.lower()
+
+
+def test_scenario_24_high_score_with_insufficient_critical_evidence():
+    """Requirement 4: High score (95) with insufficient critical evidence -> INSUFFICIENT_EVIDENCE."""
+    cps = _make_clean_checkpoints()
+    readiness = _make_dummy_readiness(
+        status=ProductionReadinessStatus.PRODUCTION_READY,
+        score=95.0,
+    )
+    dec = DecisionSufficiencyRecord(
+        decision_name="RUNTIME_STABILITY",
+        domain="performance",
+        decision_status="UNKNOWN",
+        is_sufficient=False,
+        confidence=ConfidenceLevel.LOW,
+    )
+    sufficiency = _make_dummy_sufficiency(
+        overall_confidence=ConfidenceLevel.LOW,
+        decision_sufficiency=False,
+        decisions=[dec],
+    )
+
+    analyzer = DecisionRiskSynthesisAnalyzer(
+        checkpoints=cps,
+        readiness=readiness,
+        evidence_sufficiency=sufficiency,
+    )
+    res = analyzer.analyze()
+    assert res.final_decision == FinalDecisionStatus.INSUFFICIENT_EVIDENCE
+    assert res.decision_sufficiency is False
+    assert res.score_override_reason is not None
+    assert "insufficient evidence" in res.score_override_reason.lower()
+
+
+def test_scenario_25_low_score_with_non_blocking_warnings():
+    """Requirement 5: Low score (60) with only non-blocking warnings -> CONDITIONAL, no synthetic score blocker."""
+    cps = _make_clean_checkpoints()
+    warn_finding = _make_finding(
+        rule_id="WARN-001",
+        name="Non-blocking Configuration Advisory",
+        status=CheckpointStatus.WARN,
+        severity=Severity.MEDIUM,
+        category="code",
+    )
+    cps["CP-004"] = Checkpoint(
+        checkpoint_id="CP-004",
+        name="Code Validation",
+        category="code",
+        status=CheckpointStatus.WARN,
+        severity=Severity.MEDIUM,
+        findings=[warn_finding],
+    )
+    # Policy does not block on score 60 (e.g. minimum_quality_score=50)
+    readiness = _make_dummy_readiness(
+        status=ProductionReadinessStatus.PRODUCTION_READY_WITH_WARNINGS,
+        score=60.0,
+        decision_reasons=["No release-blocking failures detected, but 1 warning(s) remain."],
+    )
+    sufficiency = _make_dummy_sufficiency()
+
+    analyzer = DecisionRiskSynthesisAnalyzer(
+        checkpoints=cps,
+        readiness=readiness,
+        evidence_sufficiency=sufficiency,
+        context={"readiness_policy": ReadinessPolicy(minimum_quality_score=50.0)},
+    )
+    res = analyzer.analyze()
+    assert len(res.blockers) == 0
+    assert res.final_decision == FinalDecisionStatus.CONDITIONAL
+    assert res.score_override_reason is None
+    assert res.score_band == "HIGH_RISK"
+
+
+def test_scenario_26_score_override_reason_only_when_required():
+    """Requirement 6: Score override reason populated only when actual blocker/policy requires it."""
+    cps = _make_clean_checkpoints()
+    readiness_clean = _make_dummy_readiness(
+        status=ProductionReadinessStatus.PRODUCTION_READY,
+        score=92.0,
+    )
+    res_clean = DecisionRiskSynthesisAnalyzer(
+        checkpoints=cps, readiness=readiness_clean, evidence_sufficiency=_make_dummy_sufficiency()
+    ).analyze()
+    assert res_clean.score_override_reason is None
+
+    # Score below threshold blocked by score policy: score did not meet threshold, so no override reason
+    readiness_low = _make_dummy_readiness(
+        status=ProductionReadinessStatus.NOT_PRODUCTION_READY,
+        score=75.0,
+        decision_reasons=["Quality score (75.0/100) is below the minimum threshold (80.0/100)."],
+    )
+    res_low = DecisionRiskSynthesisAnalyzer(
+        checkpoints=cps, readiness=readiness_low, evidence_sufficiency=_make_dummy_sufficiency()
+    ).analyze()
+    assert res_low.score_override_reason is None
+
+
+def test_scenario_27_existing_m5h_decision_sufficiency_unchanged():
+    """Requirement 7: Existing M5H decision sufficiency behavior unchanged."""
+    cps = _make_clean_checkpoints()
+    readiness = _make_dummy_readiness(status=ProductionReadinessStatus.PRODUCTION_READY, score=88.0)
+    sufficiency = _make_dummy_sufficiency(
+        overall_confidence=ConfidenceLevel.HIGH,
+        decision_sufficiency=True,
+    )
+    res = DecisionRiskSynthesisAnalyzer(
+        checkpoints=cps, readiness=readiness, evidence_sufficiency=sufficiency
+    ).analyze()
+    assert res.confidence == ConfidenceLevel.HIGH
+    assert res.decision_sufficiency is True
+    assert res.final_decision == FinalDecisionStatus.PRODUCTION_READY
+
+
+def test_scenario_28_existing_m5f_idempotency_behavior_unchanged():
+    """Requirement 8: Existing M5F idempotency behavior unchanged."""
+    cps = _make_clean_checkpoints()
+    mock_rf = MagicMock()
+    mock_rf.rule_id = "RER-DUP-001"
+    mock_rf.title = "Append Write Mode Duplicate Data Risk"
+    mock_rf.description = "Unprotected append with retries enabled"
+    mock_rf.severity = Severity.HIGH
+    mock_rf.status = CheckpointStatus.FAIL
+    mock_rf.evidence = ["write_mode=append"]
+    mock_rerun = MagicMock()
+    mock_rerun.findings = [mock_rf]
+    mock_rerun.duplicate_risk = MagicMock(status=CheckpointStatus.FAIL)
+    readiness = _make_dummy_readiness(status=ProductionReadinessStatus.NOT_PRODUCTION_READY, score=85.0)
+
+    res = DecisionRiskSynthesisAnalyzer(
+        checkpoints=cps, readiness=readiness, rerun_analysis=mock_rerun
+    ).analyze()
+    assert any(r.category == RiskCategory.DUPLICATE_DATA for r in res.all_risks)
+    assert any(c.chain_id == "CHAIN-001" for c in res.risk_chains)
+
+
+def test_scenario_29_existing_m5g_alignment_behavior_unchanged():
+    """Requirement 9: Existing M5G alignment behavior unchanged."""
+    cps = _make_clean_checkpoints()
+    mock_dim = MagicMock()
+    mock_dim.drift_detected = True
+    mock_dim.drift_severity = "BLOCKING"
+    mock_dim.expected_summary = "15.4.x"
+    mock_dim.implemented_summary = "14.3.x"
+    mock_dim.actual_summary = "14.3.x"
+    mock_dim.findings = []
+    mock_align = MagicMock()
+    mock_align.dimensions = {"compute_runtime": mock_dim}
+    readiness = _make_dummy_readiness(status=ProductionReadinessStatus.NOT_PRODUCTION_READY, score=82.0)
+
+    res = DecisionRiskSynthesisAnalyzer(
+        checkpoints=cps, readiness=readiness, alignment_analysis=mock_align
+    ).analyze()
+    assert any(b.blocker_id == "BLK-ALIGN-COMPUTE_RUNTIME" for b in res.blockers)
+    assert any(c.chain_id == "CHAIN-003" for c in res.risk_chains)

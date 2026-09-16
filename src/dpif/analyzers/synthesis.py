@@ -114,9 +114,12 @@ class DecisionRiskSynthesisAnalyzer:
             key=lambda r: (0 if r.blocking else 1, severity_rank.get(r.severity, 5), r.risk_id),
         )[:5]
 
+        score_band = self._compute_score_band(self.readiness.quality_score)
+
         return DecisionRiskSynthesisResult(
             final_decision=final_decision,
             quality_score=self.readiness.quality_score,
+            score_band=score_band,
             confidence=overall_confidence,
             decision_sufficiency=overall_sufficiency,
             decision_explanation=decision_explanations,
@@ -185,6 +188,8 @@ class DecisionRiskSynthesisAnalyzer:
 
         # 1. Consolidate from Checkpoint findings
         for cp_id, cp in sorted(self.checkpoints.items()):
+            if cp_id in ("CP-024", "CP-FINAL"):
+                continue
             for f in cp.findings:
                 if f.status in (CheckpointStatus.PASS, CheckpointStatus.NOT_APPLICABLE):
                     continue
@@ -461,24 +466,91 @@ class DecisionRiskSynthesisAnalyzer:
                         )
                     )
 
-        # 4. Check CP-024 Quality Score threshold
-        if self.readiness and self.readiness.quality_score < 80.0:
-            bid = "BLK-CP024-SCORE"
-            if bid not in seen_blocker_ids:
-                seen_blocker_ids.add(bid)
-                blockers.append(
-                    ProductionBlocker(
-                        blocker_id=bid,
-                        title=f"Quality Score Below Minimum Threshold ({self.readiness.quality_score:.1f}/100 < 80.0/100)",
-                        description=f"Quality score ({self.readiness.quality_score:.1f}/100) does not meet the minimum production threshold (80.0/100).",
-                        source="CP-024-SCORE",
-                        category=RiskCategory.DATA_QUALITY,
-                        severity=Severity.HIGH,
-                        resolution_requirement="Resolve outstanding checkpoint findings to raise overall quality score above 80.0.",
-                    )
-                )
+        # 4. Check explicit score policy blocker (only if CP-024 or configured policy defines it)
+        score_blocker = self._check_score_policy_blocker()
+        if score_blocker and score_blocker.blocker_id not in seen_blocker_ids:
+            seen_blocker_ids.add(score_blocker.blocker_id)
+            blockers.append(score_blocker)
 
         return blockers
+
+    def _check_score_policy_blocker(self) -> ProductionBlocker | None:
+        """Check if CP-024 or an explicit configured release policy defines quality score as blocking.
+
+        A score below 80 MUST NOT automatically create a ProductionBlocker unless:
+        1. CP-024 already defines that threshold as a blocking policy, OR
+        2. An existing configurable release policy explicitly defines it.
+        """
+        if not self.readiness:
+            return None
+
+        score = self.readiness.quality_score
+
+        # 1. Check CP-024 checkpoint findings for explicit blocking decision
+        cp024 = self.checkpoints.get("CP-024")
+        if cp024 and cp024.findings:
+            for f in cp024.findings:
+                if f.blocking and f.status == CheckpointStatus.FAIL:
+                    desc_lower = (f.title or f.description or "").lower()
+                    if "quality score" in desc_lower and "minimum threshold" in desc_lower:
+                        return ProductionBlocker(
+                            blocker_id="BLK-CP024-SCORE",
+                            title=f.title or f"Quality Score Below Policy Threshold ({score:.1f}/100)",
+                            description=f.description or f"Quality score ({score:.1f}/100) failed CP-024 release policy gate.",
+                            source=f.rule_id,
+                            category=RiskCategory.DATA_QUALITY,
+                            severity=f.severity if f.severity else Severity.HIGH,
+                            resolution_requirement=f.recommendation or "Resolve outstanding checkpoint findings to raise quality score above policy threshold.",
+                        )
+
+        # 2. Check CP-024 ProductionReadinessAssessment decision_reasons for explicit score gating failure
+        reasons = getattr(self.readiness, "decision_reasons", [])
+        for r in reasons:
+            r_lower = r.lower()
+            if "quality score" in r_lower and "minimum threshold" in r_lower and ("below" in r_lower or "failed" in r_lower):
+                return ProductionBlocker(
+                    blocker_id="BLK-CP024-SCORE",
+                    title=f"Quality Score Below Policy Gate: {r}",
+                    description=r,
+                    source="CP-024-DECISION",
+                    category=RiskCategory.DATA_QUALITY,
+                    severity=Severity.HIGH,
+                    resolution_requirement="Resolve outstanding checkpoint findings to satisfy CP-024 quality score policy gate.",
+                )
+
+        # 3. Check explicit configurable release policy in context
+        policy = (
+            self.context.get("readiness_policy")
+            or self.context.get("policy")
+            or getattr(self.readiness, "policy", None)
+        )
+        if policy is not None:
+            min_score = getattr(policy, "minimum_quality_score", None)
+            if min_score is not None and min_score > 0.0 and score < min_score:
+                return ProductionBlocker(
+                    blocker_id="BLK-CP024-SCORE",
+                    title=f"Quality Score Below Policy Threshold ({score:.1f}/100 < {min_score:.1f}/100)",
+                    description=f"Quality score ({score:.1f}/100) is below configured policy threshold ({min_score:.1f}/100).",
+                    source="CP-024-SCORE",
+                    category=RiskCategory.DATA_QUALITY,
+                    severity=Severity.HIGH,
+                    resolution_requirement=f"Resolve outstanding checkpoint findings to raise overall quality score above {min_score:.1f}.",
+                )
+
+        return None
+
+    @staticmethod
+    def _compute_score_band(score: float) -> str:
+        """Compute score band aligned with DPIF scoring engine."""
+        if score >= 90.0:
+            return "EXCELLENT"
+        if score >= 80.0:
+            return "GOOD"
+        if score >= 70.0:
+            return "NEEDS_IMPROVEMENT"
+        if score >= 50.0:
+            return "HIGH_RISK"
+        return "CRITICAL"
 
     def _build_risk_chains(self, risks: list[SynthesizedRisk]) -> list[RiskChain]:
         """Construct deterministic causal risk chains from observed evidence."""
@@ -770,10 +842,16 @@ class DecisionRiskSynthesisAnalyzer:
             status = FinalDecisionStatus.NOT_PRODUCTION_READY
             for b in blockers[:3]:
                 reasons.append(f"Blocked by [{b.severity.value}] {b.title} (Source: {b.source})")
-            if score >= 80.0:
+            has_non_score_blocker = any(
+                "SCORE" not in b.blocker_id and "SCORE" not in b.source for b in blockers
+            )
+            if score >= 80.0 and has_non_score_blocker:
+                non_score_blockers = [
+                    b for b in blockers if "SCORE" not in b.blocker_id and "SCORE" not in b.source
+                ]
                 score_override_reason = (
                     f"Quality score ({score:.1f}/100) meets minimum threshold but is overridden "
-                    f"by {len(blockers)} hard production blocker(s): {', '.join(b.title for b in blockers[:2])}."
+                    f"by {len(blockers)} hard production blocker(s): {', '.join(b.title for b in non_score_blockers[:2])}."
                 )
             return status, reasons, score_override_reason
 
@@ -782,7 +860,10 @@ class DecisionRiskSynthesisAnalyzer:
             status = FinalDecisionStatus.NOT_PRODUCTION_READY
             for r in self.readiness.decision_reasons[:3]:
                 reasons.append(f"Production readiness gate failure: {r}")
-            if score >= 80.0:
+            has_non_score_gate = any(
+                "quality score" not in r.lower() for r in self.readiness.decision_reasons
+            )
+            if score >= 80.0 and has_non_score_gate:
                 score_override_reason = (
                     f"Quality score ({score:.1f}/100) is overridden by CP-024 readiness gate failures."
                 )
