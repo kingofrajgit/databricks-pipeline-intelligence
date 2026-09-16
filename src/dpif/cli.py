@@ -167,7 +167,11 @@ def _display_path(p: Path) -> str:
     help="Output directory for batch report JSON/CSV",
 )
 @click.option("--offline/--online", default=True, help="Offline (fixtures) or live mode")
+@click.option("--workspace", "--host", type=str, default=None, help="Databricks workspace URL")
+@click.option("--token", type=str, default=None, help="Databricks API token")
 @click.option("--job-id", type=int, default=None, help="Databricks Job ID for live mode")
+@click.option("--pipeline-id", type=str, default=None, help="Databricks Pipeline (DLT) ID for live mode")
+@click.option("--run-id", type=str, default=None, help="Databricks Run ID for live mode")
 @click.option("--environment", "-e", type=str, default=None, help="Environment override")
 @click.option("--code-path", "--code", type=click.Path(exists=True), default=None, help="Code file")
 @click.option(
@@ -208,12 +212,17 @@ def validate_contract(
     runtime_run: str | None = None,
     historical_runs: str | None = None,
     json_output: bool = False,
+    workspace: str | None = None,
+    token: str | None = None,
+    pipeline_id: str | None = None,
+    run_id: str | None = None,
 ) -> None:
     """Validate a pipeline contract, multi-pipeline CSV manifest, or Databricks job.
 
     Examples:
       dpif validate --contract examples/customer_daily.yaml --offline
       dpif validate --input manifests/pipelines.csv --offline
+      dpif validate --online --job-id 12345
     """
     settings = get_settings()
     if settings.debug:
@@ -247,10 +256,23 @@ def validate_contract(
                 click.echo(msg, err=True)
                 sys.exit(2)
         else:
-            if job_id is None:
-                click.echo("Error: --job-id is required for live validation", err=True)
+            if job_id is None and pipeline_id is None:
+                click.echo(
+                    "Error: Either --job-id or --pipeline-id is required for live validation",
+                    err=True,
+                )
                 sys.exit(2)
-            _run_live_validation(job_id, environment or "prod")
+            _run_live_validation(
+                workspace=workspace,
+                token=token,
+                job_id=job_id,
+                pipeline_id=pipeline_id,
+                run_id=run_id,
+                contract_path=contract,
+                code_path=code_path,
+                environment=environment,
+                json_output=json_output,
+            )
     except SystemExit:
         raise
     except ConfigurationError as e:
@@ -260,6 +282,56 @@ def validate_contract(
         logger.exception("Validation crashed: %s", e)
         click.echo(f"Validation crashed: {e}", err=True)
         sys.exit(1)
+
+
+@cli.command("validate-online")
+@click.option("--workspace", "--host", type=str, default=None, help="Databricks workspace URL")
+@click.option("--token", type=str, default=None, help="Databricks personal access token")
+@click.option("--job-id", type=int, default=None, help="Databricks Job ID")
+@click.option("--pipeline-id", type=str, default=None, help="Databricks Pipeline (DLT) ID")
+@click.option("--run-id", type=str, default=None, help="Databricks Run ID")
+@click.option("--contract", "-c", type=click.Path(exists=True), default=None, help="Pipeline contract YAML")
+@click.option("--code-path", "--code", type=click.Path(exists=True), default=None, help="Code file")
+@click.option("--environment", "-e", type=str, default=None, help="Environment override")
+@click.option("--json", "json_output", is_flag=True, default=False, help="Emit machine-readable JSON output")
+def validate_online_cmd(
+    workspace: str | None,
+    token: str | None,
+    job_id: int | None,
+    pipeline_id: str | None,
+    run_id: str | None,
+    contract: str | None,
+    code_path: str | None,
+    environment: str | None,
+    json_output: bool = False,
+) -> None:
+    """Validate a live Databricks job or pipeline end-to-end against the intelligence stack.
+
+    Examples:
+      dpif validate-online --job-id 12345 --workspace https://adb-123.databricks.com
+      dpif validate-online --pipeline-id p-abc --contract contract.yaml
+    """
+    settings = get_settings()
+    if settings.debug:
+        setup_logging(level="DEBUG")
+    if job_id is None and pipeline_id is None:
+        click.echo(
+            "Error: Either --job-id or --pipeline-id is required for online validation",
+            err=True,
+        )
+        sys.exit(2)
+    _run_live_validation(
+        workspace=workspace,
+        token=token,
+        job_id=job_id,
+        pipeline_id=pipeline_id,
+        run_id=run_id,
+        contract_path=contract,
+        code_path=code_path,
+        environment=environment,
+        json_output=json_output,
+    )
+
 
 
 def _run_batch_offline_validation(
@@ -545,11 +617,100 @@ def _run_offline_validation(
     # Exit 0: validation completed (even with FAIL findings).
 
 
-def _run_live_validation(job_id: int, environment: str) -> None:
-    click.echo(f"Running live validation for job {job_id} in {environment}")
-    click.echo("Live mode needs Databricks credentials; Phase 2 covers offline mode only.")
-    click.echo("Use --offline mode with a pipeline contract.")
-    sys.exit(2)
+def _run_live_validation(
+    workspace: str | None,
+    token: str | None,
+    job_id: int | str | None,
+    pipeline_id: str | None,
+    run_id: int | str | None,
+    contract_path: str | None,
+    code_path: str | None,
+    environment: str | None,
+    json_output: bool = False,
+) -> None:
+    from dpif.connectors.live import DatabricksApiError
+    from dpif.orchestration.online import run_online_validation
+    from dpif.providers.base import mask_sensitive_credentials
+
+    try:
+        result = run_online_validation(
+            workspace=workspace,
+            token=token,
+            job_id=job_id,
+            pipeline_id=pipeline_id,
+            run_id=run_id,
+            contract_path=contract_path,
+            code_path=code_path,
+            environment=environment,
+        )
+    except DatabricksApiError as e:
+        clean_msg = mask_sensitive_credentials(str(e), token)
+        click.echo(f"Databricks API Error: {clean_msg}", err=True)
+        sys.exit(2)
+    except ValueError as e:
+        click.echo(f"Validation Error: {e}", err=True)
+        sys.exit(2)
+
+    if json_output:
+        click.echo(json.dumps(result.to_dict(), indent=2))
+        return
+
+    _display_online_validation(result)
+
+
+def _display_online_validation(result: Any) -> None:
+    click.echo("=" * 60)
+    click.echo("DPIF ONLINE VALIDATION")
+    click.echo("=" * 60)
+    click.echo("")
+    click.echo("WORKSPACE:")
+    click.echo(f"    {result.workspace or 'UNKNOWN'}")
+    click.echo("")
+    click.echo("RESOURCE:")
+    click.echo(f"    {result.resource_type.upper()} {result.resource_id}")
+    click.echo("")
+    click.echo("EVIDENCE:")
+    order = ["workspace", "job", "pipeline", "cluster", "runtime", "historical", "code"]
+    labels = {
+        "workspace": "Workspace",
+        "job": "Job",
+        "pipeline": "Pipeline",
+        "cluster": "Cluster",
+        "runtime": "Runtime",
+        "historical": "Historical",
+        "code": "Code",
+    }
+    for cat in order:
+        if cat in result.evidence_summary:
+            st = result.evidence_summary[cat]
+            lbl = labels.get(cat, cat.capitalize())
+            click.echo(f"    {lbl:<16}{st}")
+    click.echo("")
+
+    _display_findings(result.checkpoints)
+
+    if result.evidence_sufficiency:
+        click.echo("-" * 60)
+        click.echo("M5H EVIDENCE COVERAGE")
+        click.echo("-" * 60)
+        click.echo("Coverage:")
+        click.echo(f"    {result.evidence_sufficiency.coverage_score:.0f}%")
+        click.echo("")
+        click.echo("Confidence:")
+        click.echo(f"    {result.confidence}")
+        click.echo("")
+        suff_str = "TRUE" if result.decision_sufficiency else "FALSE"
+        click.echo("Decision Sufficiency:")
+        click.echo(f"    {suff_str}")
+        click.echo("")
+        if result.evidence_sufficiency.critical_missing_evidence:
+            click.echo("Missing Evidence:")
+            for m in result.evidence_sufficiency.critical_missing_evidence[:5]:
+                click.echo(f"    - {m}")
+            click.echo("")
+
+    if result.decision_risk_synthesis:
+        _display_decision_risk_synthesis_section(result.decision_risk_synthesis)
 
 
 def _display_header(contract: Any, offline: bool) -> None:
