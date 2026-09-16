@@ -22,7 +22,7 @@ import yaml
 
 from dpif.config import resolve_databricks_credentials
 from dpif.connectors.base import DatabricksConnector
-from dpif.connectors.live import LiveDatabricksConnector
+from dpif.connectors.live import DatabricksAPIError, DatabricksApiError, LiveDatabricksConnector
 from dpif.error_handling import ConfigurationError
 from dpif.models import Severity
 from dpif.models.fleet import (
@@ -341,18 +341,19 @@ def aggregate_fleet_metrics(
     else:
         fleet_quality_score = round(score_sum / successful, 2)
 
-    # Check confirmed collisions
+    # Check confirmed collisions respecting the configured tier policy
     has_critical_collision = any(c.status == CollisionStatus.CONFIRMED for c in collisions)
+    collision_blocks_gate = has_critical_collision and getattr(policy, "block_on_confirmed_collisions", True)
 
     # Deterministic Enterprise Policy Gate:
     # Authoritative over the aggregate score. The fleet gate passes ONLY when:
     # 1. Zero pipeline executions failed or raised errors (failed == 0)
     # 2. Zero pipelines violated their tier policy (blocked_policy == 0)
-    # 3. Zero confirmed critical cross-pipeline resource collisions exist
+    # 3. Confirmed collision does not violate tier policy (collision_blocks_gate is False)
     fleet_policy_passed = (
         failed == 0
         and blocked_policy == 0
-        and not has_critical_collision
+        and not collision_blocks_gate
     )
 
     metrics = FleetSummaryMetrics(
@@ -428,6 +429,29 @@ class EnterpriseFleetOrchestrator:
                 environment=target_env,
             )
 
+            # Check if validation result contains primary authentication/authorization errors
+            auth_error = None
+            if hasattr(validation_result, "evidence_diagnostics") and validation_result.evidence_diagnostics:
+                for diag in validation_result.evidence_diagnostics:
+                    err_cd = getattr(diag, "error_code", None)
+                    if err_cd in ("AUTHENTICATION_FAILURE", "AUTHORIZATION_FAILURE"):
+                        auth_error = getattr(diag, "error_message", None) or f"Authentication failure in {diag.category}"
+                        break
+
+            if auth_error:
+                return PipelineFleetExecution(
+                    pipeline_id=pid,
+                    target=target,
+                    success=False,
+                    policy_passed=False,
+                    policy_violations=[f"Authentication/Authorization failure: {auth_error}"],
+                    validation_result=validation_result,
+                    error_message=auth_error,
+                    is_auth_or_config_error=True,
+                    error_provenance="AUTHENTICATION_FAILURE",
+                    duration_seconds=time.perf_counter() - start_time,
+                )
+
             # Evaluate policy
             policy_passed, violations = policy.evaluate_pipeline(validation_result)
             duration = time.perf_counter() - start_time
@@ -439,12 +463,29 @@ class EnterpriseFleetOrchestrator:
                 policy_passed=policy_passed,
                 policy_violations=violations,
                 validation_result=validation_result,
+                is_auth_or_config_error=False,
                 duration_seconds=duration,
             )
 
         except Exception as exc:
             duration = time.perf_counter() - start_time
             logger.exception("Failed validating pipeline '%s': %s", pid, exc)
+
+            is_auth_or_config = False
+            err_prov = "API_FAILURE"
+            exc_str = str(exc).lower()
+
+            if isinstance(exc, ConfigurationError):
+                is_auth_or_config = True
+                err_prov = "CONFIGURATION_ERROR"
+            elif isinstance(exc, (DatabricksApiError, DatabricksAPIError)):
+                if exc.status_code in (401, 403) or any(k in exc_str for k in ("401", "403", "auth", "token", "permission")):
+                    is_auth_or_config = True
+                    err_prov = "AUTHENTICATION_FAILURE"
+            elif any(k in exc_str for k in ("401", "403", "auth", "token", "permission", "credentials")):
+                is_auth_or_config = True
+                err_prov = "AUTHENTICATION_FAILURE"
+
             return PipelineFleetExecution(
                 pipeline_id=pid,
                 target=target,
@@ -453,6 +494,8 @@ class EnterpriseFleetOrchestrator:
                 policy_violations=[f"Pipeline execution failure: {exc}"],
                 validation_result=None,
                 error_message=str(exc),
+                is_auth_or_config_error=is_auth_or_config,
+                error_provenance=err_prov,
                 duration_seconds=duration,
             )
 
@@ -532,6 +575,7 @@ class EnterpriseFleetOrchestrator:
         # Aggregate metrics
         summary, policy_passed = aggregate_fleet_metrics(executions, effective_policy, collisions)
         total_duration = time.perf_counter() - start_time
+        has_auth_or_config = any(p.is_auth_or_config_error for p in executions.values())
 
         return FleetValidationResult(
             fleet_name=manifest.name,
@@ -541,5 +585,6 @@ class EnterpriseFleetOrchestrator:
             pipeline_executions=executions,
             collisions=collisions,
             policy_passed=policy_passed,
+            has_auth_or_config_error=has_auth_or_config,
             duration_seconds=total_duration,
         )

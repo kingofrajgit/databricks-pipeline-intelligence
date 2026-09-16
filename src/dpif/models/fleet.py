@@ -48,6 +48,7 @@ class EnterpriseEnvironmentPolicy(BaseModel):
     allow_conditional_go: bool = False
     block_on_p0_risks: bool = True
     block_on_configuration_drift: bool = True
+    block_on_confirmed_collisions: bool = True
 
     @classmethod
     def default_for_tier(cls, tier: EnvironmentTier | str) -> EnterpriseEnvironmentPolicy:
@@ -60,8 +61,9 @@ class EnterpriseEnvironmentPolicy(BaseModel):
                 min_confidence=ConfidenceLevel.LOW,
                 require_decision_sufficiency=False,
                 allow_conditional_go=True,
-                block_on_p0_risks=False,
+                block_on_p0_risks=True,
                 block_on_configuration_drift=False,
+                block_on_confirmed_collisions=False,
             )
         elif tier_val == EnvironmentTier.STAGING:
             return cls(
@@ -72,6 +74,7 @@ class EnterpriseEnvironmentPolicy(BaseModel):
                 allow_conditional_go=True,
                 block_on_p0_risks=True,
                 block_on_configuration_drift=False,
+                block_on_confirmed_collisions=False,
             )
         else:  # PRODUCTION
             return cls(
@@ -82,6 +85,7 @@ class EnterpriseEnvironmentPolicy(BaseModel):
                 allow_conditional_go=False,
                 block_on_p0_risks=True,
                 block_on_configuration_drift=True,
+                block_on_confirmed_collisions=True,
             )
 
     def evaluate_pipeline(
@@ -257,6 +261,8 @@ class PipelineFleetExecution(BaseModel):
     policy_violations: list[str] = Field(default_factory=list)
     validation_result: Any | None = None
     error_message: str | None = None
+    is_auth_or_config_error: bool = False
+    error_provenance: str | None = None
     duration_seconds: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
@@ -265,6 +271,8 @@ class PipelineFleetExecution(BaseModel):
             "success": self.success,
             "policy_passed": self.policy_passed,
             "policy_violations": self.policy_violations,
+            "is_auth_or_config_error": self.is_auth_or_config_error,
+            "error_provenance": self.error_provenance,
             "duration_seconds": round(self.duration_seconds, 2),
             "error_message": self.error_message,
         }
@@ -285,6 +293,7 @@ class FleetValidationResult(BaseModel):
     pipeline_executions: dict[str, PipelineFleetExecution] = Field(default_factory=dict)
     collisions: list[CrossPipelineCollisionFinding] = Field(default_factory=list)
     policy_passed: bool = True
+    has_auth_or_config_error: bool = False
     duration_seconds: float = 0.0
 
     def to_dict(self) -> dict[str, Any]:
@@ -299,9 +308,11 @@ class FleetValidationResult(BaseModel):
                 "allow_conditional_go": self.policy.allow_conditional_go,
                 "block_on_p0_risks": self.policy.block_on_p0_risks,
                 "block_on_configuration_drift": self.policy.block_on_configuration_drift,
+                "block_on_confirmed_collisions": self.policy.block_on_confirmed_collisions,
             },
             "summary": self.summary.to_dict(),
             "policy_passed": self.policy_passed,
+            "has_auth_or_config_error": self.has_auth_or_config_error,
             "duration_seconds": round(self.duration_seconds, 2),
             "collisions": [c.to_dict() for c in self.collisions],
             "pipelines": {pid: exec_obj.to_dict() for pid, exec_obj in self.pipeline_executions.items()},

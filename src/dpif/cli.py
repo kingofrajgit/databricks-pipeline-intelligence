@@ -549,8 +549,17 @@ def validate_online_fleet_cmd(
             click.echo("POLICY GATE:       BLOCKED")
         click.echo("=" * 60)
 
-    # Exit code contract
-    if fleet_result.policy_passed:
+    # Exit code contract:
+    # 0: Fleet validation completed and policy passed
+    # 1: Fleet validation completed but policy failed
+    # 2: System/configuration/authentication error prevented valid evaluation
+    if fleet_result.has_auth_or_config_error:
+        click.echo(
+            "Error: System, configuration, or authentication error prevented valid fleet evaluation.",
+            err=True,
+        )
+        sys.exit(2)
+    elif fleet_result.policy_passed:
         sys.exit(0)
     else:
         sys.exit(1)

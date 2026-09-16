@@ -11,6 +11,7 @@ import pytest
 from click.testing import CliRunner
 
 from dpif.cli import cli
+from dpif.connectors.live import DatabricksApiError
 from dpif.error_handling import ConfigurationError
 from dpif.models import CheckpointStatus, Severity
 from dpif.models.fleet import (
@@ -188,6 +189,8 @@ def test_environment_policy_development():
     assert policy.min_quality_score == 50.0
     assert not policy.require_decision_sufficiency
     assert policy.allow_conditional_go
+    assert policy.block_on_p0_risks is True
+    assert not policy.block_on_confirmed_collisions
 
     mock_res = MagicMock(spec=OnlineValidationResult)
     mock_res.quality_score = 65.0
@@ -201,6 +204,27 @@ def test_environment_policy_development():
     passed, violations = policy.evaluate_pipeline(mock_res)
     assert passed
     assert len(violations) == 0
+
+
+def test_environment_policy_development_p0_blocker():
+    """Development policy: Pipelines with P0 production risks are strictly rejected."""
+    policy = EnterpriseEnvironmentPolicy.default_for_tier(EnvironmentTier.DEVELOPMENT)
+    assert policy.block_on_p0_risks is True
+
+    mock_res = MagicMock(spec=OnlineValidationResult)
+    mock_res.quality_score = 90.0
+    mock_res.confidence = ConfidenceLevel.HIGH
+    mock_res.decision_sufficiency = True
+    mock_res.has_blocking = True
+    mock_res.final_decision = FinalDecisionStatus.NOT_PRODUCTION_READY.value
+    mock_res.alignment_analysis = None
+    mock_syn = MagicMock(spec=DecisionRiskSynthesisResult)
+    mock_syn.production_blockers = ["Critical data loss risk"]
+    mock_res.decision_risk_synthesis = mock_syn
+
+    passed, violations = policy.evaluate_pipeline(mock_res)
+    assert not passed
+    assert any("blocking P0 production risk" in v for v in violations)
 
 
 def test_environment_policy_production_strict():
@@ -767,3 +791,274 @@ def test_cli_validate_online_fleet_manifest_missing():
         ],
     )
     assert result.exit_code == 2
+
+
+def test_collision_gating_development_tier_does_not_block():
+    """Development tier: Confirmed collision remains visible but does not fail the fleet policy gate."""
+    policy = EnterpriseEnvironmentPolicy.default_for_tier(EnvironmentTier.DEVELOPMENT)
+    mock_vr_1 = MagicMock(spec=OnlineValidationResult, quality_score=80.0, confidence=ConfidenceLevel.LOW, has_blocking=False)
+    mock_vr_2 = MagicMock(spec=OnlineValidationResult, quality_score=85.0, confidence=ConfidenceLevel.LOW, has_blocking=False)
+
+    executions = {
+        "p1": PipelineFleetExecution(pipeline_id="p1", target=EnterprisePipelineTarget(id="p1"), success=True, policy_passed=True, validation_result=mock_vr_1),
+        "p2": PipelineFleetExecution(pipeline_id="p2", target=EnterprisePipelineTarget(id="p2"), success=True, policy_passed=True, validation_result=mock_vr_2),
+    }
+    collision = CrossPipelineCollisionFinding(
+        status=CollisionStatus.CONFIRMED,
+        severity=Severity.CRITICAL,
+        target_resource="catalog.schema.orders",
+        conflicting_pipeline_ids=["p1", "p2"],
+        description="Concurrent overwrite detected",
+        recommendation="Separate target tables or partition outputs",
+    )
+    summary, passed = aggregate_fleet_metrics(executions, policy, [collision])
+    assert passed is True
+    assert summary.passed_policy == 2
+    assert summary.blocked_policy == 0
+
+
+def test_collision_gating_staging_tier_does_not_block():
+    """Staging tier: Confirmed collision remains visible but does not fail the fleet policy gate solely for collision."""
+    policy = EnterpriseEnvironmentPolicy.default_for_tier(EnvironmentTier.STAGING)
+    mock_vr_1 = MagicMock(spec=OnlineValidationResult, quality_score=75.0, confidence=ConfidenceLevel.MEDIUM, has_blocking=False)
+    mock_vr_2 = MagicMock(spec=OnlineValidationResult, quality_score=80.0, confidence=ConfidenceLevel.MEDIUM, has_blocking=False)
+
+    executions = {
+        "p1": PipelineFleetExecution(pipeline_id="p1", target=EnterprisePipelineTarget(id="p1"), success=True, policy_passed=True, validation_result=mock_vr_1),
+        "p2": PipelineFleetExecution(pipeline_id="p2", target=EnterprisePipelineTarget(id="p2"), success=True, policy_passed=True, validation_result=mock_vr_2),
+    }
+    collision = CrossPipelineCollisionFinding(
+        status=CollisionStatus.CONFIRMED,
+        severity=Severity.CRITICAL,
+        target_resource="catalog.schema.orders",
+        conflicting_pipeline_ids=["p1", "p2"],
+        description="Concurrent overwrite detected",
+        recommendation="Separate target tables or partition outputs",
+    )
+    summary, passed = aggregate_fleet_metrics(executions, policy, [collision])
+    assert passed is True
+    assert summary.passed_policy == 2
+    assert summary.blocked_policy == 0
+
+
+def test_collision_gating_production_tier_blocks():
+    """Production tier: Confirmed collision strictly blocks the fleet policy gate."""
+    policy = EnterpriseEnvironmentPolicy.default_for_tier(EnvironmentTier.PRODUCTION)
+    mock_vr_1 = MagicMock(spec=OnlineValidationResult, quality_score=95.0, confidence=ConfidenceLevel.HIGH, has_blocking=False)
+    mock_vr_2 = MagicMock(spec=OnlineValidationResult, quality_score=90.0, confidence=ConfidenceLevel.HIGH, has_blocking=False)
+
+    executions = {
+        "p1": PipelineFleetExecution(pipeline_id="p1", target=EnterprisePipelineTarget(id="p1"), success=True, policy_passed=True, validation_result=mock_vr_1),
+        "p2": PipelineFleetExecution(pipeline_id="p2", target=EnterprisePipelineTarget(id="p2"), success=True, policy_passed=True, validation_result=mock_vr_2),
+    }
+    collision = CrossPipelineCollisionFinding(
+        status=CollisionStatus.CONFIRMED,
+        severity=Severity.CRITICAL,
+        target_resource="catalog.schema.orders",
+        conflicting_pipeline_ids=["p1", "p2"],
+        description="Concurrent overwrite detected",
+        recommendation="Separate target tables or partition outputs",
+    )
+    summary, passed = aggregate_fleet_metrics(executions, policy, [collision])
+    assert passed is False
+
+
+def test_cli_validate_online_fleet_missing_credentials_exit_2(tmp_path: Path, monkeypatch):
+    """Test CLI returns exit code 2 when credentials cannot be resolved for a pipeline."""
+    manifest_file = tmp_path / "fleet_missing_creds.yaml"
+    manifest_file.write_text(
+        """
+fleet:
+  name: "missing-creds-fleet"
+  environment: "development"
+pipelines:
+  - id: "p1"
+    job_id: 123
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "dpif.orchestration.fleet.resolve_databricks_credentials",
+        lambda **kwargs: {"host": None, "token": None},
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "validate-online-fleet",
+            "--manifest",
+            str(manifest_file),
+        ],
+    )
+    assert result.exit_code == 2
+    assert "System, configuration, or authentication error" in result.output
+
+
+def test_cli_validate_online_fleet_auth_failure_exit_2(tmp_path: Path, monkeypatch):
+    """Test CLI returns exit code 2 when connector/API reports authentication/authorization failure."""
+    manifest_file = tmp_path / "fleet_auth_fail.yaml"
+    manifest_file.write_text(
+        """
+fleet:
+  name: "auth-fail-fleet"
+  environment: "development"
+pipelines:
+  - id: "p1"
+    job_id: 123
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "dpif.orchestration.fleet.resolve_databricks_credentials",
+        lambda **kwargs: {"host": "https://dbc.cloud.databricks.com", "token": "invalid_tok"},
+    )
+    from dpif.connectors.live import DatabricksApiError
+
+    def mock_validate(*args, **kwargs):
+        raise DatabricksApiError("Invalid access token", status_code=403)
+
+    monkeypatch.setattr(
+        "dpif.orchestration.fleet.OnlineValidationOrchestrator.validate",
+        mock_validate,
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "validate-online-fleet",
+            "--manifest",
+            str(manifest_file),
+        ],
+    )
+    assert result.exit_code == 2
+    assert "System, configuration, or authentication error" in result.output
+
+
+def test_cli_validate_online_fleet_operational_failure_exit_1(tmp_path: Path, monkeypatch):
+    """Test CLI returns exit code 1 when evaluation encounters a generic API/network failure (not auth/config)."""
+    manifest_file = tmp_path / "fleet_api_fail.yaml"
+    manifest_file.write_text(
+        """
+fleet:
+  name: "api-fail-fleet"
+  environment: "development"
+pipelines:
+  - id: "p1"
+    job_id: 123
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "dpif.orchestration.fleet.resolve_databricks_credentials",
+        lambda **kwargs: {"host": "https://dbc.cloud.databricks.com", "token": "valid_token"},
+    )
+
+    def mock_validate(*args, **kwargs):
+        raise RuntimeError("Connection timed out after 30s")
+
+    monkeypatch.setattr(
+        "dpif.orchestration.fleet.OnlineValidationOrchestrator.validate",
+        mock_validate,
+    )
+
+    runner = CliRunner()
+    result = runner.invoke(
+        cli,
+        [
+            "validate-online-fleet",
+            "--manifest",
+            str(manifest_file),
+        ],
+    )
+    assert result.exit_code == 1
+    assert "POLICY GATE:       BLOCKED" in result.output
+
+
+def test_fleet_pipeline_auth_failure_does_not_fabricate_success(monkeypatch):
+    """Verify that an auth failure on a pipeline does not fabricate success or empty evidence."""
+    target = EnterprisePipelineTarget(id="p_fail", job_id=999)
+    orchestrator = EnterpriseFleetOrchestrator()
+
+    def mock_validate(*args, **kwargs):
+        raise DatabricksApiError("HTTP 401 Unauthorized: Invalid access token", status_code=401)
+
+    monkeypatch.setattr(
+        "dpif.orchestration.fleet.OnlineValidationOrchestrator.validate",
+        mock_validate,
+    )
+
+    execution = orchestrator._execute_single_target(
+        target=target,
+        default_workspace="https://dbc.cloud.databricks.com",
+        policy=EnterpriseEnvironmentPolicy.default_for_tier(EnvironmentTier.DEVELOPMENT),
+        resolved_token="some_token",
+    )
+    assert execution.success is False
+    assert execution.policy_passed is False
+    assert execution.is_auth_or_config_error is True
+    assert execution.error_provenance == "AUTHENTICATION_FAILURE"
+    assert "401" in execution.error_message
+
+
+def test_fleet_failure_isolation_independent_pipelines():
+    """Verify failure isolation: one pipeline auth/config failure does not prevent independent pipelines from completing."""
+    manifest = FleetManifest(
+        name="mixed-fleet",
+        environment=EnvironmentTier.DEVELOPMENT,
+        pipelines=[
+            EnterprisePipelineTarget(id="p_good", job_id=100),
+            EnterprisePipelineTarget(id="p_bad", job_id=200),
+        ],
+    )
+    orchestrator = EnterpriseFleetOrchestrator()
+
+    mock_good_result = MagicMock(
+        spec=OnlineValidationResult,
+        quality_score=90.0,
+        confidence=ConfidenceLevel.HIGH,
+        has_blocking=False,
+        final_decision=FinalDecisionStatus.PRODUCTION_READY.value,
+        alignment_analysis=None,
+        decision_risk_synthesis=None,
+        evidence_diagnostics=[],
+    )
+
+    def side_effect_exec(target, policy, default_workspace, default_token):
+        if target.id == "p_good":
+            return PipelineFleetExecution(
+                pipeline_id="p_good",
+                target=target,
+                success=True,
+                policy_passed=True,
+                validation_result=mock_good_result,
+            )
+        else:
+            return PipelineFleetExecution(
+                pipeline_id="p_bad",
+                target=target,
+                success=False,
+                policy_passed=False,
+                error_message="Missing host or token",
+                is_auth_or_config_error=True,
+                error_provenance="CONFIGURATION_ERROR",
+            )
+
+    orchestrator._execute_single_target = MagicMock(side_effect=side_effect_exec)
+    fleet_res = orchestrator.validate_fleet(manifest=manifest)
+
+    # Independent pipeline completed successfully
+    assert fleet_res.pipeline_executions["p_good"].success is True
+    assert fleet_res.pipeline_executions["p_good"].policy_passed is True
+    # Failed pipeline marked as failed without fabricating success
+    assert fleet_res.pipeline_executions["p_bad"].success is False
+    assert fleet_res.pipeline_executions["p_bad"].is_auth_or_config_error is True
+    # Fleet-level metrics reflect isolation
+    assert fleet_res.summary.successful_validations == 1
+    assert fleet_res.summary.failed_validations == 1
+    assert fleet_res.summary.total_pipelines == 2
+    # Overall fleet outcome captures auth/config error
+    assert fleet_res.has_auth_or_config_error is True
+    assert fleet_res.policy_passed is False
+
