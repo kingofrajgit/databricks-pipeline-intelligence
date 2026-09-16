@@ -165,18 +165,15 @@ def mask_sensitive_credentials(text: str, token: str | None = None) -> str:
 
     # Mask bearer tokens
     bearer_pattern = r"(?i)(bearer\s+)([^\s;&,#\"']+)"
-    clean = re.sub(bearer_pattern, r"\1[MASKED_SECRET]", clean)
+    clean = re.sub(bearer_pattern, r"\g<1>[MASKED_SECRET]", clean)
 
     # Mask authorization, password, token, secret, api_key key-value pairs
+    # Excludes "bearer" via negative lookahead so Bearer is preserved when present
     pattern = (
         r'(?i)("?(?:authorization|password|token|secret|api[_-]?key)"?\s*[:=]\s*)'
-        r'("?[^\s;&,#"\']+"?)'
+        r'(?!"?bearer\b)("?[^\s;&,#"\']+"?)'
     )
-    clean = re.sub(pattern, r"\1[MASKED_SECRET]", clean)
-
-    # Mask authorization headers like "Authorization: <token>"
-    auth_header_pattern = r'(?i)(authorization\s*:\s*)([^\s;&,#"\']+)'
-    clean = re.sub(auth_header_pattern, r"\1[MASKED_SECRET]", clean)
+    clean = re.sub(pattern, r"\g<1>[MASKED_SECRET]", clean)
 
     return clean
 
