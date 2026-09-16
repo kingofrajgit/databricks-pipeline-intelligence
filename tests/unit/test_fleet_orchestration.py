@@ -114,6 +114,35 @@ pipelines:
         load_and_validate_fleet_manifest(manifest_file)
 
 
+def test_manifest_missing_pipelines_section_rejected(tmp_path: Path):
+    """Manifest without pipelines section must be rejected with validation error."""
+    manifest_file = tmp_path / "missing_pipelines.yaml"
+    manifest_file.write_text(
+        """
+fleet:
+  name: "missing-pipelines-fleet"
+""",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="pipelines"):
+        load_and_validate_fleet_manifest(manifest_file)
+
+
+def test_manifest_empty_pipelines_list_rejected(tmp_path: Path):
+    """Manifest with empty pipelines: [] must be rejected with validation error."""
+    manifest_file = tmp_path / "empty_pipelines.yaml"
+    manifest_file.write_text(
+        """
+fleet:
+  name: "empty-pipelines-fleet"
+pipelines: []
+""",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="pipelines"):
+        load_and_validate_fleet_manifest(manifest_file)
+
+
 def test_manifest_security_embedded_token_rejected(tmp_path: Path):
     """Security test: Manifest containing sensitive credential keys is rejected."""
     manifest_file = tmp_path / "insecure.yaml"
@@ -178,14 +207,15 @@ def test_environment_policy_production_strict():
     """Test production environment policy strictly blocks on low score, confidence, or blockers."""
     policy = EnterpriseEnvironmentPolicy.default_for_tier(EnvironmentTier.PRODUCTION)
     assert policy.tier == EnvironmentTier.PRODUCTION
-    assert policy.min_quality_score == 75.0
+    assert policy.min_quality_score == 85.0
     assert policy.min_confidence == ConfidenceLevel.HIGH
     assert policy.require_decision_sufficiency
     assert not policy.allow_conditional_go
+    assert policy.block_on_configuration_drift
 
-    # Pipeline with low score and medium confidence
+    # Pipeline with score 80.0 (below 85.0) and medium confidence
     mock_res = MagicMock(spec=OnlineValidationResult)
-    mock_res.quality_score = 68.0
+    mock_res.quality_score = 80.0
     mock_res.confidence = ConfidenceLevel.MEDIUM
     mock_res.decision_sufficiency = True
     mock_res.has_blocking = False
@@ -195,9 +225,49 @@ def test_environment_policy_production_strict():
 
     passed, violations = policy.evaluate_pipeline(mock_res)
     assert not passed
-    assert any("below policy minimum 75.0" in v for v in violations)
+    assert any("below policy minimum 85.0" in v for v in violations)
     assert any("Confidence 'MEDIUM' is below required policy level 'HIGH'" in v for v in violations)
     assert any("not permitted under 'production' policy" in v for v in violations)
+
+
+def test_environment_policy_staging_configuration_drift_does_not_block():
+    """Staging policy: Configuration drift does NOT block when other criteria pass."""
+    policy = EnterpriseEnvironmentPolicy.default_for_tier(EnvironmentTier.STAGING)
+    assert not policy.block_on_configuration_drift
+
+    mock_res = MagicMock(spec=OnlineValidationResult)
+    mock_res.quality_score = 75.0
+    mock_res.confidence = ConfidenceLevel.MEDIUM
+    mock_res.decision_sufficiency = True
+    mock_res.has_blocking = False
+    mock_res.final_decision = FinalDecisionStatus.PRODUCTION_READY.value
+    # Has blocking configuration drift
+    mock_res.alignment_analysis = MagicMock(has_blocking_drift=True)
+    mock_res.decision_risk_synthesis = None
+
+    passed, violations = policy.evaluate_pipeline(mock_res)
+    assert passed, f"Staging must not block on configuration drift, but got violations: {violations}"
+    assert len(violations) == 0
+
+
+def test_environment_policy_production_configuration_drift_does_block():
+    """Production policy: Configuration drift strictly blocks promotion."""
+    policy = EnterpriseEnvironmentPolicy.default_for_tier(EnvironmentTier.PRODUCTION)
+    assert policy.block_on_configuration_drift
+
+    mock_res = MagicMock(spec=OnlineValidationResult)
+    mock_res.quality_score = 90.0
+    mock_res.confidence = ConfidenceLevel.HIGH
+    mock_res.decision_sufficiency = True
+    mock_res.has_blocking = False
+    mock_res.final_decision = FinalDecisionStatus.PRODUCTION_READY.value
+    # Has blocking configuration drift
+    mock_res.alignment_analysis = MagicMock(has_blocking_drift=True)
+    mock_res.decision_risk_synthesis = None
+
+    passed, violations = policy.evaluate_pipeline(mock_res)
+    assert not passed
+    assert any("blocking configuration drift" in v for v in violations)
 
 
 def test_environment_policy_p0_blocker():
@@ -346,11 +416,71 @@ def test_collision_detection_distinct_targets_no_collision():
     assert len(collisions) == 0
 
 
+def test_collision_detection_same_target_append_potential():
+    """Test same target with append write modes classifies as POTENTIAL collision."""
+    mock_vr_1 = MagicMock(spec=OnlineValidationResult)
+    mock_vr_1.rerun_analysis = MagicMock(target_table="catalog.schema.events", write_mode="append")
+
+    mock_vr_2 = MagicMock(spec=OnlineValidationResult)
+    mock_vr_2.rerun_analysis = MagicMock(target_table="catalog.schema.events", write_mode="append")
+
+    executions = {
+        "p1": PipelineFleetExecution(pipeline_id="p1", target=EnterprisePipelineTarget(id="p1"), success=True, policy_passed=True, validation_result=mock_vr_1),
+        "p2": PipelineFleetExecution(pipeline_id="p2", target=EnterprisePipelineTarget(id="p2"), success=True, policy_passed=True, validation_result=mock_vr_2),
+    }
+
+    collisions = detect_fleet_collisions(executions)
+    assert len(collisions) == 1
+    col = collisions[0]
+    assert col.status == CollisionStatus.POTENTIAL
+    assert col.severity == Severity.HIGH
+    assert col.target_resource == "catalog.schema.events"
+    assert "append concurrently" in col.description
+
+
+def test_collision_detection_same_target_unknown_mode():
+    """Test same target with unknown write mode classifies as UNKNOWN collision certainty."""
+    mock_vr_1 = MagicMock(spec=OnlineValidationResult)
+    mock_vr_1.rerun_analysis = MagicMock(target_table="catalog.schema.unknown_table", write_mode="unknown")
+
+    mock_vr_2 = MagicMock(spec=OnlineValidationResult)
+    mock_vr_2.rerun_analysis = MagicMock(target_table="catalog.schema.unknown_table", write_mode="unknown")
+
+    executions = {
+        "p1": PipelineFleetExecution(pipeline_id="p1", target=EnterprisePipelineTarget(id="p1"), success=True, policy_passed=True, validation_result=mock_vr_1),
+        "p2": PipelineFleetExecution(pipeline_id="p2", target=EnterprisePipelineTarget(id="p2"), success=True, policy_passed=True, validation_result=mock_vr_2),
+    }
+
+    collisions = detect_fleet_collisions(executions)
+    assert len(collisions) == 1
+    col = collisions[0]
+    assert col.status == CollisionStatus.UNKNOWN
+    assert col.severity == Severity.MEDIUM
+    assert col.target_resource == "catalog.schema.unknown_table"
+
+
+def test_collision_detection_missing_target_evidence_no_collision():
+    """Test missing target resource evidence produces zero false collisions."""
+    mock_vr_1 = MagicMock(spec=OnlineValidationResult)
+    mock_vr_1.rerun_analysis = MagicMock(target_table=None, target_path=None, write_mode="overwrite")
+
+    mock_vr_2 = MagicMock(spec=OnlineValidationResult)
+    mock_vr_2.rerun_analysis = MagicMock(target_table=None, target_path=None, write_mode="append")
+
+    executions = {
+        "p1": PipelineFleetExecution(pipeline_id="p1", target=EnterprisePipelineTarget(id="p1"), success=True, policy_passed=True, validation_result=mock_vr_1),
+        "p2": PipelineFleetExecution(pipeline_id="p2", target=EnterprisePipelineTarget(id="p2"), success=True, policy_passed=True, validation_result=mock_vr_2),
+    }
+
+    collisions = detect_fleet_collisions(executions)
+    assert len(collisions) == 0
+
+
 def test_fleet_score_aggregation_never_masks_blocker():
-    """Test fleet quality score aggregation caps the score below 70.0 when a pipeline is blocked."""
+    """Test fleet quality score is an aggregate reporting metric and policy gate remains strictly authoritative."""
     policy = EnterpriseEnvironmentPolicy.default_for_tier(EnvironmentTier.PRODUCTION)
 
-    # p1 scores 100.0, p2 scores 100.0, but p3 has a critical blocker (score 0.0)
+    # p1 scores 100.0, p2 scores 100.0, but p3 has a critical blocker (score 40.0)
     mock_vr_1 = MagicMock(spec=OnlineValidationResult, quality_score=100.0, confidence="HIGH", final_decision="PRODUCTION_READY", decision_risk_synthesis=None, has_blocking=False)
     mock_vr_2 = MagicMock(spec=OnlineValidationResult, quality_score=100.0, confidence="HIGH", final_decision="PRODUCTION_READY", decision_risk_synthesis=None, has_blocking=False)
     mock_vr_3 = MagicMock(spec=OnlineValidationResult, quality_score=40.0, confidence="LOW", final_decision="NOT_PRODUCTION_READY", decision_risk_synthesis=MagicMock(production_blockers=["Blocker 1"], top_risks=[]), has_blocking=True)
@@ -362,12 +492,12 @@ def test_fleet_score_aggregation_never_masks_blocker():
     }
 
     metrics, passed = aggregate_fleet_metrics(executions, policy, [])
+    # 1. Anti-masking: The authoritative enterprise policy gate blocks even though average score is 80.0
     assert not passed
     assert metrics.blocked_policy == 1
     assert metrics.total_blockers == 1
-    # Raw average would be (100 + 100 + 40)/3 = 80.0, but blocker penalty must cap it below 70.0
-    assert metrics.fleet_quality_score < 70.0
-    assert metrics.fleet_quality_score == 64.9  # 69.9 - (1 * 5.0)
+    # 2. Fleet quality score is an aggregate reporting metric: unweighted arithmetic mean (100 + 100 + 40) / 3 = 80.0
+    assert metrics.fleet_quality_score == 80.0
 
 
 def test_junit_xml_generation(tmp_path: Path):

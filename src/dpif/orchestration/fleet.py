@@ -120,9 +120,14 @@ def load_and_validate_fleet_manifest(manifest_path: Path | str) -> FleetManifest
     if isinstance(workspace_meta, dict):
         default_workspace = workspace_meta.get("host")
 
-    raw_pipelines = data.get("pipelines", [])
+    if "pipelines" not in data:
+        raise ValueError("Manifest missing required 'pipelines' section")
+
+    raw_pipelines = data.get("pipelines")
     if not isinstance(raw_pipelines, list):
         raise ConfigurationError("'pipelines' must be a list of pipeline target definitions")
+    if len(raw_pipelines) == 0:
+        raise ValueError("Manifest 'pipelines' must contain at least one pipeline target")
 
     targets: list[EnterprisePipelineTarget] = []
     seen_ids: set[str] = set()
@@ -325,18 +330,25 @@ def aggregate_fleet_metrics(
             conf_dist["INSUFFICIENT"] = conf_dist.get("INSUFFICIENT", 0) + 1
             dec_dist["EXECUTION_FAILURE"] = dec_dist.get("EXECUTION_FAILURE", 0) + 1
 
-    if total == 0:
+    # Fleet Quality Score:
+    # An aggregate reporting metric representing the unweighted arithmetic mean
+    # of successfully validated pipeline scores.
+    # It is strictly separate from the authoritative enterprise policy gate:
+    # a high fleet quality score NEVER masks an individual blocking pipeline or failure.
+    # The enterprise policy gate remains authoritative over the score.
+    if total == 0 or successful == 0:
         fleet_quality_score = 0.0
     else:
-        raw_avg = score_sum / total
-        if blocked_policy > 0 or total_blockers > 0:
-            fleet_quality_score = min(raw_avg, max(0.0, 69.9 - (blocked_policy * 5.0)))
-        else:
-            fleet_quality_score = raw_avg
+        fleet_quality_score = round(score_sum / successful, 2)
 
     # Check confirmed collisions
     has_critical_collision = any(c.status == CollisionStatus.CONFIRMED for c in collisions)
 
+    # Deterministic Enterprise Policy Gate:
+    # Authoritative over the aggregate score. The fleet gate passes ONLY when:
+    # 1. Zero pipeline executions failed or raised errors (failed == 0)
+    # 2. Zero pipelines violated their tier policy (blocked_policy == 0)
+    # 3. Zero confirmed critical cross-pipeline resource collisions exist
     fleet_policy_passed = (
         failed == 0
         and blocked_policy == 0

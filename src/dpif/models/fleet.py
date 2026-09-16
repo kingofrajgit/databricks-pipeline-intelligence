@@ -42,7 +42,7 @@ class EnterpriseEnvironmentPolicy(BaseModel):
     model_config = ConfigDict(populate_by_name=True)
 
     tier: EnvironmentTier = EnvironmentTier.PRODUCTION
-    min_quality_score: float = 75.0
+    min_quality_score: float = 85.0
     min_confidence: ConfidenceLevel = ConfidenceLevel.HIGH
     require_decision_sufficiency: bool = True
     allow_conditional_go: bool = False
@@ -71,12 +71,12 @@ class EnterpriseEnvironmentPolicy(BaseModel):
                 require_decision_sufficiency=True,
                 allow_conditional_go=True,
                 block_on_p0_risks=True,
-                block_on_configuration_drift=True,
+                block_on_configuration_drift=False,
             )
         else:  # PRODUCTION
             return cls(
                 tier=EnvironmentTier.PRODUCTION,
-                min_quality_score=75.0,
+                min_quality_score=85.0,
                 min_confidence=ConfidenceLevel.HIGH,
                 require_decision_sufficiency=True,
                 allow_conditional_go=False,
@@ -182,7 +182,7 @@ class FleetManifest(BaseModel):
     name: str
     environment: EnvironmentTier = EnvironmentTier.PRODUCTION
     workspace_host: str | None = None
-    pipelines: list[EnterprisePipelineTarget] = Field(default_factory=list)
+    pipelines: list[EnterprisePipelineTarget] = Field(min_length=1)
 
 
 class CrossPipelineCollisionFinding(BaseModel):
