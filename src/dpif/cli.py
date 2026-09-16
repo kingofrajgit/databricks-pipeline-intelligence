@@ -395,6 +395,166 @@ def validate_online_cmd(
     )
 
 
+@cli.command("validate-online-fleet")
+@click.option(
+    "--manifest",
+    "-m",
+    type=click.Path(exists=True),
+    required=True,
+    help="Path to YAML fleet manifest file",
+)
+@click.option(
+    "--environment",
+    "-e",
+    type=click.Choice(["development", "staging", "production"], case_sensitive=False),
+    default=None,
+    help="Target environment policy tier override",
+)
+@click.option(
+    "--policy-file",
+    type=click.Path(exists=True),
+    default=None,
+    help="Path to custom enterprise environment policy YAML file",
+)
+@click.option(
+    "--export-junit",
+    type=click.Path(),
+    default=None,
+    help="Export JUnit XML report to file",
+)
+@click.option(
+    "--export-sarif",
+    type=click.Path(),
+    default=None,
+    help="Export OASIS SARIF v2.1.0 report to file",
+)
+@click.option(
+    "--export-markdown",
+    type=click.Path(),
+    default=None,
+    help="Export Markdown PR summary to file",
+)
+@click.option(
+    "--json",
+    "json_output",
+    is_flag=True,
+    default=False,
+    help="Emit machine-readable JSON output",
+)
+@click.option(
+    "--max-workers",
+    "-w",
+    type=int,
+    default=4,
+    help="Maximum worker threads for bounded concurrency (default: 4)",
+)
+def validate_online_fleet_cmd(
+    manifest: str,
+    environment: str | None,
+    policy_file: str | None,
+    export_junit: str | None,
+    export_sarif: str | None,
+    export_markdown: str | None,
+    json_output: bool = False,
+    max_workers: int = 4,
+) -> None:
+    """Validate an enterprise fleet of Databricks pipelines against environment policies.
+
+    Exit codes:
+      0: Fleet satisfies configured policy.
+      1: Fleet validation completed but policy gate failed.
+      2: System/configuration/authentication error.
+    """
+    settings = get_settings()
+    if settings.debug:
+        setup_logging(level="DEBUG")
+
+    import dpif.reporting.enterprise_exporters as exporters
+    from dpif.models.fleet import EnvironmentTier
+    from dpif.orchestration.fleet import (
+        EnterpriseFleetOrchestrator,
+        load_and_validate_fleet_manifest,
+    )
+
+    try:
+        manifest_obj = load_and_validate_fleet_manifest(manifest)
+    except FileNotFoundError as e:
+        click.echo(f"Error: Manifest file not found: {e}", err=True)
+        sys.exit(2)
+    except ConfigurationError as e:
+        click.echo(f"Configuration error: {e}", err=True)
+        sys.exit(2)
+    except ValueError as e:
+        click.echo(f"Manifest validation error: {e}", err=True)
+        sys.exit(2)
+    except Exception as e:
+        logger.exception("Unexpected error loading manifest: %s", e)
+        click.echo(f"Manifest error: {e}", err=True)
+        sys.exit(2)
+
+    env_tier: EnvironmentTier | None = None
+    if environment:
+        try:
+            env_tier = EnvironmentTier(environment.lower())
+        except ValueError:
+            click.echo(f"Invalid environment tier: '{environment}'", err=True)
+            sys.exit(2)
+
+    policy_path = Path(policy_file) if policy_file else None
+
+    try:
+        orchestrator = EnterpriseFleetOrchestrator(max_workers=max_workers)
+        fleet_result = orchestrator.validate_fleet(
+            manifest=manifest_obj,
+            environment_override=env_tier,
+            policy_file=policy_path,
+            max_workers=max_workers,
+        )
+    except ConfigurationError as e:
+        click.echo(f"Configuration error during fleet validation: {e}", err=True)
+        sys.exit(2)
+    except Exception as e:
+        logger.exception("Fleet validation crashed: %s", e)
+        click.echo(f"Fleet validation crashed: {e}", err=True)
+        sys.exit(2)
+
+    # Exporters
+    if export_junit:
+        exporters.export_junit_xml(fleet_result, Path(export_junit))
+    if export_sarif:
+        exporters.export_sarif(fleet_result, Path(export_sarif))
+    if export_markdown:
+        exporters.export_markdown_summary(fleet_result, Path(export_markdown))
+
+    if json_output:
+        click.echo(json.dumps(fleet_result.to_dict(), indent=2))
+    else:
+        click.echo("=" * 60)
+        click.echo("DPIF ENTERPRISE FLEET VALIDATION")
+        click.echo("=" * 60)
+        click.echo(f"Fleet Name:        {fleet_result.fleet_name}")
+        click.echo(f"Environment:       {fleet_result.environment.value.upper()}")
+        click.echo(f"Total Pipelines:   {fleet_result.summary.total_pipelines}")
+        click.echo(f"Validated:         {fleet_result.summary.successful_validations}")
+        click.echo(f"Execution Errors:  {fleet_result.summary.failed_validations}")
+        click.echo(f"Passed Policy:     {fleet_result.summary.passed_policy}")
+        click.echo(f"Blocked by Policy: {fleet_result.summary.blocked_policy}")
+        click.echo(f"Fleet Score:       {fleet_result.summary.fleet_quality_score:.1f} / 100")
+        click.echo(f"Total Blockers:    {fleet_result.summary.total_blockers}")
+        click.echo(f"Collisions:        {len(fleet_result.collisions)}")
+        click.echo("-" * 60)
+        if fleet_result.policy_passed:
+            click.echo("POLICY GATE:       PASSED")
+        else:
+            click.echo("POLICY GATE:       BLOCKED")
+        click.echo("=" * 60)
+
+    # Exit code contract
+    if fleet_result.policy_passed:
+        sys.exit(0)
+    else:
+        sys.exit(1)
+
 
 def _run_batch_offline_validation(
     manifest_path: str,
