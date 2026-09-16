@@ -8,7 +8,6 @@ Never logs or leaks credentials.
 from __future__ import annotations
 
 import logging
-import os
 from typing import Any
 
 import requests
@@ -39,10 +38,11 @@ class LiveDatabricksConnector(DatabricksConnector):
         timeout_seconds: float = 15.0,
         session: requests.Session | None = None,
     ) -> None:
-        self.host = (host or os.environ.get("DATABRICKS_HOST", "")).strip().rstrip("/")
-        if self.host and not self.host.startswith(("http://", "https://")):
-            self.host = f"https://{self.host}"
-        self._token = (token or os.environ.get("DATABRICKS_TOKEN", "")).strip()
+        from dpif.config import resolve_databricks_credentials
+
+        creds = resolve_databricks_credentials(host=host, token=token, load_env=True)
+        self.host = creds["host"] or ""
+        self._token = creds["token"] or ""
         self.timeout = timeout_seconds
         self._session = session
 
@@ -72,7 +72,17 @@ class LiveDatabricksConnector(DatabricksConnector):
         """Execute request safely without exposing token."""
         if not self.is_configured:
             logger.warning("Databricks credentials not configured (host or token missing)")
-            raise DatabricksApiError("Databricks credentials not configured", status_code=401)
+            missing = []
+            if not self.host:
+                missing.append("DATABRICKS_HOST")
+            if not self._token:
+                missing.append("DATABRICKS_TOKEN")
+            missing_str = ", ".join(missing)
+            raise DatabricksApiError(
+                f"Databricks credentials not configured (missing: {missing_str}). "
+                "Provide via CLI arguments, environment variables, or .env file.",
+                status_code=401,
+            )
 
         url = f"{self.host}/{endpoint.lstrip('/')}"
         try:

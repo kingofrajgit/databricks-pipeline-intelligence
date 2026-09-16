@@ -256,18 +256,47 @@ def validate_contract(
                 click.echo(msg, err=True)
                 sys.exit(2)
         else:
-            if job_id is None and pipeline_id is None:
+            from dpif.config import resolve_databricks_credentials
+
+            creds = resolve_databricks_credentials(
+                host=workspace,
+                token=token,
+                job_id=job_id,
+                pipeline_id=pipeline_id,
+                run_id=run_id,
+                load_env=True,
+            )
+            resolved_workspace = creds["host"]
+            resolved_token = creds["token"]
+            resolved_job_id = creds["job_id"]
+            resolved_pipeline_id = creds["pipeline_id"]
+            resolved_run_id = creds["run_id"]
+
+            if resolved_job_id is None and resolved_pipeline_id is None:
                 click.echo(
                     "Error: Either --job-id or --pipeline-id is required for live validation",
                     err=True,
                 )
                 sys.exit(2)
+            if not resolved_workspace:
+                click.echo(
+                    "Error: Databricks workspace URL is required. Provide via --workspace, DATABRICKS_HOST in environment, or .env file",
+                    err=True,
+                )
+                sys.exit(2)
+            if not resolved_token:
+                click.echo(
+                    "Error: Databricks token is required. Provide via --token, DATABRICKS_TOKEN in environment, or .env file",
+                    err=True,
+                )
+                sys.exit(2)
+
             _run_live_validation(
-                workspace=workspace,
-                token=token,
-                job_id=job_id,
-                pipeline_id=pipeline_id,
-                run_id=run_id,
+                workspace=resolved_workspace,
+                token=resolved_token,
+                job_id=resolved_job_id,
+                pipeline_id=resolved_pipeline_id,
+                run_id=resolved_run_id,
                 contract_path=contract,
                 code_path=code_path,
                 environment=environment,
@@ -309,23 +338,56 @@ def validate_online_cmd(
 
     Examples:
       dpif validate-online --job-id 12345 --workspace https://adb-123.databricks.com
+      dpif validate-online --job-id 12345
       dpif validate-online --pipeline-id p-abc --contract contract.yaml
     """
     settings = get_settings()
     if settings.debug:
         setup_logging(level="DEBUG")
-    if job_id is None and pipeline_id is None:
+
+    from dpif.config import resolve_databricks_credentials
+
+    creds = resolve_databricks_credentials(
+        host=workspace,
+        token=token,
+        job_id=job_id,
+        pipeline_id=pipeline_id,
+        run_id=run_id,
+        load_env=True,
+    )
+    resolved_workspace = creds["host"]
+    resolved_token = creds["token"]
+    resolved_job_id = creds["job_id"]
+    resolved_pipeline_id = creds["pipeline_id"]
+    resolved_run_id = creds["run_id"]
+
+    if resolved_job_id is None and resolved_pipeline_id is None:
         click.echo(
             "Error: Either --job-id or --pipeline-id is required for online validation",
             err=True,
         )
         sys.exit(2)
+
+    if not resolved_workspace:
+        click.echo(
+            "Error: Databricks workspace URL is required. Provide via --workspace, DATABRICKS_HOST in environment, or .env file",
+            err=True,
+        )
+        sys.exit(2)
+
+    if not resolved_token:
+        click.echo(
+            "Error: Databricks token is required. Provide via --token, DATABRICKS_TOKEN in environment, or .env file",
+            err=True,
+        )
+        sys.exit(2)
+
     _run_live_validation(
-        workspace=workspace,
-        token=token,
-        job_id=job_id,
-        pipeline_id=pipeline_id,
-        run_id=run_id,
+        workspace=resolved_workspace,
+        token=resolved_token,
+        job_id=resolved_job_id,
+        pipeline_id=resolved_pipeline_id,
+        run_id=resolved_run_id,
         contract_path=contract,
         code_path=code_path,
         environment=environment,
@@ -648,8 +710,13 @@ def _run_live_validation(
         click.echo(f"Databricks API Error: {clean_msg}", err=True)
         sys.exit(2)
     except ValueError as e:
-        click.echo(f"Validation Error: {e}", err=True)
+        clean_msg = mask_sensitive_credentials(str(e), token)
+        click.echo(f"Validation Error: {clean_msg}", err=True)
         sys.exit(2)
+    except Exception as e:
+        clean_msg = mask_sensitive_credentials(str(e), token)
+        click.echo(f"Validation crashed: {clean_msg}", err=True)
+        sys.exit(1)
 
     if json_output:
         click.echo(json.dumps(result.to_dict(), indent=2))

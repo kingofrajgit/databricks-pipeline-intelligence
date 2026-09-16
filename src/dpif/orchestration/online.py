@@ -181,26 +181,18 @@ class OnlineValidationOrchestrator:
         connector: DatabricksConnector | None = None,
         timeout_seconds: float = 15.0,
     ) -> None:
-        self.workspace = (
-            workspace
-            or os.environ.get("DATABRICKS_HOST")
-            or os.environ.get("DPIF_DATABRICKS_HOST")
-            or ""
-        ).strip().rstrip("/")
-        if self.workspace and not self.workspace.startswith(("http://", "https://")):
-            self.workspace = f"https://{self.workspace}"
+        from dpif.config import resolve_databricks_credentials
 
-        self.token = (
-            token
-            or os.environ.get("DATABRICKS_TOKEN")
-            or os.environ.get("DPIF_DATABRICKS_TOKEN")
-            or ""
-        ).strip()
+        creds = resolve_databricks_credentials(host=workspace, token=token, load_env=True)
+        self.workspace = creds["host"] or ""
+        self.token = creds["token"] or ""
 
         if connector is not None:
             self.connector = connector
             if not self.workspace and hasattr(connector, "host"):
                 self.workspace = getattr(connector, "host", "") or ""
+            if not self.token and hasattr(connector, "_token"):
+                self.token = getattr(connector, "_token", "") or ""
         else:
             self.connector = LiveDatabricksConnector(
                 host=self.workspace,
@@ -664,16 +656,26 @@ def run_online_validation(
     timeout_seconds: float = 15.0,
 ) -> OnlineValidationResult:
     """Convenience functional interface for online Databricks validation."""
-    orchestrator = OnlineValidationOrchestrator(
-        workspace=workspace,
+    from dpif.config import resolve_databricks_credentials
+
+    creds = resolve_databricks_credentials(
+        host=workspace,
         token=token,
+        job_id=job_id,
+        run_id=run_id,
+        pipeline_id=pipeline_id,
+        load_env=True,
+    )
+    orchestrator = OnlineValidationOrchestrator(
+        workspace=creds["host"],
+        token=creds["token"],
         connector=connector,
         timeout_seconds=timeout_seconds,
     )
     return orchestrator.validate(
-        job_id=job_id,
-        pipeline_id=pipeline_id,
-        run_id=run_id,
+        job_id=creds["job_id"],
+        pipeline_id=creds["pipeline_id"],
+        run_id=creds["run_id"],
         contract_path=contract_path,
         code_path=code_path,
         environment=environment,

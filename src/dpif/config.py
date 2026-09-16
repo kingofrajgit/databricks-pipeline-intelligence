@@ -86,14 +86,176 @@ class Settings(BaseModel):
 _settings: Settings | None = None
 
 
+def load_env_file(dotenv_path: str | Path | None = None, override: bool = False) -> Path | None:
+    """Load local environment configuration from .env file.
+
+    Searches:
+    1. Explicit dotenv_path if provided.
+    2. Current working directory: Path.cwd() / ".env"
+    3. Project root: _project_root() / ".env"
+
+    Uses python-dotenv if installed, with safe pure-Python fallback.
+    Respects override=False by default so ambient process environment variables
+    take precedence over .env values.
+
+    Returns the Path of the loaded .env file, or None if no .env file was found.
+    """
+    target_path: Path | None = None
+    if dotenv_path:
+        p = Path(dotenv_path)
+        if p.is_file():
+            target_path = p
+    else:
+        candidates = [Path.cwd() / ".env", _project_root() / ".env"]
+        for c in candidates:
+            if c.is_file():
+                target_path = c
+                break
+
+    if target_path is None or not target_path.is_file():
+        return None
+
+    try:
+        import dotenv
+
+        dotenv.load_dotenv(dotenv_path=target_path, override=override)
+        return target_path
+    except ImportError:
+        pass
+
+    # Pure-Python fallback parser (when python-dotenv is not installed)
+    try:
+        with open(target_path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                if "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip()
+                v = v.strip()
+                if (v.startswith('"') and v.endswith('"')) or (
+                    v.startswith("'") and v.endswith("'")
+                ):
+                    v = v[1:-1]
+                if override or k not in os.environ:
+                    os.environ[k] = v
+        return target_path
+    except Exception:
+        return None
+
+
+def resolve_databricks_credentials(
+    host: str | None = None,
+    token: str | None = None,
+    job_id: int | str | None = None,
+    cluster_id: str | None = None,
+    run_id: int | str | None = None,
+    pipeline_id: str | None = None,
+    load_env: bool = True,
+    dotenv_path: str | Path | None = None,
+) -> dict[str, Any]:
+    """Resolve Databricks configuration following strict precedence:
+
+        explicit CLI argument > process environment variable > .env > None
+
+    Never fabricates a default secret or host.
+    Normalizes host URL (adds https:// if missing scheme, removes trailing slash).
+    """
+    if load_env:
+        load_env_file(dotenv_path=dotenv_path, override=False)
+
+    resolved_host = (
+        host
+        or os.environ.get("DATABRICKS_HOST")
+        or os.environ.get("DPIF_DATABRICKS_HOST")
+        or None
+    )
+    if resolved_host:
+        resolved_host = resolved_host.strip().rstrip("/")
+        if resolved_host and not resolved_host.startswith(("http://", "https://")):
+            resolved_host = f"https://{resolved_host}"
+
+    resolved_token = (
+        token
+        or os.environ.get("DATABRICKS_TOKEN")
+        or os.environ.get("DPIF_DATABRICKS_TOKEN")
+        or None
+    )
+    if resolved_token:
+        resolved_token = resolved_token.strip()
+
+    raw_job_id = (
+        job_id
+        if job_id is not None
+        else (os.environ.get("DATABRICKS_JOB_ID") or os.environ.get("DPIF_DATABRICKS_JOB_ID") or None)
+    )
+    resolved_job_id: int | str | None = None
+    if raw_job_id is not None:
+        if isinstance(raw_job_id, int):
+            resolved_job_id = raw_job_id
+        else:
+            s = str(raw_job_id).strip()
+            if s.isdigit():
+                resolved_job_id = int(s)
+            elif s:
+                resolved_job_id = s
+
+    resolved_cluster_id = (
+        cluster_id
+        or os.environ.get("DATABRICKS_CLUSTER_ID")
+        or os.environ.get("DPIF_DATABRICKS_CLUSTER_ID")
+        or None
+    )
+    if resolved_cluster_id:
+        resolved_cluster_id = str(resolved_cluster_id).strip()
+
+    raw_run_id = (
+        run_id
+        if run_id is not None
+        else (os.environ.get("DATABRICKS_RUN_ID") or os.environ.get("DPIF_DATABRICKS_RUN_ID") or None)
+    )
+    resolved_run_id: int | str | None = None
+    if raw_run_id is not None:
+        if isinstance(raw_run_id, int):
+            resolved_run_id = raw_run_id
+        else:
+            s = str(raw_run_id).strip()
+            if s.isdigit():
+                resolved_run_id = int(s)
+            elif s:
+                resolved_run_id = s
+
+    resolved_pipeline_id = (
+        pipeline_id
+        or os.environ.get("DATABRICKS_PIPELINE_ID")
+        or os.environ.get("DPIF_DATABRICKS_PIPELINE_ID")
+        or None
+    )
+    if resolved_pipeline_id:
+        resolved_pipeline_id = str(resolved_pipeline_id).strip()
+
+    return {
+        "host": resolved_host,
+        "token": resolved_token,
+        "job_id": resolved_job_id,
+        "cluster_id": resolved_cluster_id,
+        "run_id": resolved_run_id,
+        "pipeline_id": resolved_pipeline_id,
+    }
+
+
 def _settings_from_env() -> Settings:
-    """Build Settings from DPIF_* environment variables with type coercion."""
+    """Build Settings from environment variables with type coercion."""
+    load_env_file()
+    creds = resolve_databricks_credentials(load_env=False)
     return Settings(
         environment=os.environ.get("DPIF_ENVIRONMENT", "development"),
         debug=_env_bool("DPIF_DEBUG", False),
-        databricks_host=os.environ.get("DPIF_DATABRICKS_HOST"),
-        databricks_token=os.environ.get("DPIF_DATABRICKS_TOKEN"),
-        databricks_job_id=_env_int("DPIF_DATABRICKS_JOB_ID", None),
+        databricks_host=creds["host"],
+        databricks_token=creds["token"],
+        databricks_job_id=creds["job_id"] if isinstance(creds["job_id"], int) else None,
         database_url=os.environ.get("DPIF_DATABASE_URL"),
         contract_path=os.environ.get("DPIF_CONTRACT_PATH"),
         fixtures_dir=os.environ.get("DPIF_FIXTURES_DIR"),

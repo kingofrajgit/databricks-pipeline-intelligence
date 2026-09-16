@@ -13,5 +13,12 @@ dist/
 htmlcov/
 .dvc/
 *.log
+# Environment and Secrets
 .env
+.env.*
+.env.local
+!.env.example
+*.pem
+*.key
+credentials.json
 demo_results/

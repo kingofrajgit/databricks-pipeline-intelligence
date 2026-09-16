@@ -70,11 +70,62 @@ dpif validate --help
 # Offline validation (no Databricks credentials needed)
 dpif validate --contract examples/customer_daily.yaml --offline
 
+# Online validation (requires Databricks credentials via .env or environment)
+dpif validate-online --job-id 12345
+
 # Expected exit codes:
 #   0        validation completed (even when findings contain FAIL)
 #   non-zero execution/system error (bad args, missing file, crash)
 # "Pipeline failed" is a result, not a crash.
 ```
+
+## Online Validation & Environment-Based Credentials
+
+DPIF supports online end-to-end validation directly against a live Databricks workspace.
+
+### 1. Creating Local `.env` File
+Copy the provided `.env.example` template to create your local `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and provide your workspace URL and token:
+```env
+DATABRICKS_HOST=https://<your-workspace>.azuredatabricks.net
+DATABRICKS_TOKEN=dapi...
+```
+
+### 2. Required & Optional Variables
+- **Required**:
+  - `DATABRICKS_HOST`: The Databricks workspace URL (e.g. `https://adb-123.azuredatabricks.net`).
+  - `DATABRICKS_TOKEN`: Databricks Personal Access Token (PAT).
+- **Optional**:
+  - `DATABRICKS_JOB_ID`: Default Databricks Job ID.
+  - `DATABRICKS_CLUSTER_ID`: Default Databricks Cluster ID.
+  - `DATABRICKS_RUN_ID`: Default Databricks Run ID.
+
+### 3. Configuration Precedence
+DPIF resolves credentials using strict precedence:
+```text
+explicit CLI argument > process environment variable > .env file > default
+```
+
+### 4. Running Online Validation
+With credentials in `.env`, you can validate a live Databricks job simply by ID:
+```bash
+dpif validate-online --job-id 12345
+```
+Or override host/token explicitly via CLI arguments:
+```bash
+dpif validate-online --job-id 12345 --workspace https://adb-123.azuredatabricks.net --token $TOKEN
+```
+
+### 5. Security Warnings & Git Hygiene
+- **NEVER commit `.env`**: `.env`, `.env.*`, and `.env.local` are strictly excluded in `.gitignore`.
+- **NEVER paste credentials into Git**: Never commit tokens, passwords, or API keys in code, commit messages, or diffs.
+- **NEVER include tokens in reports**: DPIF automatically masks tokens and secrets in all outputs, logs, error traces, and JSON payloads.
+- **`.env.example` is a template only**: It contains generic placeholders and must never contain real credentials.
 
 Example output (good pipeline):
 

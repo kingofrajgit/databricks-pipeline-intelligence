@@ -148,17 +148,36 @@ def mask_sensitive_credentials(text: str, token: str | None = None) -> str:
     if not text:
         return text
     clean = text
+
+    # Mask explicitly passed token
     if isinstance(token, str) and token.strip():
         clean = clean.replace(token.strip(), "[MASKED_TOKEN]")
+
+    # Also mask ambient tokens from environment if set
+    import os
+
+    for env_key in ("DATABRICKS_TOKEN", "DPIF_DATABRICKS_TOKEN"):
+        env_token = os.environ.get(env_key)
+        if env_token and env_token.strip():
+            clean = clean.replace(env_token.strip(), "[MASKED_TOKEN]")
+
     import re
 
+    # Mask bearer tokens
     bearer_pattern = r"(?i)(bearer\s+)([^\s;&,#\"']+)"
     clean = re.sub(bearer_pattern, r"\1[MASKED_SECRET]", clean)
+
+    # Mask authorization, password, token, secret, api_key key-value pairs
     pattern = (
-        r'(?i)("?(?:password|token|secret|api[_-]?key)"?\s*[:=]\s*)'
+        r'(?i)("?(?:authorization|password|token|secret|api[_-]?key)"?\s*[:=]\s*)'
         r'("?[^\s;&,#"\']+"?)'
     )
     clean = re.sub(pattern, r"\1[MASKED_SECRET]", clean)
+
+    # Mask authorization headers like "Authorization: <token>"
+    auth_header_pattern = r'(?i)(authorization\s*:\s*)([^\s;&,#"\']+)'
+    clean = re.sub(auth_header_pattern, r"\1[MASKED_SECRET]", clean)
+
     return clean
 
 
@@ -170,7 +189,14 @@ def sanitize_job_payload(payload: Any, token: str | None = None) -> Any:
             lower_k = k.lower()
             if any(
                 sens in lower_k
-                for sens in ("password", "secret", "token", "api_key", "authorization")
+                for sens in (
+                    "password",
+                    "secret",
+                    "token",
+                    "api_key",
+                    "authorization",
+                    "bearer",
+                )
             ):
                 sanitized[k] = "[REDACTED_SECRET]"
             else:
@@ -181,6 +207,7 @@ def sanitize_job_payload(payload: Any, token: str | None = None) -> Any:
     elif isinstance(payload, str):
         return mask_sensitive_credentials(payload, token)
     return payload
+
 
 
 class DatabricksEvidenceProvider:
