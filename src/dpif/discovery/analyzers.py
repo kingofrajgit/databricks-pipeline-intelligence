@@ -550,7 +550,7 @@ def analyze_autoscaling(
         raw_cluster = getattr(contract, "_cluster_raw", {}) or {}
         if raw_cluster.get("require_autoscaling") or raw_cluster.get("autoscale_required"):
             autoscale_needed = True
-        if contract.source and getattr(contract.source, "growth_rate_percent", 0) > 20:
+        if contract.source and (getattr(contract.source, "growth_rate_percent", 0) or 0) > 20:
             autoscale_needed = True
 
     if not cluster.is_autoscaling and autoscale_needed:

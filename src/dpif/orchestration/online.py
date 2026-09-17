@@ -28,9 +28,14 @@ from dpif.code.parser import analyze_source as analyze_code
 from dpif.connectors.base import DatabricksConnector
 from dpif.connectors.live import LiveDatabricksConnector
 from dpif.contract.loader import load_contract_file
+from dpif.discovery.synthesis import (
+    synthesize_discovered_contract,
+    synthesize_discovered_data_profile,
+)
 from dpif.models import (
     Checkpoint,
     CheckpointStatus,
+    DataProfile,
     PipelineContract,
 )
 from dpif.models.alignment import ThreeLayerAlignmentAssessment
@@ -40,6 +45,7 @@ from dpif.models.sufficiency import EvidenceSufficiencyAssessment
 from dpif.models.synthesis import DecisionRiskSynthesisResult
 from dpif.providers.base import (
     AcquisitionError,
+    AcquisitionErrorCode,
     DatabricksEvidenceProvider,
     EvidenceCategory,
     NormalizedPipelineEvidence,
@@ -483,17 +489,85 @@ class OnlineValidationOrchestrator:
                 )
             )
         else:
-            # Code is not available from live API alone; do NOT fabricate code
-            summary["code"] = "UNAVAILABLE"
-            diagnostics.append(
-                EvidenceCategoryStatus(
-                    category="code",
-                    status="UNAVAILABLE",
-                    provenance="UNAVAILABLE",
-                    resource_id=None,
-                    error_message="Live Databricks code inspection requires explicit --code-path",
+            # Check acquired live code from Databricks tasks / workspace
+            code_item = evidence.items.get(EvidenceCategory.CODE.value)
+            if code_item and code_item.is_available and isinstance(code_item.payload, dict):
+                discovered_tasks = code_item.payload.get("tasks", [])
+                primary_src = code_item.payload.get("primary_source_code", "")
+                primary_fname = code_item.payload.get("primary_filename", "pipeline.py")
+                combined = code_item.payload.get("combined_code", primary_src)
+
+                code_text = combined or primary_src
+                code_filename = primary_fname
+                analysis = analyze_code(code_text, filename=code_filename)
+                status_lbl = "PARTIAL" if (analysis and analysis.parse_error) else "LIVE"
+                summary["code"] = status_lbl
+                diagnostics.append(
+                    EvidenceCategoryStatus(
+                        category="code",
+                        status=status_lbl,
+                        provenance=code_item.provenance.source_type,
+                        resource_id=code_item.provenance.resource_id,
+                        details={"task_count": len(discovered_tasks)},
+                    )
                 )
-            )
+            else:
+                is_err = (
+                    code_item is not None
+                    and code_item.error is not None
+                    and code_item.error.error_code not in (AcquisitionErrorCode.RESOURCE_NOT_FOUND,)
+                )
+                status_lbl = "ERROR" if is_err else "UNAVAILABLE"
+                summary["code"] = status_lbl
+                diagnostics.append(
+                    EvidenceCategoryStatus(
+                        category="code",
+                        status=status_lbl,
+                        provenance="UNAVAILABLE",
+                        resource_id=None,
+                        error_code=code_item.error.error_code.value if (code_item and code_item.error) else None,
+                        error_message=code_item.error.message if (code_item and code_item.error) else "No task code discovered from Databricks workload",
+                    )
+                )
+
+        # Unity Catalog / Table metadata
+        table_item = evidence.items.get(EvidenceCategory.TABLE_PROFILE.value)
+        table_profile_payload: dict[str, Any] | None = (
+            table_item.payload
+            if (table_item and table_item.is_available and isinstance(table_item.payload, dict))
+            else None
+        )
+
+        # If table profile wasn't directly requested, attempt discovery from parsed code
+        if not table_profile_payload and analysis:
+            import re
+            discovered_table_name = None
+            if hasattr(analysis, "operations"):
+                for op in analysis.operations:
+                    if op.operation_type.value == "READ" and op.arguments.get("via") == "table":
+                        cand = str(op.arguments.get("query", "")).strip(" '\"")
+                        if cand:
+                            discovered_table_name = cand
+                            break
+            if not discovered_table_name and code_text:
+                m_tbl = re.search(r"""(?i)spark(?:\.read)?\.table\(\s*['"]([a-zA-Z0-9_.]+)['"]\s*\)""", code_text)
+                if m_tbl:
+                    discovered_table_name = m_tbl.group(1)
+
+            if discovered_table_name:
+                try:
+                    table_profile_payload = self.connector.get_table_profile(discovered_table_name)
+                    if table_profile_payload:
+                        diagnostics.append(
+                            EvidenceCategoryStatus(
+                                category="table_profile",
+                                status="LIVE",
+                                provenance="LIVE_API",
+                                resource_id=discovered_table_name,
+                            )
+                        )
+                except Exception as e:
+                    logger.info("Could not fetch profile for discovered table %s: %s", discovered_table_name, e)
 
         # Determine pipeline name
         if contract and contract.pipeline_name:
@@ -507,20 +581,100 @@ class OnlineValidationOrchestrator:
         else:
             pipeline_name = f"{resource_type}-{resource_id}"
 
+        # Contract Synthesis if not manually provided
+        if not contract:
+            contract = synthesize_discovered_contract(
+                job_config=job_config,
+                cluster_config=cluster_config,
+                code_analysis=analysis,
+                raw_code=code_text,
+                table_profile=table_profile_payload,
+                pipeline_name=pipeline_name,
+                environment=effective_env,
+                resource_id=resource_id,
+            )
+            if contract:
+                diagnostics.append(
+                    EvidenceCategoryStatus(
+                        category="contract",
+                        status="LIVE",
+                        provenance="DERIVED",
+                        resource_id=contract.contract_id,
+                    )
+                )
+            else:
+                diagnostics.append(
+                    EvidenceCategoryStatus(
+                        category="contract",
+                        status="UNAVAILABLE",
+                        provenance="UNAVAILABLE",
+                        resource_id=None,
+                    )
+                )
+
+        # DataProfile Synthesis from runtime metrics and table metadata
+        data_profile: DataProfile | None = synthesize_discovered_data_profile(
+            runtime_run=runtime_obj,
+            table_profile=table_profile_payload,
+        )
+        if data_profile:
+            summary["data_profile"] = "LIVE"
+            diagnostics.append(
+                EvidenceCategoryStatus(
+                    category="data_profile",
+                    status="LIVE",
+                    provenance=data_profile.evidence_source,
+                    details={"total_gb": data_profile.total_gb, "record_count": data_profile.record_count},
+                )
+            )
+        else:
+            summary["data_profile"] = "UNAVAILABLE"
+            diagnostics.append(
+                EvidenceCategoryStatus(
+                    category="data_profile",
+                    status="UNAVAILABLE",
+                    provenance="UNAVAILABLE",
+                )
+            )
+
         # 3. Downstream DPIF Intelligence Execution
         rule_context: dict[str, Any] = {
             "mode": "live-api",
             "evidence_source": "live databricks",
             "connector_mode": "live",
-            "data_size_gb": getattr(contract.source, "expected_volume_gb", 0.0) if (contract and contract.source) else 0.0,
-            "source_type": getattr(contract.source.type, "value", "unknown") if (contract and contract.source and contract.source.type) else "unknown",
+            "data_size_gb": (
+                data_profile.total_gb
+                if data_profile
+                else (
+                    getattr(contract.source, "expected_volume_gb", 0.0)
+                    if (contract and contract.source)
+                    else 0.0
+                )
+            ),
+            "source_type": (
+                getattr(contract.source.type, "value", "unknown")
+                if (contract and contract.source and contract.source.type)
+                else "unknown"
+            ),
             "workload_type": getattr(contract, "processing", "batch") if contract else "batch",
+            "ingestion_mode": (
+                getattr(contract.source.ingestion_mode, "value", "batch")
+                if (contract and contract.source and contract.source.ingestion_mode)
+                else "batch"
+            ),
+            "source_format": (
+                getattr(contract.source.format, "value", "unknown")
+                if (contract and contract.source and contract.source.format)
+                else "unknown"
+            ),
         }
 
         context: dict[str, Any] = {
             "pipeline_name": pipeline_name,
             "pipeline_contract": contract,
             "contract": contract,
+            "source": contract.source if contract else None,
+            "data_profile": data_profile,
             "cluster_config": cluster_config,
             "cluster": cluster_config,
             "job_config": job_config,
@@ -541,6 +695,7 @@ class OnlineValidationOrchestrator:
         # Checkpoints CP-001..CP-024
         checkpoints = build_all_checkpoints(
             contract=contract,
+            data_profile=data_profile,
             code_text=code_text,
             cluster_config=cluster_config,
             job_config=job_config,
@@ -590,6 +745,7 @@ class OnlineValidationOrchestrator:
         assessment = evaluate_production_readiness(
             checkpoints=results,
             contract=contract,
+            profile=data_profile,
             cluster_config=cluster_config,
             job_config=job_config,
             runtime_data=runtime_obj,
@@ -606,6 +762,7 @@ class OnlineValidationOrchestrator:
             alignment_analysis=alignment_assessment,
             evidence_sufficiency=sufficiency_assessment,
             contract=contract,
+            profile=data_profile,
             context=context,
         )
         synthesis_assessment = synthesis_analyzer.analyze()

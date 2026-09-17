@@ -166,9 +166,58 @@ class LiveDatabricksConnector(DatabricksConnector):
         plural = f"{object_type.rstrip('s')}s"
         return self._request("GET", f"/api/2.0/permissions/{plural}/{object_id}")
 
-    def get_table_profile(self, table: str) -> dict[str, Any]:
-        """Live table profile requires UC or runtime scan; returns empty when not scanned."""
-        return {"table": table, "status": "runtime-scan-required", "_connector": "live-api"}
+    def get_table_profile(self, table: str) -> dict[str, Any] | None:
+        """Fetch table profile metadata via Unity Catalog REST API (/api/2.1/unity-catalog/tables/{table})."""
+        clean_table = table.strip()
+        if not clean_table:
+            return None
+        res = self._request("GET", f"/api/2.1/unity-catalog/tables/{clean_table}")
+        if res is not None and isinstance(res, dict):
+            return {
+                "table": clean_table,
+                "name": res.get("name", clean_table),
+                "catalog_name": res.get("catalog_name"),
+                "schema_name": res.get("schema_name"),
+                "table_type": res.get("table_type"),
+                "data_source_format": res.get("data_source_format"),
+                "storage_location": res.get("storage_location"),
+                "columns": res.get("columns", []),
+                "comment": res.get("comment"),
+                "properties": res.get("properties", {}),
+                "_connector": "live-api",
+            }
+        return None
+
+    def export_workspace_object(self, path: str, format: str = "SOURCE") -> dict[str, Any] | None:
+        """Export workspace object (notebook or file) via /api/2.0/workspace/export."""
+        clean_path = path.strip()
+        if not clean_path:
+            return None
+        return self._request(
+            "GET",
+            "/api/2.0/workspace/export",
+            params={"path": clean_path, "format": format},
+        )
+
+    def read_dbfs_file(self, path: str) -> dict[str, Any] | None:
+        """Read file content via /api/2.0/dbfs/read."""
+        clean_path = path.strip()
+        if not clean_path:
+            return None
+        if clean_path.startswith("dbfs:"):
+            clean_path = clean_path[5:]
+        return self._request(
+            "GET",
+            "/api/2.0/dbfs/read",
+            params={"path": clean_path},
+        )
+
+    def get_sql_query(self, query_id: str) -> dict[str, Any] | None:
+        """Fetch SQL query definition via /api/2.0/sql/queries/{query_id}."""
+        clean_id = query_id.strip()
+        if not clean_id:
+            return None
+        return self._request("GET", f"/api/2.0/sql/queries/{clean_id}")
 
     def get_recent_runs(
         self, job_id: int | str, limit: int = 10

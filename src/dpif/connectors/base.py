@@ -22,7 +22,7 @@ class DatabricksConnector(ABC):
         """Return cluster configuration metadata."""
 
     @abstractmethod
-    def get_table_profile(self, table: str) -> dict[str, Any]:
+    def get_table_profile(self, table: str) -> dict[str, Any] | None:
         """Return table/data profile metadata."""
 
     @abstractmethod
@@ -49,6 +49,18 @@ class DatabricksConnector(ABC):
 
     def get_workspace_status(self) -> dict[str, Any] | None:
         """Return workspace connectivity status if available."""
+        return None
+
+    def export_workspace_object(self, path: str, format: str = "SOURCE") -> dict[str, Any] | None:
+        """Return workspace object export payload (source code / notebook)."""
+        return None
+
+    def read_dbfs_file(self, path: str) -> dict[str, Any] | None:
+        """Return DBFS file content payload."""
+        return None
+
+    def get_sql_query(self, query_id: str) -> dict[str, Any] | None:
+        """Return SQL query definition payload."""
         return None
 
     def mode(self) -> str:

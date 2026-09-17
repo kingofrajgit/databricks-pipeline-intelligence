@@ -440,6 +440,206 @@ class DatabricksEvidenceProvider:
                 resource_id=str(job_id),
             )
 
+        # Category 9: Code Discovery
+        def _acquire_code() -> dict[str, Any] | None:
+            import base64
+
+            tasks: list[dict[str, Any]] = []
+            job_item = evidence.items.get(EvidenceCategory.JOB.value)
+            if job_item and job_item.is_available and isinstance(job_item.payload, dict):
+                settings = job_item.payload.get("settings", job_item.payload)
+                if isinstance(settings, dict):
+                    raw_tasks = settings.get("tasks", [])
+                    if isinstance(raw_tasks, list):
+                        tasks = [t for t in raw_tasks if isinstance(t, dict)]
+
+            # Check if any job tasks reference a pipeline_task
+            pipeline_tasks_to_add: list[dict[str, Any]] = []
+            for t in tasks:
+                if "pipeline_task" in t and isinstance(t["pipeline_task"], dict):
+                    sub_pid = t["pipeline_task"].get("pipeline_id")
+                    if sub_pid:
+                        try:
+                            sub_pipe = self.connector.get_pipeline(sub_pid)
+                            if sub_pipe and isinstance(sub_pipe, dict):
+                                spec = (
+                                    sub_pipe.get("spec", sub_pipe)
+                                    if isinstance(sub_pipe.get("spec"), dict)
+                                    else sub_pipe
+                                )
+                                libs = spec.get("libraries", [])
+                                if isinstance(libs, list):
+                                    for i, lib in enumerate(libs):
+                                        if isinstance(lib, dict):
+                                            if "notebook" in lib and isinstance(lib["notebook"], dict):
+                                                pipeline_tasks_to_add.append({
+                                                    "task_key": f"{t.get('task_key', 'task')}_nb_{i+1}",
+                                                    "notebook_task": {"notebook_path": lib["notebook"].get("path")},
+                                                })
+                                            elif "file" in lib and isinstance(lib["file"], dict):
+                                                pipeline_tasks_to_add.append({
+                                                    "task_key": f"{t.get('task_key', 'task')}_file_{i+1}",
+                                                    "spark_python_task": {"python_file": lib["file"].get("path")},
+                                                })
+                        except Exception as e:
+                            logger.info("Could not fetch sub-pipeline %s for code discovery: %s", sub_pid, e)
+
+            tasks.extend(pipeline_tasks_to_add)
+
+            if not tasks:
+                pipe_item = evidence.items.get(EvidenceCategory.PIPELINE.value)
+                if pipe_item and pipe_item.is_available and isinstance(pipe_item.payload, dict):
+                    spec = (
+                        pipe_item.payload.get("spec", pipe_item.payload)
+                        if isinstance(pipe_item.payload.get("spec"), dict)
+                        else pipe_item.payload
+                    )
+                    libs = spec.get("libraries", [])
+                    if isinstance(libs, list):
+                        for i, lib in enumerate(libs):
+                            if isinstance(lib, dict):
+                                if "notebook" in lib and isinstance(lib["notebook"], dict):
+                                    tasks.append({
+                                        "task_key": f"pipeline_notebook_{i+1}",
+                                        "notebook_task": {"notebook_path": lib["notebook"].get("path")},
+                                    })
+                                elif "file" in lib and isinstance(lib["file"], dict):
+                                    tasks.append({
+                                        "task_key": f"pipeline_file_{i+1}",
+                                        "spark_python_task": {"python_file": lib["file"].get("path")},
+                                    })
+
+            if not tasks:
+                return None
+
+            discovered_tasks: list[dict[str, Any]] = []
+
+            for task in tasks:
+                task_key = str(task.get("task_key", "task"))
+                # Notebook task
+                if "notebook_task" in task and isinstance(task["notebook_task"], dict):
+                    nb_path = task["notebook_task"].get("notebook_path")
+                    if nb_path:
+                        try:
+                            res = self.connector.export_workspace_object(nb_path, format="SOURCE")
+                            if res and isinstance(res, dict) and "content" in res:
+                                try:
+                                    raw = base64.b64decode(res["content"]).decode("utf-8", errors="replace")
+                                except Exception:
+                                    raw = str(res["content"])
+                                file_type = str(res.get("file_type", "PYTHON")).lower()
+                                lang = "sql" if file_type == "sql" else "python"
+                                discovered_tasks.append({
+                                    "task_key": task_key,
+                                    "task_type": "notebook",
+                                    "path": nb_path,
+                                    "source_code": raw,
+                                    "language": lang,
+                                })
+                        except DatabricksApiError as e:
+                            if e.status_code in (401, 403):
+                                raise
+                # Spark Python task
+                elif "spark_python_task" in task and isinstance(task["spark_python_task"], dict):
+                    py_file = task["spark_python_task"].get("python_file")
+                    if py_file:
+                        try:
+                            code_str: str | None = None
+                            if py_file.startswith("dbfs:") or py_file.startswith("/dbfs/"):
+                                res = self.connector.read_dbfs_file(py_file)
+                                if res and isinstance(res, dict) and "data" in res:
+                                    try:
+                                        code_str = base64.b64decode(res["data"]).decode("utf-8", errors="replace")
+                                    except Exception:
+                                        code_str = str(res["data"])
+                            if code_str is None:
+                                res = self.connector.export_workspace_object(py_file, format="AUTO")
+                                if res and isinstance(res, dict) and "content" in res:
+                                    try:
+                                        code_str = base64.b64decode(res["content"]).decode("utf-8", errors="replace")
+                                    except Exception:
+                                        code_str = str(res["content"])
+                            if code_str is not None:
+                                discovered_tasks.append({
+                                    "task_key": task_key,
+                                    "task_type": "spark_python",
+                                    "path": py_file,
+                                    "source_code": code_str,
+                                    "language": "python",
+                                })
+                        except DatabricksApiError as e:
+                            if e.status_code in (401, 403):
+                                raise
+                # SQL task
+                elif "sql_task" in task and isinstance(task["sql_task"], dict):
+                    sql_task = task["sql_task"]
+                    query_id = (
+                        sql_task.get("query", {}).get("query_id")
+                        if isinstance(sql_task.get("query"), dict)
+                        else None
+                    )
+                    file_path = (
+                        sql_task.get("file", {}).get("path")
+                        if isinstance(sql_task.get("file"), dict)
+                        else None
+                    )
+                    if query_id:
+                        try:
+                            res = self.connector.get_sql_query(query_id)
+                            if res and isinstance(res, dict):
+                                sql_text = res.get("query_text") or res.get("query") or res.get("sql") or ""
+                                if sql_text:
+                                    discovered_tasks.append({
+                                        "task_key": task_key,
+                                        "task_type": "sql",
+                                        "path": f"query://{query_id}",
+                                        "source_code": sql_text,
+                                        "language": "sql",
+                                    })
+                        except DatabricksApiError as e:
+                            if e.status_code in (401, 403):
+                                raise
+                    elif file_path:
+                        try:
+                            res = self.connector.export_workspace_object(file_path, format="SOURCE")
+                            if res and isinstance(res, dict) and "content" in res:
+                                try:
+                                    raw = base64.b64decode(res["content"]).decode("utf-8", errors="replace")
+                                except Exception:
+                                    raw = str(res["content"])
+                                discovered_tasks.append({
+                                    "task_key": task_key,
+                                    "task_type": "sql",
+                                    "path": file_path,
+                                    "source_code": raw,
+                                    "language": "sql",
+                                })
+                        except DatabricksApiError as e:
+                            if e.status_code in (401, 403):
+                                raise
+
+            if not discovered_tasks:
+                return None
+
+            primary_task = discovered_tasks[0]
+            combined_code = "\n\n".join(
+                f"# --- TASK: {t['task_key']} ({t['path']}) ---\n{t['source_code']}"
+                for t in discovered_tasks
+            )
+            return {
+                "tasks": discovered_tasks,
+                "primary_task_key": primary_task["task_key"],
+                "primary_source_code": primary_task["source_code"],
+                "primary_filename": f"{primary_task['task_key']}.{'sql' if primary_task['language'] == 'sql' else 'py'}",
+                "combined_code": combined_code,
+            }
+
+        _acquire_category(
+            EvidenceCategory.CODE,
+            _acquire_code,
+            resource_id=f"job/{job_id}/code" if job_id else f"pipeline/{pipeline_id}/code",
+        )
+
         return evidence
 
     @staticmethod

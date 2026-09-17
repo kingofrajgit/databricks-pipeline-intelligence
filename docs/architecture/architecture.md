@@ -212,3 +212,25 @@ dpif report --run-id <id>
 - Pure-function analyzers live in src/dpif/analyzers/data/; YAML rules reference them via evaluator: and the checkpoint engine routes accordingly with Settings-driven thresholds.
 - CP-001/CP-007 are evaluator-driven skeletons that preserve UNKNOWN-on-missing; EvidenceCoverage is reported beside (never inside) the score.
 - Full rationale: docs/adr/adr-004-source-data-intelligence.md.
+
+## 12. Offline vs Online Validation Parity (Phase B)
+
+DPIF operates under two validation modalities that converge on the exact same intelligence and analyzer engine:
+
+### Offline Validation
+- User explicitly supplies contract (`--contract`) and code/metadata artifacts (`--code-path`, `--metadata-profile`).
+- Intelligence is evaluated purely against static files, fixtures, and developer-provided contracts.
+
+### Online Validation
+- User supplies workload identifier (`--job-id` or `--pipeline-id`) and secure credentials (`DATABRICKS_HOST`, `DATABRICKS_TOKEN`).
+- DPIF automatically discovers:
+  - Workload job configuration and heterogeneous tasks (`notebook_task`, `spark_python_task`, `sql_task`)
+  - Referenced source code (workspace export, DBFS file retrieval, SQL queries)
+  - Inferred sources, targets, and write modes from AST and code analysis
+  - Live table metadata from Unity Catalog (columns, types, storage format)
+  - Cluster configuration and runtime compute attributes
+  - Runtime execution metrics (duration, task counts, byte volume)
+  - Historical run statistics
+- Discovered evidence is synthesized into the standard `PipelineContract` and `DataProfile` models without requiring `--contract-path` or `--code-path`.
+- The downstream validation pipeline executes the **EXACT SAME** DPIF analyzers (`analyze_source`, `build_all_checkpoints`, `CheckpointEngine`, `DeveloperImplementationAnalyzer`, `RerunIdempotencyAnalyzer`, `ThreeLayerAlignmentAnalyzer`, `EvidenceSufficiencyAnalyzer`, `evaluate_production_readiness`, `DecisionRiskSynthesisAnalyzer`).
+- If evidence is unavailable or permissions are denied, it is recorded strictly as `UNKNOWN` or `UNAVAILABLE`—never fabricated.
