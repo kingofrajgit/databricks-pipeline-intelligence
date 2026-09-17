@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import logging
 import os
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -92,6 +93,7 @@ class OnlineValidationResult(BaseModel):
     model_config = ConfigDict(populate_by_name=True, arbitrary_types_allowed=True)
 
     execution_mode: str = "online"
+    timestamp: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
     workspace: str
     resource_type: str  # "job" or "pipeline"
     resource_id: str
@@ -120,6 +122,7 @@ class OnlineValidationResult(BaseModel):
         """Convert to fully sanitized JSON-serializable dictionary."""
         d: dict[str, Any] = {
             "execution_mode": self.execution_mode,
+            "timestamp": self.timestamp,
             "workspace": mask_sensitive_credentials(self.workspace),
             "resource": {
                 "type": self.resource_type,

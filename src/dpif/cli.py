@@ -242,6 +242,7 @@ def validate_contract(
                     input_manifest, environment, output_dir, json_output
                 )
             elif contract:
+                effective_output_dir = output_dir if (output_dir and output_dir != ".") else "reports"
                 _run_offline_validation(
                     contract,
                     environment,
@@ -250,6 +251,7 @@ def validate_contract(
                     runtime_run,
                     historical_runs,
                     json_output,
+                    output_dir=effective_output_dir,
                 )
             else:
                 msg = "Error: Either --contract or --input is required for offline validation"
@@ -291,6 +293,7 @@ def validate_contract(
                 )
                 sys.exit(2)
 
+            effective_output_dir = output_dir if (output_dir and output_dir != ".") else "reports"
             _run_live_validation(
                 workspace=resolved_workspace,
                 token=resolved_token,
@@ -301,6 +304,7 @@ def validate_contract(
                 code_path=code_path,
                 environment=environment,
                 json_output=json_output,
+                output_dir=effective_output_dir,
             )
     except SystemExit:
         raise
@@ -322,6 +326,13 @@ def validate_contract(
 @click.option("--contract", "-c", type=click.Path(exists=True), default=None, help="Pipeline contract YAML")
 @click.option("--code-path", "--code", type=click.Path(exists=True), default=None, help="Code file")
 @click.option("--environment", "-e", type=str, default=None, help="Environment override")
+@click.option(
+    "--output-dir",
+    "-o",
+    type=click.Path(),
+    default="reports",
+    help="Output directory for validation reports (default: reports/)",
+)
 @click.option("--json", "json_output", is_flag=True, default=False, help="Emit machine-readable JSON output")
 def validate_online_cmd(
     workspace: str | None,
@@ -332,6 +343,7 @@ def validate_online_cmd(
     contract: str | None,
     code_path: str | None,
     environment: str | None,
+    output_dir: str = "reports",
     json_output: bool = False,
 ) -> None:
     """Validate a live Databricks job or pipeline end-to-end against the intelligence stack.
@@ -392,6 +404,7 @@ def validate_online_cmd(
         code_path=code_path,
         environment=environment,
         json_output=json_output,
+        output_dir=output_dir,
     )
 
 
@@ -611,6 +624,7 @@ def _run_offline_validation(
     runtime_run_path: str | None = None,
     historical_runs_path: str | None = None,
     json_output: bool = False,
+    output_dir: str = "reports",
 ) -> None:
     contract = load_contract_file(contract_path)
     if environment:
@@ -808,6 +822,22 @@ def _run_offline_validation(
     synthesis_assessment = synthesis_analyzer.analyze()
     context["decision_risk_synthesis"] = synthesis_assessment
 
+    from dpif.reporting.validation_reports import persist_offline_validation_report
+
+    json_path, md_path = persist_offline_validation_report(
+        contract=contract,
+        checkpoints=results,
+        score=score,
+        readiness_label=readiness,
+        impl_assessment=impl_assessment,
+        rerun_assessment=rerun_assessment,
+        alignment_assessment=alignment_assessment,
+        sufficiency_assessment=sufficiency_assessment,
+        assessment=assessment,
+        synthesis_assessment=synthesis_assessment,
+        output_dir=output_dir,
+    )
+
     if json_output:
         payload = assessment.to_dict()
         payload["implementation_forensics"] = impl_assessment.to_dict()
@@ -815,6 +845,7 @@ def _run_offline_validation(
         payload["alignment_analysis"] = alignment_assessment.to_dict()
         payload["evidence_sufficiency"] = sufficiency_assessment.to_dict()
         payload["decision_risk_synthesis"] = synthesis_assessment.to_dict()
+        payload["report_paths"] = {"json": str(json_path), "markdown": str(md_path)}
         payload["checkpoints"] = {
             k: {
                 "checkpoint_id": v.checkpoint_id,
@@ -845,6 +876,13 @@ def _run_offline_validation(
     _display_score(score, readiness)
     _display_final_readiness_section(assessment)
     _display_decision_risk_synthesis_section(synthesis_assessment)
+
+    click.echo("")
+    click.echo("=" * 60)
+    click.echo("VALIDATION REPORTS PERSISTED")
+    click.echo("=" * 60)
+    click.echo(f"JSON report:\n  {json_path}\n")
+    click.echo(f"Markdown report:\n  {md_path}\n")
     # Exit 0: validation completed (even with FAIL findings).
 
 
@@ -858,10 +896,12 @@ def _run_live_validation(
     code_path: str | None,
     environment: str | None,
     json_output: bool = False,
+    output_dir: str = "reports",
 ) -> None:
     from dpif.connectors.live import DatabricksApiError
     from dpif.orchestration.online import run_online_validation
     from dpif.providers.base import mask_sensitive_credentials
+    from dpif.reporting.validation_reports import persist_online_validation_report
 
     try:
         result = run_online_validation(
@@ -887,11 +927,19 @@ def _run_live_validation(
         click.echo(f"Validation crashed: {clean_msg}", err=True)
         sys.exit(1)
 
+    json_path, md_path = persist_online_validation_report(result, output_dir=output_dir)
+
     if json_output:
         click.echo(json.dumps(result.to_dict(), indent=2))
         return
 
     _display_online_validation(result)
+
+    click.echo("=" * 60)
+    click.echo("VALIDATION REPORTS PERSISTED")
+    click.echo("=" * 60)
+    click.echo(f"JSON report:\n  {json_path}\n")
+    click.echo(f"Markdown report:\n  {md_path}\n")
 
 
 def _display_online_validation(result: Any) -> None:
