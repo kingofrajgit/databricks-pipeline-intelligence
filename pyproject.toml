@@ -44,7 +44,6 @@ ignore = ["E501"]
 # Fixture pipelines are analysed as text by DPIF, never executed;
 # `spark` is the Databricks runtime global.
 "tests/fixtures/code/*.py" = ["F821"]
-"scratch/*.py" = ["F821", "B905", "F401", "I001"]
 
 [tool.mypy]
 python_version = "3.11"
