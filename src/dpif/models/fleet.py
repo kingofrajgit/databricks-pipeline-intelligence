@@ -138,7 +138,12 @@ class EnterpriseEnvironmentPolicy(BaseModel):
             has_blocking = getattr(result, "has_blocking", False)
             blockers = []
             if hasattr(result, "decision_risk_synthesis") and result.decision_risk_synthesis:
-                blockers = result.decision_risk_synthesis.production_blockers
+                syn = result.decision_risk_synthesis
+                syn_blockers = getattr(syn, "blockers", None)
+                if not isinstance(syn_blockers, list):
+                    syn_blockers = getattr(syn, "production_blockers", None)
+                if isinstance(syn_blockers, list):
+                    blockers = syn_blockers
 
             if has_blocking or blockers:
                 count = len(blockers) if blockers else 1

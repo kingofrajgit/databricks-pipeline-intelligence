@@ -1062,3 +1062,59 @@ def test_fleet_failure_isolation_independent_pipelines():
     assert fleet_res.has_auth_or_config_error is True
     assert fleet_res.policy_passed is False
 
+
+def test_decision_risk_synthesis_blockers_attribute_regression():
+    """Regression test: Ensure evaluate_pipeline and aggregate_fleet_metrics consume real DecisionRiskSynthesisResult.blockers without AttributeError."""
+    from dpif.models.synthesis import ProductionBlocker, RiskCategory
+
+    real_blocker = ProductionBlocker(
+        blocker_id="BLOCK-001",
+        title="Unresolved critical data loss risk",
+        description="Write operation causes non-recoverable overwrite",
+        source="CP-018",
+        category=RiskCategory.DATA_LOSS,
+        severity=Severity.CRITICAL,
+        resolution_requirement="Implement merge/upsert pattern",
+    )
+    synthesis = DecisionRiskSynthesisResult(
+        final_decision=FinalDecisionStatus.NOT_PRODUCTION_READY,
+        quality_score=45.0,
+        confidence=ConfidenceLevel.HIGH,
+        decision_sufficiency=True,
+        blockers=[real_blocker],
+        top_risks=[],
+        all_risks=[],
+        risk_chains=[],
+        missing_evidence=[],
+        remediations=[],
+    )
+
+    vr = MagicMock(spec=OnlineValidationResult)
+    vr.quality_score = 45.0
+    vr.confidence = ConfidenceLevel.HIGH
+    vr.decision_sufficiency = True
+    vr.has_blocking = True
+    vr.final_decision = FinalDecisionStatus.NOT_PRODUCTION_READY.value
+    vr.alignment_analysis = None
+    vr.decision_risk_synthesis = synthesis
+
+    policy = EnterpriseEnvironmentPolicy.default_for_tier(EnvironmentTier.DEVELOPMENT)
+    passed, violations = policy.evaluate_pipeline(vr)
+    assert not passed
+    assert any("Pipeline contains 1 blocking P0 production risk(s)" in v for v in violations)
+
+    execs = {
+        "p1": PipelineFleetExecution(
+            pipeline_id="p1",
+            target=EnterprisePipelineTarget(id="p1"),
+            success=True,
+            policy_passed=False,
+            validation_result=vr,
+        )
+    }
+    summary, fleet_passed = aggregate_fleet_metrics(execs, policy, [])
+    assert not fleet_passed
+    assert summary.total_blockers == 1
+    assert summary.blocked_policy == 1
+
+

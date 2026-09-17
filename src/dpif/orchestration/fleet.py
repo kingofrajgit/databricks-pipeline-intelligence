@@ -316,8 +316,12 @@ def aggregate_fleet_metrics(
 
             if hasattr(vr, "decision_risk_synthesis") and vr.decision_risk_synthesis:
                 syn = vr.decision_risk_synthesis
-                total_blockers += len(syn.production_blockers)
-                for r in syn.top_risks:
+                syn_blockers = getattr(syn, "blockers", None)
+                if not isinstance(syn_blockers, list):
+                    syn_blockers = getattr(syn, "production_blockers", None)
+                if isinstance(syn_blockers, list):
+                    total_blockers += len(syn_blockers)
+                for r in getattr(syn, "top_risks", []):
                     if getattr(r, "severity", None) == Severity.CRITICAL:
                         total_p0 += 1
                     elif getattr(r, "severity", None) == Severity.HIGH:
