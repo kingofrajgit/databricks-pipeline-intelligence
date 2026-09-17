@@ -296,6 +296,7 @@ tests/
 
 ## Documentation
 
+- `docs/USER_GUIDE.md` - Complete DPIF User Guide (installation, offline/online workflows, checkpoints, reports)
 - `docs/architecture/` - Architecture decision records and diagrams
 - `docs/requirements/` - Product requirements and user stories
 - `docs/adr/` - Architectural Decision Records
