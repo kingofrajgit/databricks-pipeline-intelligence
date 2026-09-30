@@ -697,6 +697,15 @@ def _run_offline_validation(
         if isinstance(raw_h, list):
             historical_objs = raw_h
 
+    from dpif.flow import build_pipeline_flow_graph
+
+    flow_graph = build_pipeline_flow_graph(
+        code_analysis=analysis,
+        contract=contract,
+        pipeline_name=contract.pipeline_name,
+        raw_code=code_text,
+    )
+
     context: dict[str, Any] = {
         "pipeline_name": contract.pipeline_name,
         "pipeline_contract": contract,
@@ -705,6 +714,7 @@ def _run_offline_validation(
         "code_snippet": code_text,
         "code_filename": code_filename,
         "code_analysis": analysis,
+        "flow_graph": flow_graph,
         "cluster_config": cluster_config,
         "job_config": job_config,
         "assumptions": {"mode": "offline-fixture"},
@@ -836,6 +846,7 @@ def _run_offline_validation(
         assessment=assessment,
         synthesis_assessment=synthesis_assessment,
         output_dir=output_dir,
+        flow_graph=flow_graph,
     )
 
     if json_output:
@@ -845,6 +856,7 @@ def _run_offline_validation(
         payload["alignment_analysis"] = alignment_assessment.to_dict()
         payload["evidence_sufficiency"] = sufficiency_assessment.to_dict()
         payload["decision_risk_synthesis"] = synthesis_assessment.to_dict()
+        payload["pipeline_flow_graph"] = flow_graph.to_dict()
         payload["report_paths"] = {"json": str(json_path), "markdown": str(md_path)}
         payload["checkpoints"] = {
             k: {

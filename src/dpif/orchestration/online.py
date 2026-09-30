@@ -33,6 +33,7 @@ from dpif.discovery.synthesis import (
     synthesize_discovered_contract,
     synthesize_discovered_data_profile,
 )
+from dpif.flow import PipelineFlowGraph, build_pipeline_flow_graph
 from dpif.models import (
     Checkpoint,
     CheckpointStatus,
@@ -115,6 +116,7 @@ class OnlineValidationResult(BaseModel):
     evidence_sufficiency: EvidenceSufficiencyAssessment | None = None
     production_readiness: ProductionReadinessAssessment | None = None
     decision_risk_synthesis: DecisionRiskSynthesisResult | None = None
+    flow_graph: PipelineFlowGraph | None = None
     normalized_evidence: NormalizedPipelineEvidence | None = None
     errors: list[AcquisitionError] = Field(default_factory=list)
 
@@ -176,6 +178,8 @@ class OnlineValidationResult(BaseModel):
             d["production_readiness"] = self.production_readiness.to_dict()
         if self.decision_risk_synthesis:
             d["decision_risk_synthesis"] = self.decision_risk_synthesis.to_dict()
+        if self.flow_graph is not None:
+            d["pipeline_flow_graph"] = self.flow_graph.to_dict()
 
         return sanitize_job_payload(d)
 
@@ -640,6 +644,14 @@ class OnlineValidationOrchestrator:
                 )
             )
 
+        # Common pipeline flow graph (GAP-001) — same builder as offline.
+        flow_graph = build_pipeline_flow_graph(
+            code_analysis=analysis,
+            contract=contract,
+            pipeline_name=pipeline_name,
+            raw_code=code_text,
+        )
+
         # 3. Downstream DPIF Intelligence Execution
         rule_context: dict[str, Any] = {
             "mode": "live-api",
@@ -691,6 +703,7 @@ class OnlineValidationOrchestrator:
             "code_snippet": code_text,
             "code_filename": code_filename,
             "code_analysis": analysis,
+            "flow_graph": flow_graph,
             "actual_environment": cluster_config,
             "workspace_cluster": cluster_config,
         }
@@ -797,6 +810,7 @@ class OnlineValidationOrchestrator:
             evidence_sufficiency=sufficiency_assessment,
             production_readiness=assessment,
             decision_risk_synthesis=synthesis_assessment,
+            flow_graph=flow_graph,
             normalized_evidence=evidence,
             errors=evidence.errors,
         )

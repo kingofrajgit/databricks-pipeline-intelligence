@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from dpif.flow import PipelineFlowGraph
 from dpif.models import Checkpoint, CheckpointStatus, PipelineContract, Score
 from dpif.models.alignment import ThreeLayerAlignmentAssessment
 from dpif.models.implementation import ImplementationForensicsResult
@@ -84,6 +85,30 @@ def sanitize_dict_credentials(data: Any) -> Any:
     return data
 
 
+def _append_flow_graph_section(lines: list[str], flow_graph: PipelineFlowGraph | None) -> None:
+    """Append the common pipeline flow graph summary (GAP-001) to a markdown report."""
+    lines.append("## Pipeline Flow Graph (GAP-001)")
+    lines.append("")
+    if flow_graph is None:
+        lines.append("No pipeline flow graph available.")
+        lines.append("")
+        return
+    issues = flow_graph.structural_issues()
+    lines.append(f"- **Flow Summary**: `{flow_graph.summary()}`")
+    lines.append(
+        f"- **Nodes**: {len(flow_graph.nodes)} "
+        f"({len(flow_graph.source_ids)} sources, {len(flow_graph.target_ids)} targets)"
+    )
+    lines.append(f"- **Edges**: {len(flow_graph.edges)}")
+    if issues:
+        lines.append(f"- **Structural Issues**: {len(issues)}")
+        for issue in issues:
+            lines.append(f"  - `{issue.code}`: {issue.message}")
+    else:
+        lines.append("- **Structural Issues**: none")
+    lines.append("")
+
+
 def generate_online_markdown_report(
     result: OnlineValidationResult,
     timestamp_str: str,
@@ -118,6 +143,9 @@ def generate_online_markdown_report(
         err_note = diag.error_message or "-"
         lines.append(f"| {diag.category.capitalize()} | `{diag.status}` | `{diag.provenance}` | `{res_id}` | {err_note} |")
     lines.append("")
+
+    # 2b. Common Pipeline Flow Graph (GAP-001)
+    _append_flow_graph_section(lines, result.flow_graph)
 
     # 3. Checkpoint Results
     lines.append("## Checkpoint Results (CP-001..CP-024)")
@@ -257,6 +285,7 @@ def generate_offline_markdown_report(
     assessment: ProductionReadinessAssessment | None,
     synthesis_assessment: DecisionRiskSynthesisResult | None,
     timestamp_str: str,
+    flow_graph: PipelineFlowGraph | None = None,
 ) -> str:
     """Generate human-readable Markdown validation report for an offline run."""
     lines: list[str] = []
@@ -307,6 +336,9 @@ def generate_offline_markdown_report(
     has_target = bool(getattr(contract, "target", None))
     lines.append(f"| Target Definition | `{'DECLARED' if has_target else 'MISSING'}` | `CONTRACT` | `{getattr(contract.target, 'path', 'N/A') if has_target else 'N/A'}` |")
     lines.append("")
+
+    # 2b. Common Pipeline Flow Graph (GAP-001)
+    _append_flow_graph_section(lines, flow_graph)
 
     # 3. Checkpoint Results
     lines.append("## Checkpoint Results (CP-001..CP-024)")
@@ -466,6 +498,7 @@ def persist_offline_validation_report(
     assessment: ProductionReadinessAssessment | None,
     synthesis_assessment: DecisionRiskSynthesisResult | None,
     output_dir: Path | str = "reports",
+    flow_graph: PipelineFlowGraph | None = None,
 ) -> tuple[Path, Path]:
     """Persist complete offline validation result as validation.json and validation.md.
 
@@ -542,6 +575,8 @@ def persist_offline_validation_report(
         payload["production_readiness"] = assessment.to_dict()
     if synthesis_assessment:
         payload["decision_risk_synthesis"] = synthesis_assessment.to_dict()
+    if flow_graph is not None:
+        payload["pipeline_flow_graph"] = flow_graph.to_dict()
 
     clean_payload = sanitize_dict_credentials(payload)
 
@@ -561,6 +596,7 @@ def persist_offline_validation_report(
         assessment=assessment,
         synthesis_assessment=synthesis_assessment,
         timestamp_str=ts,
+        flow_graph=flow_graph,
     )
     clean_md = mask_sensitive_credentials(md_content)
 
