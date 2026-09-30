@@ -1,0 +1,1525 @@
+{
+  "status": "NOT_PRODUCTION_READY",
+  "quality_score": 63.3,
+  "evidence_coverage": 73.7,
+  "comprehensive_coverage": {
+    "total_required": 19,
+    "total_evaluated": 14,
+    "total_unknown": 5,
+    "total_not_applicable": 0,
+    "coverage_percentage": 73.7,
+    "domain_coverages": {
+      "Cluster": {
+        "domain": "Cluster",
+        "total_checks": 1,
+        "evaluated_checks": 1,
+        "unknown_checks": 0,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 100.0,
+        "provenance_breakdown": {
+          "METADATA": 1
+        },
+        "quality_tier": "EVALUATED"
+      },
+      "Code": {
+        "domain": "Code",
+        "total_checks": 1,
+        "evaluated_checks": 1,
+        "unknown_checks": 0,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 100.0,
+        "provenance_breakdown": {
+          "METADATA": 1
+        },
+        "quality_tier": "EVALUATED"
+      },
+      "Cost": {
+        "domain": "Cost",
+        "total_checks": 1,
+        "evaluated_checks": 0,
+        "unknown_checks": 1,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 0.0,
+        "provenance_breakdown": {
+          "STATIC": 1
+        },
+        "quality_tier": "UNKNOWN"
+      },
+      "Data": {
+        "domain": "Data",
+        "total_checks": 2,
+        "evaluated_checks": 1,
+        "unknown_checks": 1,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 50.0,
+        "provenance_breakdown": {
+          "STATIC": 1,
+          "METADATA": 1
+        },
+        "quality_tier": "UNKNOWN"
+      },
+      "Data Quality": {
+        "domain": "Data Quality",
+        "total_checks": 1,
+        "evaluated_checks": 1,
+        "unknown_checks": 0,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 100.0,
+        "provenance_breakdown": {
+          "METADATA": 1
+        },
+        "quality_tier": "EVALUATED"
+      },
+      "Governance": {
+        "domain": "Governance",
+        "total_checks": 1,
+        "evaluated_checks": 1,
+        "unknown_checks": 0,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 100.0,
+        "provenance_breakdown": {
+          "CONTRACT": 1,
+          "METADATA": 1
+        },
+        "quality_tier": "EVALUATED"
+      },
+      "Job": {
+        "domain": "Job",
+        "total_checks": 1,
+        "evaluated_checks": 1,
+        "unknown_checks": 0,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 100.0,
+        "provenance_breakdown": {
+          "METADATA": 1
+        },
+        "quality_tier": "EVALUATED"
+      },
+      "Performance": {
+        "domain": "Performance",
+        "total_checks": 1,
+        "evaluated_checks": 0,
+        "unknown_checks": 1,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 0.0,
+        "provenance_breakdown": {
+          "STATIC": 1
+        },
+        "quality_tier": "UNKNOWN"
+      },
+      "Pipeline": {
+        "domain": "Pipeline",
+        "total_checks": 1,
+        "evaluated_checks": 1,
+        "unknown_checks": 0,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 100.0,
+        "provenance_breakdown": {
+          "CONTRACT": 1,
+          "METADATA": 1
+        },
+        "quality_tier": "EVALUATED"
+      },
+      "Readiness": {
+        "domain": "Readiness",
+        "total_checks": 1,
+        "evaluated_checks": 0,
+        "unknown_checks": 1,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 0.0,
+        "provenance_breakdown": {
+          "STATIC": 1
+        },
+        "quality_tier": "UNKNOWN"
+      },
+      "Reliability": {
+        "domain": "Reliability",
+        "total_checks": 4,
+        "evaluated_checks": 4,
+        "unknown_checks": 0,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 100.0,
+        "provenance_breakdown": {
+          "METADATA": 4,
+          "CONTRACT": 2
+        },
+        "quality_tier": "EVALUATED"
+      },
+      "SLA": {
+        "domain": "SLA",
+        "total_checks": 1,
+        "evaluated_checks": 0,
+        "unknown_checks": 1,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 0.0,
+        "provenance_breakdown": {
+          "STATIC": 1
+        },
+        "quality_tier": "UNKNOWN"
+      },
+      "Scalability": {
+        "domain": "Scalability",
+        "total_checks": 1,
+        "evaluated_checks": 1,
+        "unknown_checks": 0,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 100.0,
+        "provenance_breakdown": {
+          "FIXTURE": 2,
+          "METADATA": 7,
+          "RUNTIME": 2
+        },
+        "quality_tier": "EVALUATED"
+      },
+      "Security": {
+        "domain": "Security",
+        "total_checks": 1,
+        "evaluated_checks": 1,
+        "unknown_checks": 0,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 100.0,
+        "provenance_breakdown": {
+          "METADATA": 1
+        },
+        "quality_tier": "EVALUATED"
+      },
+      "Source": {
+        "domain": "Source",
+        "total_checks": 1,
+        "evaluated_checks": 1,
+        "unknown_checks": 0,
+        "not_applicable_checks": 0,
+        "coverage_percentage": 100.0,
+        "provenance_breakdown": {
+          "CONTRACT": 1,
+          "METADATA": 1
+        },
+        "quality_tier": "EVALUATED"
+      }
+    }
+  },
+  "decision_reasons": [
+    "Quality score (63.3/100) is below the minimum threshold (80.0/100)."
+  ],
+  "required_actions": [
+    {
+      "priority": "P1",
+      "rule_id": "XDOM-003",
+      "checkpoint_id": "CROSS-DOMAIN",
+      "title": "High Network Shuffle & Spill Risk",
+      "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+      "recommendation": "Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering."
+    },
+    {
+      "priority": "P1",
+      "rule_id": "XDOM-004",
+      "checkpoint_id": "CROSS-DOMAIN",
+      "title": "Peak Workload Capacity Headroom Risk",
+      "description": "Contractual peak ingestion burst exceeds baseline workload capacity on a fixed or constrained cluster configuration without empirical verification.",
+      "recommendation": "Enable cluster autoscaling or validate cluster worker memory sizing against peak ingestion bursts."
+    },
+    {
+      "priority": "P2",
+      "rule_id": "SCALABILITY-002",
+      "checkpoint_id": "scalability",
+      "title": "Peak Volume Capacity Risk: WARN",
+      "description": "Evaluates contractual peak workload volume against observed runtime capacity and cluster headroom.",
+      "recommendation": "Peak scenario not directly observed. Available evidence indicates potential capacity headroom constraint during peak ingestion bursts."
+    },
+    {
+      "priority": "P2",
+      "rule_id": "SCALABILITY-011",
+      "checkpoint_id": "scalability",
+      "title": "Autoscaling Boundary Risk: WARN",
+      "description": "Assesses autoscaling upper boundaries against peak workload expansion multipliers.",
+      "recommendation": "Enable cluster autoscaling to dynamically absorb peak bursts without paying for idle compute during baseline execution."
+    },
+    {
+      "priority": "P3",
+      "rule_id": "SCALABILITY-007",
+      "checkpoint_id": "scalability",
+      "title": "Shuffle Scalability Risk: UNKNOWN",
+      "description": "Projects shuffle volume growth under scaled workload conditions to anticipate disk spill and network saturation.",
+      "recommendation": "Supply runtime execution telemetry to project shuffle volume under scale."
+    },
+    {
+      "priority": "P3",
+      "rule_id": "SCALABILITY-012",
+      "checkpoint_id": "scalability",
+      "title": "SLA Scalability Risk: UNKNOWN",
+      "description": "Compares projected execution duration at peak workload against contractual SLA boundaries under explicit projection assumptions.",
+      "recommendation": "Supply runtime execution telemetry."
+    },
+    {
+      "priority": "P3",
+      "rule_id": "SCALABILITY-013",
+      "checkpoint_id": "scalability",
+      "title": "Runtime Regression at Scale: UNKNOWN",
+      "description": "Evaluates empirical historical run telemetry to detect super-linear runtime expansion relative to data volume growth.",
+      "recommendation": "Provide 2 or more historical run records to detect empirical runtime regression."
+    },
+    {
+      "priority": "P3",
+      "rule_id": "SCALABILITY-014",
+      "checkpoint_id": "scalability",
+      "title": "Reliability Degradation at Scale: UNKNOWN",
+      "description": "Evaluates whether task failure rates, executor evictions, or memory spills correlate with increased workload volume.",
+      "recommendation": "Provide 2 or more historical run records to assess failure rate correlation."
+    }
+  ],
+  "blocking_findings": [],
+  "critical_findings": [],
+  "high_findings": [],
+  "warning_count": 2,
+  "unknown_count": 5,
+  "applicable_checkpoint_count": 19,
+  "passed_checkpoint_count": 10,
+  "failed_checkpoint_count": 0,
+  "unknown_checkpoint_count": 5,
+  "domain_assessments": {
+    "CP-001_source": "PASS",
+    "CP-003_data": "UNKNOWN",
+    "CP-007_data": "PASS",
+    "CP-004_code": "PASS",
+    "CP-008_performance": "UNKNOWN",
+    "CP-009_cluster": "PASS",
+    "CP-010_scalability": "WARN",
+    "CP-011_job": "PASS",
+    "CP-012_pipeline": "WARN",
+    "CP-013_reliability": "WARN",
+    "CP-014_reliability": "PASS",
+    "CP-015_reliability": "PASS",
+    "CP-016_reliability": "WARN",
+    "CP-019_cost": "UNKNOWN",
+    "CP-020_security": "PASS",
+    "CP-021_governance": "PASS",
+    "CP-022_data-quality": "PASS",
+    "CP-023_sla": "UNKNOWN",
+    "CP-024_readiness": "UNKNOWN"
+  },
+  "config_comparisons": [
+    {
+      "parameter": "Spark/DBR Version",
+      "domain": "Cluster",
+      "expected": "15.4.x-scala2.12",
+      "implemented": "15.4.x-scala2.12",
+      "actual": null,
+      "is_drift": false,
+      "drift_severity": "NONE",
+      "notes": ""
+    },
+    {
+      "parameter": "Worker Node Type",
+      "domain": "Cluster",
+      "expected": "Standard_D4ds_v5",
+      "implemented": null,
+      "actual": null,
+      "is_drift": false,
+      "drift_severity": "NONE",
+      "notes": ""
+    },
+    {
+      "parameter": "Worker Count",
+      "domain": "Cluster",
+      "expected": 4,
+      "implemented": 4,
+      "actual": null,
+      "is_drift": false,
+      "drift_severity": "NONE",
+      "notes": ""
+    },
+    {
+      "parameter": "Daily Volume (GB)",
+      "domain": "Data",
+      "expected": 120.0,
+      "implemented": 100.0,
+      "actual": null,
+      "is_drift": false,
+      "drift_severity": "NONE",
+      "notes": "Volume observed from telemetry/profile"
+    },
+    {
+      "parameter": "Max Duration (Minutes)",
+      "domain": "SLA",
+      "expected": 30.0,
+      "implemented": 30.0,
+      "actual": null,
+      "is_drift": false,
+      "drift_severity": "NONE",
+      "notes": ""
+    }
+  ],
+  "cross_domain_risks": [
+    {
+      "risk_id": "XDOM-003",
+      "title": "High Network Shuffle & Spill Risk",
+      "severity": "HIGH",
+      "contributing_domains": [
+        "Performance",
+        "Scalability"
+      ],
+      "evidence_sources": [
+        "Runtime Telemetry",
+        "Linear Projections"
+      ],
+      "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+      "recommendation": "Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering.",
+      "confidence": 0.85
+    },
+    {
+      "risk_id": "XDOM-004",
+      "title": "Peak Workload Capacity Headroom Risk",
+      "severity": "MEDIUM",
+      "contributing_domains": [
+        "Cluster",
+        "Scalability",
+        "Contract"
+      ],
+      "evidence_sources": [
+        "Cluster Config",
+        "Contract Declarations"
+      ],
+      "description": "Contractual peak ingestion burst exceeds baseline workload capacity on a fixed or constrained cluster configuration without empirical verification.",
+      "recommendation": "Enable cluster autoscaling or validate cluster worker memory sizing against peak ingestion bursts.",
+      "confidence": 0.8
+    }
+  ],
+  "runtime_summary": {},
+  "scalability_summary": {
+    "status": "WARN",
+    "observations_count": 0
+  },
+  "sla_summary": {
+    "status": "UNKNOWN",
+    "max_runtime_minutes": 30.0
+  },
+  "security_summary": {
+    "status": "PASS"
+  },
+  "reliability_summary": {
+    "retry_status": "PASS",
+    "restart_status": "PASS",
+    "idempotency_status": "WARN"
+  },
+  "policy_version": "production-readiness-v1",
+  "framework_version": "1.0.0",
+  "generated_at": "2026-09-15T09:29:34.353149+00:00",
+  "connector_mode": "offline",
+  "implementation_forensics": {
+    "pipeline_name": "unknown_pipeline",
+    "overall_status": "WARN",
+    "dimensions": {
+      "transformation_quality": {
+        "dimension": "transformation_quality",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "shuffle_optimization": {
+        "dimension": "shuffle_optimization",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "partitioning_quality": {
+        "dimension": "partitioning_quality",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "join_strategy": {
+        "dimension": "join_strategy",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "cache_lifecycle": {
+        "dimension": "cache_lifecycle",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "checkpoint_lifecycle": {
+        "dimension": "checkpoint_lifecycle",
+        "status": "WARN",
+        "findings_count": 1,
+        "max_severity": "LOW",
+        "summary": "Evaluated 1 forensic finding(s).",
+        "findings": [
+          {
+            "finding_id": "IMP-CKPT-002:28",
+            "rule_id": "IMP-CKPT-002",
+            "dimension": "checkpoint_lifecycle",
+            "title": "checkpoint() Implemented Without Visible Reuse",
+            "description": "Developer implemented checkpoint() on dataset 'incoming', but no downstream usage is statically visible.",
+            "status": "WARN",
+            "severity": "LOW",
+            "observed": {
+              "line": 28,
+              "dataframe": "incoming",
+              "is_local": false,
+              "uses": 0
+            },
+            "expected": {
+              "downstream_uses": ">= 1"
+            },
+            "evidence": [
+              "checkpoint() at line 28 without downstream uses"
+            ],
+            "recommendation": "Verify if checkpoint() is necessary if dataset is not reused.",
+            "confidence": 0.7,
+            "provenance": "FIXTURE",
+            "location": "rerun_retry_risk_pipeline.py:28:4",
+            "blocking": false
+          }
+        ]
+      },
+      "resource_lifecycle": {
+        "dimension": "resource_lifecycle",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "exception_safety": {
+        "dimension": "exception_safety",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "implementation_completeness": {
+        "dimension": "implementation_completeness",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      }
+    },
+    "all_findings": [
+      {
+        "finding_id": "IMP-CKPT-002:28",
+        "rule_id": "IMP-CKPT-002",
+        "dimension": "checkpoint_lifecycle",
+        "title": "checkpoint() Implemented Without Visible Reuse",
+        "description": "Developer implemented checkpoint() on dataset 'incoming', but no downstream usage is statically visible.",
+        "status": "WARN",
+        "severity": "LOW",
+        "observed": {
+          "line": 28,
+          "dataframe": "incoming",
+          "is_local": false,
+          "uses": 0
+        },
+        "expected": {
+          "downstream_uses": ">= 1"
+        },
+        "evidence": [
+          "checkpoint() at line 28 without downstream uses"
+        ],
+        "recommendation": "Verify if checkpoint() is necessary if dataset is not reused.",
+        "confidence": 0.7,
+        "provenance": "FIXTURE",
+        "location": "rerun_retry_risk_pipeline.py:28:4",
+        "blocking": false
+      }
+    ]
+  },
+  "rerun_analysis": {
+    "pipeline_name": "payment_events_rerun_fixture",
+    "overall_status": "WARN",
+    "scenarios": {
+      "SAME_INPUT": {
+        "scenario": "SAME_INPUT",
+        "status": "WARN",
+        "severity": "HIGH",
+        "risk_summary": "Potential duplicate-data risk: repeated execution appends duplicate rows.",
+        "findings": [
+          {
+            "finding_id": "RER-DUP-001-SAME",
+            "rule_id": "RER-DUP-001",
+            "category": "rerun_idempotency",
+            "dimension": "OUTPUT_WRITE_IDEMPOTENCY",
+            "scenario": "SAME_INPUT",
+            "severity": "HIGH",
+            "status": "WARN",
+            "title": "Potential duplicate-data risk on same-input rerun",
+            "description": "Repeated execution with identical input uses APPEND write semantics without deduplication, creating duplicate records.",
+            "evidence": [
+              "Write mode: APPEND",
+              "No deduplication operations (dropDuplicates/distinct) found"
+            ],
+            "observed": {
+              "write_modes": [
+                "APPEND"
+              ],
+              "has_deduplication": false
+            },
+            "expected": {
+              "write_mode": "OVERWRITE | MERGE or deduplicated append"
+            },
+            "recommendation": "Implement upsert / MERGE or enforce deduplication before appending.",
+            "confidence": 0.9,
+            "blocking": false,
+            "provenance": "STATIC_CODE",
+            "location": ""
+          }
+        ],
+        "evidence": [
+          "Write mode: APPEND",
+          "No deduplication operations (dropDuplicates/distinct) found"
+        ],
+        "observed": {
+          "write_modes": [
+            "APPEND"
+          ],
+          "has_deduplication": false
+        },
+        "expected": {
+          "idempotent_write": true
+        }
+      },
+      "INCREMENTAL_INPUT": {
+        "scenario": "INCREMENTAL_INPUT",
+        "status": "PASS",
+        "severity": "INFO",
+        "risk_summary": "Stable incremental boundaries identified.",
+        "findings": [
+          {
+            "finding_id": "RER-INC-001",
+            "rule_id": "RER-INC-001",
+            "category": "rerun_idempotency",
+            "dimension": "INPUT_IDEMPOTENCY",
+            "scenario": "INCREMENTAL_INPUT",
+            "severity": "INFO",
+            "status": "PASS",
+            "title": "Incremental processing boundary verified with checkpoint tracking",
+            "description": "Pipeline establishes verified input boundaries using predicates/offsets/watermarks and maintains resilient checkpoint progress tracking.",
+            "evidence": [
+              "Incremental predicate / timestamp filter detected",
+              "Offset / stream tracking detected",
+              "Checkpointing mechanism detected for recovery tracking"
+            ],
+            "observed": {
+              "has_incremental_filter": true,
+              "has_offset": true,
+              "has_watermark": false,
+              "has_checkpoint": true
+            },
+            "expected": {
+              "incremental_boundary_protection": true
+            },
+            "recommendation": "",
+            "confidence": 0.9,
+            "blocking": false,
+            "provenance": "STATIC_CODE",
+            "location": ""
+          }
+        ],
+        "evidence": [
+          "Incremental predicate / timestamp filter detected",
+          "Offset / stream tracking detected",
+          "Checkpointing mechanism detected for recovery tracking"
+        ],
+        "observed": {
+          "incremental_boundary": true,
+          "has_checkpoint": true
+        },
+        "expected": {
+          "incremental_boundary": true
+        }
+      },
+      "OVERLAPPING_INPUT": {
+        "scenario": "OVERLAPPING_INPUT",
+        "status": "WARN",
+        "severity": "HIGH",
+        "risk_summary": "Potential duplicate-data risk: overlapping input records will be appended as duplicates.",
+        "findings": [
+          {
+            "finding_id": "RER-DUP-002",
+            "rule_id": "RER-DUP-002",
+            "category": "rerun_idempotency",
+            "dimension": "TRANSFORMATION_IDEMPOTENCY",
+            "scenario": "OVERLAPPING_INPUT",
+            "severity": "HIGH",
+            "status": "WARN",
+            "title": "Potential duplicate-data risk from overlapping input",
+            "description": "Pipeline uses APPEND write without deduplication; overlapping input windows will cause duplicate records.",
+            "evidence": [
+              "Write mode: APPEND",
+              "No deduplication or upsert protection"
+            ],
+            "observed": {
+              "write_mode": "APPEND",
+              "has_deduplication": false
+            },
+            "expected": {
+              "deduplication": true
+            },
+            "recommendation": "Add dropDuplicates on primary business keys or use MERGE with key matching.",
+            "confidence": 0.85,
+            "blocking": false,
+            "provenance": "STATIC_CODE",
+            "location": ""
+          }
+        ],
+        "evidence": [
+          "Write mode: APPEND",
+          "No deduplication or upsert protection"
+        ],
+        "observed": {
+          "has_deduplication": false
+        },
+        "expected": {
+          "has_deduplication": true
+        }
+      },
+      "PARTIAL_FAILURE": {
+        "scenario": "PARTIAL_FAILURE",
+        "status": "WARN",
+        "severity": "HIGH",
+        "risk_summary": "Potential duplicate-data risk: retry after partial failure appends duplicate records.",
+        "findings": [
+          {
+            "finding_id": "RER-DUP-004",
+            "rule_id": "RER-DUP-004",
+            "category": "rerun_idempotency",
+            "dimension": "PARTIAL_FAILURE_RECOVERY",
+            "scenario": "PARTIAL_FAILURE",
+            "severity": "HIGH",
+            "status": "WARN",
+            "title": "Potential duplicate-data risk on partial failure and retry",
+            "description": "If write succeeds but a later pipeline step fails, subsequent retry will append identical records again.",
+            "evidence": [
+              "Write mode: APPEND without deduplication or transactional boundaries"
+            ],
+            "observed": {
+              "write_mode": "APPEND",
+              "has_deduplication": false
+            },
+            "expected": {
+              "idempotent_retry_boundary": true
+            },
+            "recommendation": "Enforce atomic transactions, checkpointing, or upsert writes to ensure idempotent retry.",
+            "confidence": 0.85,
+            "blocking": false,
+            "provenance": "STATIC_CODE",
+            "location": ""
+          }
+        ],
+        "evidence": [
+          "Write mode: APPEND without deduplication or transactional boundaries"
+        ],
+        "observed": {
+          "safe_recovery": false
+        },
+        "expected": {
+          "safe_recovery": true
+        }
+      },
+      "JOB_RETRY": {
+        "scenario": "JOB_RETRY",
+        "status": "WARN",
+        "severity": "HIGH",
+        "risk_summary": "Job retry enabled without idempotency; duplicate data risk on automatic retry.",
+        "findings": [
+          {
+            "finding_id": "RER-RET-001",
+            "rule_id": "RER-RET-001",
+            "category": "rerun_idempotency",
+            "dimension": "RETRY_IDEMPOTENCY",
+            "scenario": "JOB_RETRY",
+            "severity": "HIGH",
+            "status": "WARN",
+            "title": "Potential duplicate-data risk under job retry",
+            "description": "Job retry is enabled (3 retries configured) with APPEND write mode and no deduplication protection.",
+            "evidence": [
+              "max_retries: 3",
+              "write_mode: APPEND",
+              "has_deduplication: False"
+            ],
+            "observed": {
+              "max_retries": 3,
+              "write_mode": "APPEND",
+              "has_deduplication": false
+            },
+            "expected": {
+              "idempotent_retry": true
+            },
+            "recommendation": "Ensure pipeline is idempotent before enabling automatic retries.",
+            "confidence": 0.9,
+            "blocking": false,
+            "provenance": "STATIC_CODE",
+            "location": ""
+          }
+        ],
+        "evidence": [
+          "max_retries: 3",
+          "write_mode: APPEND",
+          "has_deduplication: False"
+        ],
+        "observed": {
+          "max_retries": 3,
+          "retry_safe": false
+        },
+        "expected": {
+          "retry_safe": true
+        }
+      },
+      "CONCURRENT_EXECUTION": {
+        "scenario": "CONCURRENT_EXECUTION",
+        "status": "PASS",
+        "severity": "INFO",
+        "risk_summary": "Concurrency locked to 1; concurrent collision prevented.",
+        "findings": [
+          {
+            "finding_id": "RER-CON-002",
+            "rule_id": "RER-CON-002",
+            "category": "rerun_idempotency",
+            "dimension": "CONCURRENT_EXECUTION_SAFETY",
+            "scenario": "CONCURRENT_EXECUTION",
+            "severity": "INFO",
+            "status": "PASS",
+            "title": "Concurrency locked to 1 run",
+            "description": "max_concurrent_runs is locked to 1, preventing concurrent race conditions and overlapping execution.",
+            "evidence": [
+              "max_concurrent_runs: 1"
+            ],
+            "observed": {
+              "max_concurrent_runs": 1
+            },
+            "expected": {
+              "max_concurrent_runs": 1
+            },
+            "recommendation": "",
+            "confidence": 0.95,
+            "blocking": false,
+            "provenance": "STATIC_CODE",
+            "location": ""
+          }
+        ],
+        "evidence": [
+          "max_concurrent_runs: 1"
+        ],
+        "observed": {
+          "max_concurrent_runs": 1
+        },
+        "expected": {
+          "max_concurrent_runs": 1
+        }
+      },
+      "LATE_ARRIVING_DATA": {
+        "scenario": "LATE_ARRIVING_DATA",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "No evidence of watermark, lookback, or upsert handling for late-arriving records.",
+        "findings": [],
+        "evidence": [
+          "no watermark, lookback window, or upsert handling identified"
+        ],
+        "observed": {
+          "has_watermark": false,
+          "has_lookback": false
+        },
+        "expected": {
+          "late_data_handling": true
+        }
+      }
+    },
+    "idempotency": {
+      "overall_status": "WARN",
+      "is_idempotent": false,
+      "summary": "Overall idempotency status: WARN",
+      "dimensions": {
+        "INPUT_IDEMPOTENCY": {
+          "dimension": "INPUT_IDEMPOTENCY",
+          "status": "PASS",
+          "max_severity": "INFO",
+          "summary": "Assessment for INPUT_IDEMPOTENCY: PASS",
+          "findings": [
+            {
+              "finding_id": "RER-INC-001",
+              "rule_id": "RER-INC-001",
+              "category": "rerun_idempotency",
+              "dimension": "INPUT_IDEMPOTENCY",
+              "scenario": "INCREMENTAL_INPUT",
+              "severity": "INFO",
+              "status": "PASS",
+              "title": "Incremental processing boundary verified with checkpoint tracking",
+              "description": "Pipeline establishes verified input boundaries using predicates/offsets/watermarks and maintains resilient checkpoint progress tracking.",
+              "evidence": [
+                "Incremental predicate / timestamp filter detected",
+                "Offset / stream tracking detected",
+                "Checkpointing mechanism detected for recovery tracking"
+              ],
+              "observed": {
+                "has_incremental_filter": true,
+                "has_offset": true,
+                "has_watermark": false,
+                "has_checkpoint": true
+              },
+              "expected": {
+                "incremental_boundary_protection": true
+              },
+              "recommendation": "",
+              "confidence": 0.9,
+              "blocking": false,
+              "provenance": "STATIC_CODE",
+              "location": ""
+            }
+          ]
+        },
+        "TRANSFORMATION_IDEMPOTENCY": {
+          "dimension": "TRANSFORMATION_IDEMPOTENCY",
+          "status": "WARN",
+          "max_severity": "MEDIUM",
+          "summary": "Assessment for TRANSFORMATION_IDEMPOTENCY: WARN",
+          "findings": [
+            {
+              "finding_id": "RER-DUP-002",
+              "rule_id": "RER-DUP-002",
+              "category": "rerun_idempotency",
+              "dimension": "TRANSFORMATION_IDEMPOTENCY",
+              "scenario": "OVERLAPPING_INPUT",
+              "severity": "HIGH",
+              "status": "WARN",
+              "title": "Potential duplicate-data risk from overlapping input",
+              "description": "Pipeline uses APPEND write without deduplication; overlapping input windows will cause duplicate records.",
+              "evidence": [
+                "Write mode: APPEND",
+                "No deduplication or upsert protection"
+              ],
+              "observed": {
+                "write_mode": "APPEND",
+                "has_deduplication": false
+              },
+              "expected": {
+                "deduplication": true
+              },
+              "recommendation": "Add dropDuplicates on primary business keys or use MERGE with key matching.",
+              "confidence": 0.85,
+              "blocking": false,
+              "provenance": "STATIC_CODE",
+              "location": ""
+            }
+          ]
+        },
+        "OUTPUT_WRITE_IDEMPOTENCY": {
+          "dimension": "OUTPUT_WRITE_IDEMPOTENCY",
+          "status": "WARN",
+          "max_severity": "MEDIUM",
+          "summary": "Assessment for OUTPUT_WRITE_IDEMPOTENCY: WARN",
+          "findings": [
+            {
+              "finding_id": "RER-DUP-001-SAME",
+              "rule_id": "RER-DUP-001",
+              "category": "rerun_idempotency",
+              "dimension": "OUTPUT_WRITE_IDEMPOTENCY",
+              "scenario": "SAME_INPUT",
+              "severity": "HIGH",
+              "status": "WARN",
+              "title": "Potential duplicate-data risk on same-input rerun",
+              "description": "Repeated execution with identical input uses APPEND write semantics without deduplication, creating duplicate records.",
+              "evidence": [
+                "Write mode: APPEND",
+                "No deduplication operations (dropDuplicates/distinct) found"
+              ],
+              "observed": {
+                "write_modes": [
+                  "APPEND"
+                ],
+                "has_deduplication": false
+              },
+              "expected": {
+                "write_mode": "OVERWRITE | MERGE or deduplicated append"
+              },
+              "recommendation": "Implement upsert / MERGE or enforce deduplication before appending.",
+              "confidence": 0.9,
+              "blocking": false,
+              "provenance": "STATIC_CODE",
+              "location": ""
+            }
+          ]
+        },
+        "RETRY_IDEMPOTENCY": {
+          "dimension": "RETRY_IDEMPOTENCY",
+          "status": "WARN",
+          "max_severity": "MEDIUM",
+          "summary": "Assessment for RETRY_IDEMPOTENCY: WARN",
+          "findings": [
+            {
+              "finding_id": "RER-RET-001",
+              "rule_id": "RER-RET-001",
+              "category": "rerun_idempotency",
+              "dimension": "RETRY_IDEMPOTENCY",
+              "scenario": "JOB_RETRY",
+              "severity": "HIGH",
+              "status": "WARN",
+              "title": "Potential duplicate-data risk under job retry",
+              "description": "Job retry is enabled (3 retries configured) with APPEND write mode and no deduplication protection.",
+              "evidence": [
+                "max_retries: 3",
+                "write_mode: APPEND",
+                "has_deduplication: False"
+              ],
+              "observed": {
+                "max_retries": 3,
+                "write_mode": "APPEND",
+                "has_deduplication": false
+              },
+              "expected": {
+                "idempotent_retry": true
+              },
+              "recommendation": "Ensure pipeline is idempotent before enabling automatic retries.",
+              "confidence": 0.9,
+              "blocking": false,
+              "provenance": "STATIC_CODE",
+              "location": ""
+            }
+          ]
+        },
+        "CONCURRENT_EXECUTION_SAFETY": {
+          "dimension": "CONCURRENT_EXECUTION_SAFETY",
+          "status": "PASS",
+          "max_severity": "INFO",
+          "summary": "Assessment for CONCURRENT_EXECUTION_SAFETY: PASS",
+          "findings": [
+            {
+              "finding_id": "RER-CON-002",
+              "rule_id": "RER-CON-002",
+              "category": "rerun_idempotency",
+              "dimension": "CONCURRENT_EXECUTION_SAFETY",
+              "scenario": "CONCURRENT_EXECUTION",
+              "severity": "INFO",
+              "status": "PASS",
+              "title": "Concurrency locked to 1 run",
+              "description": "max_concurrent_runs is locked to 1, preventing concurrent race conditions and overlapping execution.",
+              "evidence": [
+                "max_concurrent_runs: 1"
+              ],
+              "observed": {
+                "max_concurrent_runs": 1
+              },
+              "expected": {
+                "max_concurrent_runs": 1
+              },
+              "recommendation": "",
+              "confidence": 0.95,
+              "blocking": false,
+              "provenance": "STATIC_CODE",
+              "location": ""
+            }
+          ]
+        },
+        "PARTIAL_FAILURE_RECOVERY": {
+          "dimension": "PARTIAL_FAILURE_RECOVERY",
+          "status": "WARN",
+          "max_severity": "MEDIUM",
+          "summary": "Assessment for PARTIAL_FAILURE_RECOVERY: WARN",
+          "findings": [
+            {
+              "finding_id": "RER-DUP-004",
+              "rule_id": "RER-DUP-004",
+              "category": "rerun_idempotency",
+              "dimension": "PARTIAL_FAILURE_RECOVERY",
+              "scenario": "PARTIAL_FAILURE",
+              "severity": "HIGH",
+              "status": "WARN",
+              "title": "Potential duplicate-data risk on partial failure and retry",
+              "description": "If write succeeds but a later pipeline step fails, subsequent retry will append identical records again.",
+              "evidence": [
+                "Write mode: APPEND without deduplication or transactional boundaries"
+              ],
+              "observed": {
+                "write_mode": "APPEND",
+                "has_deduplication": false
+              },
+              "expected": {
+                "idempotent_retry_boundary": true
+              },
+              "recommendation": "Enforce atomic transactions, checkpointing, or upsert writes to ensure idempotent retry.",
+              "confidence": 0.85,
+              "blocking": false,
+              "provenance": "STATIC_CODE",
+              "location": ""
+            }
+          ]
+        },
+        "LATE_DATA_HANDLING": {
+          "dimension": "LATE_DATA_HANDLING",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for LATE_DATA_HANDLING: UNKNOWN",
+          "findings": []
+        }
+      }
+    },
+    "duplicate_risk": {
+      "status": "WARN",
+      "risk_level": "HIGH",
+      "summary": "Potential duplicate-data risk identified across 4 source(s).",
+      "potential_duplicate_sources": [
+        "Potential duplicate-data risk on same-input rerun",
+        "Potential duplicate-data risk from overlapping input",
+        "Potential duplicate-data risk on partial failure and retry",
+        "Potential duplicate-data risk under job retry"
+      ],
+      "findings": [
+        {
+          "finding_id": "RER-DUP-001-SAME",
+          "rule_id": "RER-DUP-001",
+          "category": "rerun_idempotency",
+          "dimension": "OUTPUT_WRITE_IDEMPOTENCY",
+          "scenario": "SAME_INPUT",
+          "severity": "HIGH",
+          "status": "WARN",
+          "title": "Potential duplicate-data risk on same-input rerun",
+          "description": "Repeated execution with identical input uses APPEND write semantics without deduplication, creating duplicate records.",
+          "evidence": [
+            "Write mode: APPEND",
+            "No deduplication operations (dropDuplicates/distinct) found"
+          ],
+          "observed": {
+            "write_modes": [
+              "APPEND"
+            ],
+            "has_deduplication": false
+          },
+          "expected": {
+            "write_mode": "OVERWRITE | MERGE or deduplicated append"
+          },
+          "recommendation": "Implement upsert / MERGE or enforce deduplication before appending.",
+          "confidence": 0.9,
+          "blocking": false,
+          "provenance": "STATIC_CODE",
+          "location": ""
+        },
+        {
+          "finding_id": "RER-DUP-002",
+          "rule_id": "RER-DUP-002",
+          "category": "rerun_idempotency",
+          "dimension": "TRANSFORMATION_IDEMPOTENCY",
+          "scenario": "OVERLAPPING_INPUT",
+          "severity": "HIGH",
+          "status": "WARN",
+          "title": "Potential duplicate-data risk from overlapping input",
+          "description": "Pipeline uses APPEND write without deduplication; overlapping input windows will cause duplicate records.",
+          "evidence": [
+            "Write mode: APPEND",
+            "No deduplication or upsert protection"
+          ],
+          "observed": {
+            "write_mode": "APPEND",
+            "has_deduplication": false
+          },
+          "expected": {
+            "deduplication": true
+          },
+          "recommendation": "Add dropDuplicates on primary business keys or use MERGE with key matching.",
+          "confidence": 0.85,
+          "blocking": false,
+          "provenance": "STATIC_CODE",
+          "location": ""
+        },
+        {
+          "finding_id": "RER-DUP-004",
+          "rule_id": "RER-DUP-004",
+          "category": "rerun_idempotency",
+          "dimension": "PARTIAL_FAILURE_RECOVERY",
+          "scenario": "PARTIAL_FAILURE",
+          "severity": "HIGH",
+          "status": "WARN",
+          "title": "Potential duplicate-data risk on partial failure and retry",
+          "description": "If write succeeds but a later pipeline step fails, subsequent retry will append identical records again.",
+          "evidence": [
+            "Write mode: APPEND without deduplication or transactional boundaries"
+          ],
+          "observed": {
+            "write_mode": "APPEND",
+            "has_deduplication": false
+          },
+          "expected": {
+            "idempotent_retry_boundary": true
+          },
+          "recommendation": "Enforce atomic transactions, checkpointing, or upsert writes to ensure idempotent retry.",
+          "confidence": 0.85,
+          "blocking": false,
+          "provenance": "STATIC_CODE",
+          "location": ""
+        },
+        {
+          "finding_id": "RER-RET-001",
+          "rule_id": "RER-RET-001",
+          "category": "rerun_idempotency",
+          "dimension": "RETRY_IDEMPOTENCY",
+          "scenario": "JOB_RETRY",
+          "severity": "HIGH",
+          "status": "WARN",
+          "title": "Potential duplicate-data risk under job retry",
+          "description": "Job retry is enabled (3 retries configured) with APPEND write mode and no deduplication protection.",
+          "evidence": [
+            "max_retries: 3",
+            "write_mode: APPEND",
+            "has_deduplication: False"
+          ],
+          "observed": {
+            "max_retries": 3,
+            "write_mode": "APPEND",
+            "has_deduplication": false
+          },
+          "expected": {
+            "idempotent_retry": true
+          },
+          "recommendation": "Ensure pipeline is idempotent before enabling automatic retries.",
+          "confidence": 0.9,
+          "blocking": false,
+          "provenance": "STATIC_CODE",
+          "location": ""
+        }
+      ]
+    },
+    "data_loss_risk": {
+      "status": "PASS",
+      "risk_level": "INFO",
+      "summary": "No destructive replacement or data-loss risk identified.",
+      "potential_data_loss_sources": [],
+      "findings": []
+    },
+    "performance_risks": [],
+    "all_findings": [
+      {
+        "finding_id": "RER-DUP-001-SAME",
+        "rule_id": "RER-DUP-001",
+        "category": "rerun_idempotency",
+        "dimension": "OUTPUT_WRITE_IDEMPOTENCY",
+        "scenario": "SAME_INPUT",
+        "severity": "HIGH",
+        "status": "WARN",
+        "title": "Potential duplicate-data risk on same-input rerun",
+        "description": "Repeated execution with identical input uses APPEND write semantics without deduplication, creating duplicate records.",
+        "evidence": [
+          "Write mode: APPEND",
+          "No deduplication operations (dropDuplicates/distinct) found"
+        ],
+        "observed": {
+          "write_modes": [
+            "APPEND"
+          ],
+          "has_deduplication": false
+        },
+        "expected": {
+          "write_mode": "OVERWRITE | MERGE or deduplicated append"
+        },
+        "recommendation": "Implement upsert / MERGE or enforce deduplication before appending.",
+        "confidence": 0.9,
+        "blocking": false,
+        "provenance": "STATIC_CODE",
+        "location": ""
+      },
+      {
+        "finding_id": "RER-INC-001",
+        "rule_id": "RER-INC-001",
+        "category": "rerun_idempotency",
+        "dimension": "INPUT_IDEMPOTENCY",
+        "scenario": "INCREMENTAL_INPUT",
+        "severity": "INFO",
+        "status": "PASS",
+        "title": "Incremental processing boundary verified with checkpoint tracking",
+        "description": "Pipeline establishes verified input boundaries using predicates/offsets/watermarks and maintains resilient checkpoint progress tracking.",
+        "evidence": [
+          "Incremental predicate / timestamp filter detected",
+          "Offset / stream tracking detected",
+          "Checkpointing mechanism detected for recovery tracking"
+        ],
+        "observed": {
+          "has_incremental_filter": true,
+          "has_offset": true,
+          "has_watermark": false,
+          "has_checkpoint": true
+        },
+        "expected": {
+          "incremental_boundary_protection": true
+        },
+        "recommendation": "",
+        "confidence": 0.9,
+        "blocking": false,
+        "provenance": "STATIC_CODE",
+        "location": ""
+      },
+      {
+        "finding_id": "RER-DUP-002",
+        "rule_id": "RER-DUP-002",
+        "category": "rerun_idempotency",
+        "dimension": "TRANSFORMATION_IDEMPOTENCY",
+        "scenario": "OVERLAPPING_INPUT",
+        "severity": "HIGH",
+        "status": "WARN",
+        "title": "Potential duplicate-data risk from overlapping input",
+        "description": "Pipeline uses APPEND write without deduplication; overlapping input windows will cause duplicate records.",
+        "evidence": [
+          "Write mode: APPEND",
+          "No deduplication or upsert protection"
+        ],
+        "observed": {
+          "write_mode": "APPEND",
+          "has_deduplication": false
+        },
+        "expected": {
+          "deduplication": true
+        },
+        "recommendation": "Add dropDuplicates on primary business keys or use MERGE with key matching.",
+        "confidence": 0.85,
+        "blocking": false,
+        "provenance": "STATIC_CODE",
+        "location": ""
+      },
+      {
+        "finding_id": "RER-DUP-004",
+        "rule_id": "RER-DUP-004",
+        "category": "rerun_idempotency",
+        "dimension": "PARTIAL_FAILURE_RECOVERY",
+        "scenario": "PARTIAL_FAILURE",
+        "severity": "HIGH",
+        "status": "WARN",
+        "title": "Potential duplicate-data risk on partial failure and retry",
+        "description": "If write succeeds but a later pipeline step fails, subsequent retry will append identical records again.",
+        "evidence": [
+          "Write mode: APPEND without deduplication or transactional boundaries"
+        ],
+        "observed": {
+          "write_mode": "APPEND",
+          "has_deduplication": false
+        },
+        "expected": {
+          "idempotent_retry_boundary": true
+        },
+        "recommendation": "Enforce atomic transactions, checkpointing, or upsert writes to ensure idempotent retry.",
+        "confidence": 0.85,
+        "blocking": false,
+        "provenance": "STATIC_CODE",
+        "location": ""
+      },
+      {
+        "finding_id": "RER-RET-001",
+        "rule_id": "RER-RET-001",
+        "category": "rerun_idempotency",
+        "dimension": "RETRY_IDEMPOTENCY",
+        "scenario": "JOB_RETRY",
+        "severity": "HIGH",
+        "status": "WARN",
+        "title": "Potential duplicate-data risk under job retry",
+        "description": "Job retry is enabled (3 retries configured) with APPEND write mode and no deduplication protection.",
+        "evidence": [
+          "max_retries: 3",
+          "write_mode: APPEND",
+          "has_deduplication: False"
+        ],
+        "observed": {
+          "max_retries": 3,
+          "write_mode": "APPEND",
+          "has_deduplication": false
+        },
+        "expected": {
+          "idempotent_retry": true
+        },
+        "recommendation": "Ensure pipeline is idempotent before enabling automatic retries.",
+        "confidence": 0.9,
+        "blocking": false,
+        "provenance": "STATIC_CODE",
+        "location": ""
+      },
+      {
+        "finding_id": "RER-CON-002",
+        "rule_id": "RER-CON-002",
+        "category": "rerun_idempotency",
+        "dimension": "CONCURRENT_EXECUTION_SAFETY",
+        "scenario": "CONCURRENT_EXECUTION",
+        "severity": "INFO",
+        "status": "PASS",
+        "title": "Concurrency locked to 1 run",
+        "description": "max_concurrent_runs is locked to 1, preventing concurrent race conditions and overlapping execution.",
+        "evidence": [
+          "max_concurrent_runs: 1"
+        ],
+        "observed": {
+          "max_concurrent_runs": 1
+        },
+        "expected": {
+          "max_concurrent_runs": 1
+        },
+        "recommendation": "",
+        "confidence": 0.95,
+        "blocking": false,
+        "provenance": "STATIC_CODE",
+        "location": ""
+      }
+    ]
+  },
+  "checkpoints": {
+    "CP-001": {
+      "checkpoint_id": "CP-001",
+      "name": "Source Validation",
+      "status": "PASS",
+      "severity": "INFO",
+      "score": 1.0,
+      "findings_count": 0
+    },
+    "CP-003": {
+      "checkpoint_id": "CP-003",
+      "name": "Schema Drift Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "findings_count": 0
+    },
+    "CP-004": {
+      "checkpoint_id": "CP-004",
+      "name": "Code Validation",
+      "status": "PASS",
+      "severity": "INFO",
+      "score": 0.0,
+      "findings_count": 0
+    },
+    "CP-007": {
+      "checkpoint_id": "CP-007",
+      "name": "Data Volume Validation",
+      "status": "PASS",
+      "severity": "INFO",
+      "score": 1.0,
+      "findings_count": 0
+    },
+    "CP-008": {
+      "checkpoint_id": "CP-008",
+      "name": "Performance Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "findings_count": 0
+    },
+    "CP-009": {
+      "checkpoint_id": "CP-009",
+      "name": "Cluster Validation",
+      "status": "PASS",
+      "severity": "INFO",
+      "score": 1.0,
+      "findings_count": 0
+    },
+    "CP-010": {
+      "checkpoint_id": "CP-010",
+      "name": "Scalability Validation",
+      "status": "WARN",
+      "severity": "MEDIUM",
+      "score": 1.0,
+      "findings_count": 6
+    },
+    "CP-011": {
+      "checkpoint_id": "CP-011",
+      "name": "Job Validation",
+      "status": "PASS",
+      "severity": "INFO",
+      "score": 1.0,
+      "findings_count": 0
+    },
+    "CP-012": {
+      "checkpoint_id": "CP-012",
+      "name": "Incremental Processing Validation",
+      "status": "WARN",
+      "severity": "MEDIUM",
+      "score": 0.6,
+      "findings_count": 0
+    },
+    "CP-013": {
+      "checkpoint_id": "CP-013",
+      "name": "Error Handling Validation",
+      "status": "WARN",
+      "severity": "MEDIUM",
+      "score": 0.6,
+      "findings_count": 0
+    },
+    "CP-014": {
+      "checkpoint_id": "CP-014",
+      "name": "Retry Validation",
+      "status": "PASS",
+      "severity": "INFO",
+      "score": 1.0,
+      "findings_count": 0
+    },
+    "CP-015": {
+      "checkpoint_id": "CP-015",
+      "name": "Restartability Validation",
+      "status": "PASS",
+      "severity": "INFO",
+      "score": 1.0,
+      "findings_count": 0
+    },
+    "CP-016": {
+      "checkpoint_id": "CP-016",
+      "name": "Idempotency Validation",
+      "status": "WARN",
+      "severity": "MEDIUM",
+      "score": 0.6,
+      "findings_count": 0
+    },
+    "CP-019": {
+      "checkpoint_id": "CP-019",
+      "name": "Cost Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "findings_count": 0
+    },
+    "CP-020": {
+      "checkpoint_id": "CP-020",
+      "name": "Security Validation",
+      "status": "PASS",
+      "severity": "INFO",
+      "score": 1.0,
+      "findings_count": 0
+    },
+    "CP-021": {
+      "checkpoint_id": "CP-021",
+      "name": "Governance Validation",
+      "status": "PASS",
+      "severity": "INFO",
+      "score": 1.0,
+      "findings_count": 0
+    },
+    "CP-022": {
+      "checkpoint_id": "CP-022",
+      "name": "Data Quality Validation",
+      "status": "PASS",
+      "severity": "INFO",
+      "score": 1.0,
+      "findings_count": 0
+    },
+    "CP-023": {
+      "checkpoint_id": "CP-023",
+      "name": "SLA Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "findings_count": 0
+    },
+    "CP-024": {
+      "checkpoint_id": "CP-024",
+      "name": "Production Readiness",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "score": 0.633,
+      "findings_count": 1
+    }
+  }
+}

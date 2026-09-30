@@ -1,0 +1,382 @@
+﻿2026-09-15 15:00:33,193 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:33,275 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-001 (Source Validation)
+2026-09-15 15:00:33,358 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:33,358 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 3 applicable rules for checkpoint CP-001
+2026-09-15 15:00:33,365 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-001 complete: status=PASS, findings=0
+2026-09-15 15:00:33,365 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-003 (Schema Drift Validation)
+2026-09-15 15:00:33,442 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:33,442 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 5 applicable rules for checkpoint CP-003
+2026-09-15 15:00:33,442 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-003 complete: status=UNKNOWN, findings=0
+2026-09-15 15:00:33,442 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-007 (Data Volume Validation)
+2026-09-15 15:00:33,526 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:33,526 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 5 applicable rules for checkpoint CP-007
+2026-09-15 15:00:33,526 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-007 complete: status=PASS, findings=0
+2026-09-15 15:00:33,526 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-004 (Code Validation)
+2026-09-15 15:00:33,609 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:33,609 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 29 applicable rules for checkpoint CP-004
+2026-09-15 15:00:33,611 - dpif.checkpoints.engine - INFO - execute_checkpoint:99 - Rule CODE-PYSPARK-008 produced WARN for checkpoint CP-004
+2026-09-15 15:00:33,613 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-004 complete: status=WARN, findings=1
+2026-09-15 15:00:33,613 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-008 (Performance Validation)
+2026-09-15 15:00:33,693 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:33,693 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 12 applicable rules for checkpoint CP-008
+2026-09-15 15:00:33,693 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-008 complete: status=UNKNOWN, findings=0
+2026-09-15 15:00:33,693 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-009 (Cluster Validation)
+2026-09-15 15:00:33,776 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:33,776 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 6 applicable rules for checkpoint CP-009
+2026-09-15 15:00:33,798 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-009 complete: status=PASS, findings=0
+2026-09-15 15:00:33,798 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-010 (Scalability Validation)
+2026-09-15 15:00:33,882 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:33,882 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 14 applicable rules for checkpoint CP-010
+2026-09-15 15:00:33,892 - dpif.checkpoints.engine - INFO - execute_checkpoint:99 - Rule SCALABILITY-007 produced UNKNOWN for checkpoint CP-010
+2026-09-15 15:00:33,892 - dpif.checkpoints.engine - INFO - execute_checkpoint:99 - Rule SCALABILITY-012 produced UNKNOWN for checkpoint CP-010
+2026-09-15 15:00:33,892 - dpif.checkpoints.engine - INFO - execute_checkpoint:99 - Rule SCALABILITY-013 produced UNKNOWN for checkpoint CP-010
+2026-09-15 15:00:33,892 - dpif.checkpoints.engine - INFO - execute_checkpoint:99 - Rule SCALABILITY-014 produced UNKNOWN for checkpoint CP-010
+2026-09-15 15:00:33,894 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-010 complete: status=PASS, findings=4
+2026-09-15 15:00:33,894 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-011 (Job Validation)
+2026-09-15 15:00:33,990 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:33,990 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 6 applicable rules for checkpoint CP-011
+2026-09-15 15:00:33,990 - dpif.checkpoints.engine - INFO - execute_checkpoint:99 - Rule CONFIG-JOB-004 produced WARN for checkpoint CP-011
+2026-09-15 15:00:33,991 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-011 complete: status=WARN, findings=1
+2026-09-15 15:00:33,991 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-012 (Incremental Processing Validation)
+2026-09-15 15:00:34,078 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:34,078 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 0 applicable rules for checkpoint CP-012
+2026-09-15 15:00:34,078 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-012 complete: status=WARN, findings=0
+2026-09-15 15:00:34,078 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-013 (Error Handling Validation)
+2026-09-15 15:00:34,168 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:34,168 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 0 applicable rules for checkpoint CP-013
+2026-09-15 15:00:34,168 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-013 complete: status=WARN, findings=0
+2026-09-15 15:00:34,168 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-014 (Retry Validation)
+2026-09-15 15:00:34,242 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:34,242 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 0 applicable rules for checkpoint CP-014
+2026-09-15 15:00:34,242 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-014 complete: status=PASS, findings=0
+2026-09-15 15:00:34,242 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-015 (Restartability Validation)
+2026-09-15 15:00:34,338 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:34,338 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 0 applicable rules for checkpoint CP-015
+2026-09-15 15:00:34,338 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-015 complete: status=WARN, findings=0
+2026-09-15 15:00:34,338 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-016 (Idempotency Validation)
+2026-09-15 15:00:34,409 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:34,409 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 0 applicable rules for checkpoint CP-016
+2026-09-15 15:00:34,409 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-016 complete: status=WARN, findings=0
+2026-09-15 15:00:34,409 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-019 (Cost Validation)
+2026-09-15 15:00:34,497 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:34,497 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 0 applicable rules for checkpoint CP-019
+2026-09-15 15:00:34,497 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-019 complete: status=UNKNOWN, findings=0
+2026-09-15 15:00:34,498 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-020 (Security Validation)
+2026-09-15 15:00:34,575 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:34,575 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 0 applicable rules for checkpoint CP-020
+2026-09-15 15:00:34,575 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-020 complete: status=PASS, findings=0
+2026-09-15 15:00:34,575 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-021 (Governance Validation)
+2026-09-15 15:00:34,659 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:34,659 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 0 applicable rules for checkpoint CP-021
+2026-09-15 15:00:34,659 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-021 complete: status=PASS, findings=0
+2026-09-15 15:00:34,659 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-022 (Data Quality Validation)
+2026-09-15 15:00:34,742 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:34,742 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 0 applicable rules for checkpoint CP-022
+2026-09-15 15:00:34,742 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-022 complete: status=PASS, findings=0
+2026-09-15 15:00:34,742 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-023 (SLA Validation)
+2026-09-15 15:00:34,826 - dpif.rules.engine - INFO - load_rules:124 - Loaded 75 rules from D:\databricks\databricks-pipeline-intelligence\rules
+2026-09-15 15:00:34,826 - dpif.checkpoints.engine - INFO - execute_checkpoint:90 - Found 0 applicable rules for checkpoint CP-023
+2026-09-15 15:00:34,826 - dpif.checkpoints.engine - INFO - execute_checkpoint:238 - Checkpoint CP-023 complete: status=UNKNOWN, findings=0
+2026-09-15 15:00:34,826 - dpif.checkpoints.engine - INFO - execute_checkpoint:64 - Executing checkpoint: CP-024 (Production Readiness)
+2026-09-15 15:00:34,846 - dpif.checkpoints.engine - INFO - _execute_cp024_readiness:365 - Checkpoint CP-024 complete: status=FAIL, findings=1
+============================================================
+DATABRICKS PIPELINE INTELLIGENCE - Offline Validation
+============================================================
+
+DPIF Validation
+
+    Pipeline:    concurrency_retry_failure_pipeline
+    Environment: production
+    Mode:        OFFLINE (fixture metadata, not runtime measurements)
+
+CHECKPOINTS
+------------------------------------------------------------
+    Source        : PASS
+    Data          : PASS
+    Code          : WARN
+    Performance   : UNKNOWN
+    Cluster       : PASS
+    Scalability   : PASS
+    Job           : WARN
+    Incremental   : WARN
+    ErrorHandling : WARN
+    Retry         : PASS
+    Restart       : WARN
+    Idempotency   : WARN
+    Cost          : UNKNOWN
+    Security      : PASS
+    Governance    : PASS
+    DataQuality   : PASS
+    SLA           : UNKNOWN
+    Readiness     : FAIL
+
+SOURCE
+  PASS
+
+DATA
+  PASS
+
+Evidence Coverage:
+  79% (15/19 checks evidenced)
+
+Data Volume:
+  250 GB/day
+
+Peak:
+  500 GB/day
+
+File Count:
+  2,000
+
+Average File Size:
+  262,144 KB
+
+Evidence source: fixture metadata (collection method: fixture)
+
+Projected (180d at declared growth rate):
+  262 GB/day
+
+Runtime prediction unavailable (insufficient historical execution data).
+
+Findings:
+  (none)
+
+CODE
+  WARN
+
+Operations detected: 5
+  AGGREGATE: 1
+  GROUP_BY: 1
+  READ: 1
+  WRITE: 2
+
+DataFrame flow:
+  incoming: WRITE -> AGGREGATE -> GROUP_BY
+  summary: WRITE
+
+Code findings:
+  CODE-PYSPARK-008 [MEDIUM] Potential Large Shuffle
+    Evidence: concurrency_retry_failure_pipeline.py:13 `incoming.groupBy("event_type")`
+    Evidence: Expected input: 250 GB/day
+    Data context: Expected input: 500 GB/day
+    Recommendation: Potential shuffle risk: group_by() over ~250 GB ù confirm partitioning and skew handling; static analysis cannot prove shuffle volume.
+
+DEVELOPER IMPLEMENTATION FORENSICS (M5E)
+------------------------------------------------------------
+  Overall Forensics Status: PASS
+
+  Dimensions Assessment:
+    - cache_lifecycle                 : [PASS] 0 finding(s)
+    - checkpoint_lifecycle            : [PASS] 0 finding(s)
+    - exception_safety                : [PASS] 0 finding(s)
+    - implementation_completeness     : [PASS] 0 finding(s)
+    - join_strategy                   : [PASS] 0 finding(s)
+    - partitioning_quality            : [PASS] 0 finding(s)
+    - resource_lifecycle              : [PASS] 0 finding(s)
+    - shuffle_optimization            : [PASS] 0 finding(s)
+    - transformation_quality          : [PASS] 0 finding(s)
+
+RERUN / IDEMPOTENCY FORENSICS (M5F)
+------------------------------------------------------------
+  Overall Idempotency Status: WARN
+  Pipeline Name:              concurrency_retry_failure_pipeline
+
+  Rerun Analysis (7 Scenarios):
+    - CONCURRENT_EXECUTION     : [WARN] Concurrent runs (4) permitted on unpartitioned target.
+    - INCREMENTAL_INPUT        : [WARN] No incremental boundary or timestamp filter detected; may reprocess entire dataset.
+    - JOB_RETRY                : [WARN] Job retry enabled without idempotency; duplicate data risk on automatic retry.
+    - LATE_ARRIVING_DATA       : [UNKNOWN] No evidence of watermark, lookback, or upsert handling for late-arriving records.
+    - OVERLAPPING_INPUT        : [WARN] Potential duplicate-data risk: overlapping input records will be appended as duplicates.
+    - PARTIAL_FAILURE          : [WARN] Potential duplicate-data risk: retry after partial failure appends duplicate records.
+    - SAME_INPUT               : [WARN] Potential duplicate-data risk: repeated execution appends duplicate rows.
+
+  Idempotency Dimensions:
+    - CONCURRENT_EXECUTION_SAFETY   : [WARN] Assessment for CONCURRENT_EXECUTION_SAFETY: WARN
+    - INPUT_IDEMPOTENCY             : [WARN] Assessment for INPUT_IDEMPOTENCY: WARN
+    - LATE_DATA_HANDLING            : [UNKNOWN] Assessment for LATE_DATA_HANDLING: UNKNOWN
+    - OUTPUT_WRITE_IDEMPOTENCY      : [WARN] Assessment for OUTPUT_WRITE_IDEMPOTENCY: WARN
+    - PARTIAL_FAILURE_RECOVERY      : [WARN] Assessment for PARTIAL_FAILURE_RECOVERY: WARN
+    - RETRY_IDEMPOTENCY             : [WARN] Assessment for RETRY_IDEMPOTENCY: WARN
+    - TRANSFORMATION_IDEMPOTENCY    : [WARN] Assessment for TRANSFORMATION_IDEMPOTENCY: WARN
+
+  Duplicate-Data Risk:
+    Status:     [WARN] (HIGH)
+    Summary:    Potential duplicate-data risk identified across 4 source(s).
+      * Potential duplicate-data risk on same-input rerun
+      * Potential duplicate-data risk from overlapping input
+      * Potential duplicate-data risk on partial failure and retry
+      * Potential duplicate-data risk under job retry
+
+  Data-Loss Risk:
+    Status:     [UNKNOWN] (INFO)
+    Summary:    Data-loss safety cannot be confirmed; complete-source overwrite lacks target rebuildability evidence.
+
+  Retry Safety:
+    [WARN] Job retry enabled without idempotency; duplicate data risk on automatic retry.
+
+  Concurrency Safety:
+    [WARN] Concurrent runs (4) permitted on unpartitioned target.
+
+  Late-Data Handling:
+    [UNKNOWN] No evidence of watermark, lookback, or upsert handling for late-arriving records.
+
+SCALABILITY INTELLIGENCE
+------------------------------------------------------------
+  Workload Scenarios:
+    [BASELINE  ] Current / Baseline Workload       :   500.0 GB (FIXTURE)
+    [EXPECTED  ] Contractual Expected Workload     :   250.0 GB (CONTRACT)
+    [PEAK      ] Contractual Peak Workload         :   500.0 GB (CONTRACT)
+    [GROWTH_1  ] Growth Horizon 1 (+10.0%)         :   550.0 GB (PROJECTED)
+    [GROWTH_2  ] Growth Horizon 2 (+21.0%)         :   605.0 GB (PROJECTED)
+  Scalability Findings:
+    [UNKNOWN] SCALABILITY-007 Shuffle Scalability Risk (INFO)
+      Recommendation: Supply runtime execution telemetry to project shuffle volume under scale.
+    [UNKNOWN] SCALABILITY-012 SLA Scalability Risk (INFO)
+      Recommendation: Supply runtime execution telemetry.
+    [UNKNOWN] SCALABILITY-013 Runtime Regression at Scale (INFO)
+      Recommendation: Provide 2 or more historical run records to detect empirical runtime regression.
+    [UNKNOWN] SCALABILITY-014 Reliability Degradation at Scale (INFO)
+      Recommendation: Provide 2 or more historical run records to assess failure rate correlation.
+
+FINDINGS
+------------------------------------------------------------
+    CODE-PYSPARK-008
+    Severity: MEDIUM
+    Finding: Potential Large Shuffle
+    Description: Flag shuffle-class operations (groupBy, distinct, repartition, orderBy, large joins, windows) over sizable inputs as potential shuffle risk. Static analysis cannot prove shuffle volume, so findings are WARN only.
+
+    Evidence: concurrency_retry_failure_pipeline.py:13 `incoming.groupBy("event_type")`
+    Evidence: Expected input: 250 GB/day
+    Recommendation: Potential shuffle risk: group_by() over ~250 GB ù confirm partitioning and skew handling; static analysis cannot prove shuffle volume.
+    Confidence: 0.70
+    Blocking: false
+
+    SCALABILITY-007
+    Severity: INFO
+    Finding: Shuffle Scalability Risk: UNKNOWN
+    Description: Projects shuffle volume growth under scaled workload conditions to anticipate disk spill and network saturation.
+    Evidence: No runtime execution telemetry available to project shuffle scalability
+    Recommendation: Supply runtime execution telemetry to project shuffle volume under scale.
+    Confidence: 0.00
+    Blocking: false
+
+    SCALABILITY-012
+    Severity: INFO
+    Finding: SLA Scalability Risk: UNKNOWN
+    Description: Compares projected execution duration at peak workload against contractual SLA boundaries under explicit projection assumptions.
+    Evidence: No runtime execution telemetry available to project SLA compliance at scale
+    Recommendation: Supply runtime execution telemetry.
+    Confidence: 0.00
+    Blocking: false
+
+    SCALABILITY-013
+    Severity: INFO
+    Finding: Runtime Regression at Scale: UNKNOWN
+    Description: Evaluates empirical historical run telemetry to detect super-linear runtime expansion relative to data volume growth.
+    Evidence: Empirical trend analysis requires at least 2 distinct historical execution runs
+    Recommendation: Provide 2 or more historical run records to detect empirical runtime regression.
+    Confidence: 0.00
+    Blocking: false
+
+    SCALABILITY-014
+    Severity: INFO
+    Finding: Reliability Degradation at Scale: UNKNOWN
+    Description: Evaluates whether task failure rates, executor evictions, or memory spills correlate with increased workload volume.
+    Evidence: Reliability degradation analysis requires at least 2 historical runs
+    Recommendation: Provide 2 or more historical run records to assess failure rate correlation.
+    Confidence: 0.00
+    Blocking: false
+
+    CONFIG-JOB-004
+    Severity: MEDIUM
+    Finding: Excessive Concurrent Runs
+    Description: Detects unsafe concurrency on scheduled production pipelines.
+    Evidence: Job allows 4 concurrent runs (expected <= 1)
+    Recommendation: Limit max_concurrent_runs to 1 for scheduled ETL pipelines to prevent race conditions, out-of-order writes, and target table corruption.
+    Confidence: 0.80
+    Blocking: false
+
+    CP-024-DECISION
+    Severity: HIGH
+    Finding: Quality score (60.0/100) is below the minimum threshold (80.0/100).
+    Description: Quality score (60.0/100) is below the minimum threshold (80.0/100).
+    Evidence: Quality score (60.0/100) is below the minimum threshold (80.0/100).
+    Recommendation: Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering.
+    Confidence: 1.00
+    Blocking: true
+
+UNKNOWN (insufficient evidence ù not PASS)
+------------------------------------------------------------
+    CP-003 Schema Drift Validation: No contract source or schema definition available.
+    CP-008 Performance Validation: No runtime execution metrics or event log available for performance validation.
+    CP-019 Cost Validation: No DBU/pricing information available; cost analysis unavailable.
+    CP-023 SLA Validation: No runtime metrics available; SLA comparison requires actual/projected runtimes.
+
+SCORE
+------------------------------------------------------------
+    cluster       : 100.0
+    code          :  60.0
+    cost          :   0.0
+    data          :  50.0
+    data-quality  : 100.0
+    governance    : 100.0
+    job           :  60.0
+    performance   :   0.0
+    pipeline      :  60.0
+    readiness     :   0.0
+    reliability   :  70.0
+    scalability   : 100.0
+    security      : 100.0
+    sla           :   0.0
+    source        : 100.0
+
+    Overall Score: 60/100
+    Status: NOT_PRODUCTION_READY
+
+============================================================
+CP-FINAL ù PRODUCTION READINESS DECISION
+============================================================
+    Final Status:       NOT_PRODUCTION_READY
+    Quality Score:      60.0/100
+    Evidence Coverage:  73.7%
+
+    Domain Coverage:
+      - Cluster         : 100.0% [EVALUATED]
+      - Code            : 100.0% [EVALUATED]
+      - Cost            :   0.0% [UNKNOWN]
+      - Data            :  50.0% [UNKNOWN]
+      - Data Quality    : 100.0% [EVALUATED]
+      - Governance      : 100.0% [EVALUATED]
+      - Job             : 100.0% [EVALUATED]
+      - Performance     :   0.0% [UNKNOWN]
+      - Pipeline        : 100.0% [EVALUATED]
+      - Readiness       :   0.0% [UNKNOWN]
+      - Reliability     : 100.0% [EVALUATED]
+      - SLA             :   0.0% [UNKNOWN]
+      - Scalability     : 100.0% [EVALUATED]
+      - Security        : 100.0% [EVALUATED]
+      - Source          : 100.0% [EVALUATED]
+
+    Synthesized Cross-Domain Risks:
+      - [HIGH] High Network Shuffle & Spill Risk
+        Observed or projected shuffle volume exceeds safe network thresholds, causing executor mem
+
+    Decision Reasons:
+      - Quality score (60.0/100) is below the minimum threshold (80.0/100).
+
+    Prioritized Required Actions:
+      - [P1] High Network Shuffle & Spill Risk
+        Action: Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid 
+      - [P2] Potential Large Shuffle
+        Action: Potential shuffle risk: group_by() over ~250 GB ù confirm partitioning and skew handl
+      - [P2] Excessive Concurrent Runs
+        Action: Limit max_concurrent_runs to 1 for scheduled ETL pipelines to prevent race conditions
+      - [P3] Shuffle Scalability Risk: UNKNOWN
+        Action: Supply runtime execution telemetry to project shuffle volume under scale.
+      - [P3] SLA Scalability Risk: UNKNOWN
+        Action: Supply runtime execution telemetry.
+      - [P3] Runtime Regression at Scale: UNKNOWN
+        Action: Provide 2 or more historical run records to detect empirical runtime regression.
+      - [P3] Reliability Degradation at Scale: UNKNOWN
+        Action: Provide 2 or more historical run records to assess failure rate correlation.
+
