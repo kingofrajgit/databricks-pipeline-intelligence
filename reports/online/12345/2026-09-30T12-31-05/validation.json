@@ -1,0 +1,2913 @@
+{
+  "execution_mode": "online",
+  "timestamp": "2026-09-30T12:31:05.228357+00:00",
+  "workspace": "https://adb-123.azuredatabricks.net",
+  "resource": {
+    "type": "job",
+    "id": "12345"
+  },
+  "pipeline_name": "job-12345",
+  "environment": "production",
+  "evidence_provenance": {
+    "workspace": "UNAVAILABLE",
+    "job": "UNAVAILABLE",
+    "cluster": "UNAVAILABLE",
+    "runtime": "UNAVAILABLE",
+    "historical": "UNAVAILABLE",
+    "code": "UNAVAILABLE",
+    "contract": "UNAVAILABLE",
+    "data_profile": "UNAVAILABLE"
+  },
+  "evidence_summary": {
+    "workspace": "ERROR",
+    "job": "ERROR",
+    "cluster": "UNAVAILABLE",
+    "runtime": "UNAVAILABLE",
+    "historical": "ERROR",
+    "code": "UNAVAILABLE",
+    "data_profile": "UNAVAILABLE"
+  },
+  "evidence_diagnostics": [
+    {
+      "category": "workspace",
+      "status": "ERROR",
+      "provenance": "UNAVAILABLE",
+      "resource_id": "https://adb-123.azuredatabricks.net",
+      "error_code": "MALFORMED_RESPONSE",
+      "error_message": "Malformed JSON response from Databricks API at /api/2.0/clusters/spark-versions",
+      "details": {}
+    },
+    {
+      "category": "job",
+      "status": "ERROR",
+      "provenance": "UNAVAILABLE",
+      "resource_id": "12345",
+      "error_code": "MALFORMED_RESPONSE",
+      "error_message": "Malformed JSON response from Databricks API at /api/2.1/jobs/get",
+      "details": {}
+    },
+    {
+      "category": "cluster",
+      "status": "UNAVAILABLE",
+      "provenance": "UNAVAILABLE",
+      "resource_id": null,
+      "error_code": null,
+      "error_message": null,
+      "details": {}
+    },
+    {
+      "category": "runtime",
+      "status": "UNAVAILABLE",
+      "provenance": "UNAVAILABLE",
+      "resource_id": null,
+      "error_code": null,
+      "error_message": null,
+      "details": {}
+    },
+    {
+      "category": "historical",
+      "status": "ERROR",
+      "provenance": "UNAVAILABLE",
+      "resource_id": "12345",
+      "error_code": "MALFORMED_RESPONSE",
+      "error_message": "Malformed JSON response from Databricks API at /api/2.1/jobs/runs/list",
+      "details": {}
+    },
+    {
+      "category": "code",
+      "status": "UNAVAILABLE",
+      "provenance": "UNAVAILABLE",
+      "resource_id": null,
+      "error_code": "RESOURCE_NOT_FOUND",
+      "error_message": "Code resource not found: job/12345/code",
+      "details": {}
+    },
+    {
+      "category": "contract",
+      "status": "UNAVAILABLE",
+      "provenance": "UNAVAILABLE",
+      "resource_id": null,
+      "error_code": null,
+      "error_message": null,
+      "details": {}
+    },
+    {
+      "category": "data_profile",
+      "status": "UNAVAILABLE",
+      "provenance": "UNAVAILABLE",
+      "resource_id": null,
+      "error_code": null,
+      "error_message": null,
+      "details": {}
+    }
+  ],
+  "quality_score": 8.7,
+  "confidence": "INSUFFICIENT",
+  "decision_sufficiency": false,
+  "final_decision": "NOT_PRODUCTION_READY",
+  "readiness_label": "NOT_PRODUCTION_READY",
+  "has_blocking": false,
+  "checkpoints": {
+    "CP-001": {
+      "checkpoint_id": "CP-001",
+      "name": "Source Validation",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "score": 0.0,
+      "confidence": 0.85,
+      "findings_count": 1
+    },
+    "CP-003": {
+      "checkpoint_id": "CP-003",
+      "name": "Schema Drift Validation",
+      "status": "WARN",
+      "severity": "MEDIUM",
+      "score": 0.0,
+      "confidence": 0.9,
+      "findings_count": 1
+    },
+    "CP-007": {
+      "checkpoint_id": "CP-007",
+      "name": "Data Volume Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-004": {
+      "checkpoint_id": "CP-004",
+      "name": "Code Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-008": {
+      "checkpoint_id": "CP-008",
+      "name": "Performance Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-009": {
+      "checkpoint_id": "CP-009",
+      "name": "Cluster Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-010": {
+      "checkpoint_id": "CP-010",
+      "name": "Scalability Validation",
+      "status": "PASS",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 11
+    },
+    "CP-011": {
+      "checkpoint_id": "CP-011",
+      "name": "Job Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-012": {
+      "checkpoint_id": "CP-012",
+      "name": "Incremental Processing Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-013": {
+      "checkpoint_id": "CP-013",
+      "name": "Error Handling Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-014": {
+      "checkpoint_id": "CP-014",
+      "name": "Retry Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-015": {
+      "checkpoint_id": "CP-015",
+      "name": "Restartability Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-016": {
+      "checkpoint_id": "CP-016",
+      "name": "Idempotency Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-019": {
+      "checkpoint_id": "CP-019",
+      "name": "Cost Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-020": {
+      "checkpoint_id": "CP-020",
+      "name": "Security Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-021": {
+      "checkpoint_id": "CP-021",
+      "name": "Governance Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-022": {
+      "checkpoint_id": "CP-022",
+      "name": "Data Quality Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-023": {
+      "checkpoint_id": "CP-023",
+      "name": "SLA Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "confidence": 0.0,
+      "findings_count": 0
+    },
+    "CP-024": {
+      "checkpoint_id": "CP-024",
+      "name": "Production Readiness",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.09,
+      "confidence": 0.0,
+      "findings_count": 1
+    }
+  },
+  "findings": [
+    {
+      "rule_id": "SOURCE-001",
+      "title": "Source Format Risk",
+      "severity": "HIGH",
+      "status": "FAIL",
+      "recommendation": "Unsupported/unknown source format: confirm the reader contract and parsing strategy before production."
+    },
+    {
+      "rule_id": "DATA-004",
+      "title": "Missing Expected Volume",
+      "severity": "MEDIUM",
+      "status": "WARN",
+      "recommendation": "Declare expected_daily_volume_gb (and peak) in the contract; sizing, cluster, and SLA analysis require it."
+    },
+    {
+      "rule_id": "SCALABILITY-001",
+      "title": "Expected Volume Capacity Risk: UNKNOWN",
+      "severity": "INFO",
+      "status": "UNKNOWN",
+      "recommendation": "Declare expected daily volume in contract to evaluate capacity."
+    },
+    {
+      "rule_id": "SCALABILITY-002",
+      "title": "Peak Volume Capacity Risk: UNKNOWN",
+      "severity": "INFO",
+      "status": "UNKNOWN",
+      "recommendation": "Declare peak volume in contract to assess peak capacity risk."
+    },
+    {
+      "rule_id": "SCALABILITY-003",
+      "title": "Data Growth Risk: UNKNOWN",
+      "severity": "INFO",
+      "status": "UNKNOWN",
+      "recommendation": "Specify expected growth rate in pipeline contract to evaluate growth risk."
+    },
+    {
+      "rule_id": "SCALABILITY-004",
+      "title": "File Count Growth Risk: UNKNOWN",
+      "severity": "INFO",
+      "status": "UNKNOWN",
+      "recommendation": "Provide data profile metadata to evaluate file count scaling."
+    },
+    {
+      "rule_id": "SCALABILITY-005",
+      "title": "Partition Scalability Risk: UNKNOWN",
+      "severity": "INFO",
+      "status": "UNKNOWN",
+      "recommendation": "Provide partition metadata in data profile."
+    },
+    {
+      "rule_id": "SCALABILITY-007",
+      "title": "Shuffle Scalability Risk: UNKNOWN",
+      "severity": "INFO",
+      "status": "UNKNOWN",
+      "recommendation": "Supply runtime execution telemetry to project shuffle volume under scale."
+    },
+    {
+      "rule_id": "SCALABILITY-010",
+      "title": "Cluster Capacity Risk: UNKNOWN",
+      "severity": "INFO",
+      "status": "UNKNOWN",
+      "recommendation": "Provide cluster configuration to evaluate sizing against workload scale."
+    },
+    {
+      "rule_id": "SCALABILITY-011",
+      "title": "Autoscaling Boundary Risk: UNKNOWN",
+      "severity": "INFO",
+      "status": "UNKNOWN",
+      "recommendation": "Provide cluster configuration to assess autoscaling bounds."
+    },
+    {
+      "rule_id": "SCALABILITY-012",
+      "title": "SLA Scalability Risk: UNKNOWN",
+      "severity": "INFO",
+      "status": "UNKNOWN",
+      "recommendation": "Configure `sla.max_runtime_minutes` in contract."
+    },
+    {
+      "rule_id": "SCALABILITY-013",
+      "title": "Runtime Regression at Scale: UNKNOWN",
+      "severity": "INFO",
+      "status": "UNKNOWN",
+      "recommendation": "Provide 2 or more historical run records to detect empirical runtime regression."
+    },
+    {
+      "rule_id": "SCALABILITY-014",
+      "title": "Reliability Degradation at Scale: UNKNOWN",
+      "severity": "INFO",
+      "status": "UNKNOWN",
+      "recommendation": "Provide 2 or more historical run records to assess failure rate correlation."
+    },
+    {
+      "rule_id": "CP-024-DECISION",
+      "title": "Evidence coverage (15.8%) is below the minimum required threshold (70.0%).",
+      "severity": "INFO",
+      "status": "UNKNOWN",
+      "recommendation": "Unsupported/unknown source format: confirm the reader contract and parsing strategy before production."
+    }
+  ],
+  "errors": [
+    {
+      "category": "workspace",
+      "error_code": "MALFORMED_RESPONSE",
+      "message": "Malformed JSON response from Databricks API at /api/2.0/clusters/spark-versions",
+      "status_code": 200,
+      "timestamp": "2026-09-30T12:30:53.650260+00:00"
+    },
+    {
+      "category": "pipeline",
+      "error_code": "MALFORMED_RESPONSE",
+      "message": "Malformed JSON response from Databricks API at /api/2.0/pipelines/job-12345",
+      "status_code": 200,
+      "timestamp": "2026-09-30T12:30:55.084266+00:00"
+    },
+    {
+      "category": "job",
+      "error_code": "MALFORMED_RESPONSE",
+      "message": "Malformed JSON response from Databricks API at /api/2.1/jobs/get",
+      "status_code": 200,
+      "timestamp": "2026-09-30T12:30:56.509565+00:00"
+    },
+    {
+      "category": "permissions",
+      "error_code": "MALFORMED_RESPONSE",
+      "message": "Malformed JSON response from Databricks API at /api/2.0/permissions/jobs/12345",
+      "status_code": 200,
+      "timestamp": "2026-09-30T12:30:58.213372+00:00"
+    },
+    {
+      "category": "historical_runs",
+      "error_code": "MALFORMED_RESPONSE",
+      "message": "Malformed JSON response from Databricks API at /api/2.1/jobs/runs/list",
+      "status_code": 200,
+      "timestamp": "2026-09-30T12:30:59.577696+00:00"
+    }
+  ],
+  "implementation_forensics": {
+    "pipeline_name": "unknown_pipeline",
+    "overall_status": "PASS",
+    "dimensions": {
+      "transformation_quality": {
+        "dimension": "transformation_quality",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "shuffle_optimization": {
+        "dimension": "shuffle_optimization",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "partitioning_quality": {
+        "dimension": "partitioning_quality",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "join_strategy": {
+        "dimension": "join_strategy",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "cache_lifecycle": {
+        "dimension": "cache_lifecycle",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "checkpoint_lifecycle": {
+        "dimension": "checkpoint_lifecycle",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "resource_lifecycle": {
+        "dimension": "resource_lifecycle",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "exception_safety": {
+        "dimension": "exception_safety",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "implementation_completeness": {
+        "dimension": "implementation_completeness",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      }
+    },
+    "all_findings": []
+  },
+  "rerun_analysis": {
+    "pipeline_name": "job-12345",
+    "overall_status": "UNKNOWN",
+    "scenarios": {
+      "SAME_INPUT": {
+        "scenario": "SAME_INPUT",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "No code or write semantics available to assess same-input rerun.",
+        "findings": [],
+        "evidence": [
+          "no code or write operations detected"
+        ],
+        "observed": {
+          "write_modes": []
+        },
+        "expected": {
+          "idempotent_write_semantics": true
+        }
+      },
+      "INCREMENTAL_INPUT": {
+        "scenario": "INCREMENTAL_INPUT",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "No incremental processing evidence available.",
+        "findings": [],
+        "evidence": [
+          "code unavailable"
+        ],
+        "observed": {},
+        "expected": {}
+      },
+      "OVERLAPPING_INPUT": {
+        "scenario": "OVERLAPPING_INPUT",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "Code unavailable to evaluate overlapping input handling.",
+        "findings": [],
+        "evidence": [],
+        "observed": {},
+        "expected": {}
+      },
+      "PARTIAL_FAILURE": {
+        "scenario": "PARTIAL_FAILURE",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "Insufficient evidence to evaluate partial failure recovery.",
+        "findings": [],
+        "evidence": [
+          "code unavailable"
+        ],
+        "observed": {},
+        "expected": {}
+      },
+      "JOB_RETRY": {
+        "scenario": "JOB_RETRY",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "Job retry configuration is unavailable.",
+        "findings": [],
+        "evidence": [
+          "retry configuration unavailable in job_config and contract"
+        ],
+        "observed": {
+          "max_retries": null
+        },
+        "expected": {
+          "retry_configuration_known": true
+        }
+      },
+      "CONCURRENT_EXECUTION": {
+        "scenario": "CONCURRENT_EXECUTION",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "max_concurrent_runs is not specified in job configuration.",
+        "findings": [],
+        "evidence": [
+          "max_concurrent_runs configuration unavailable"
+        ],
+        "observed": {
+          "max_concurrent_runs": null
+        },
+        "expected": {
+          "concurrency_configured": true
+        }
+      },
+      "LATE_ARRIVING_DATA": {
+        "scenario": "LATE_ARRIVING_DATA",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "No evidence of watermark, lookback, or upsert handling for late-arriving records.",
+        "findings": [],
+        "evidence": [
+          "no watermark, lookback window, or upsert handling identified"
+        ],
+        "observed": {
+          "has_watermark": false,
+          "has_lookback": false
+        },
+        "expected": {
+          "late_data_handling": true
+        }
+      }
+    },
+    "idempotency": {
+      "overall_status": "UNKNOWN",
+      "is_idempotent": null,
+      "summary": "Overall idempotency status: UNKNOWN",
+      "dimensions": {
+        "INPUT_IDEMPOTENCY": {
+          "dimension": "INPUT_IDEMPOTENCY",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for INPUT_IDEMPOTENCY: UNKNOWN",
+          "findings": []
+        },
+        "TRANSFORMATION_IDEMPOTENCY": {
+          "dimension": "TRANSFORMATION_IDEMPOTENCY",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for TRANSFORMATION_IDEMPOTENCY: UNKNOWN",
+          "findings": []
+        },
+        "OUTPUT_WRITE_IDEMPOTENCY": {
+          "dimension": "OUTPUT_WRITE_IDEMPOTENCY",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for OUTPUT_WRITE_IDEMPOTENCY: UNKNOWN",
+          "findings": []
+        },
+        "RETRY_IDEMPOTENCY": {
+          "dimension": "RETRY_IDEMPOTENCY",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for RETRY_IDEMPOTENCY: UNKNOWN",
+          "findings": []
+        },
+        "CONCURRENT_EXECUTION_SAFETY": {
+          "dimension": "CONCURRENT_EXECUTION_SAFETY",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for CONCURRENT_EXECUTION_SAFETY: UNKNOWN",
+          "findings": []
+        },
+        "PARTIAL_FAILURE_RECOVERY": {
+          "dimension": "PARTIAL_FAILURE_RECOVERY",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for PARTIAL_FAILURE_RECOVERY: UNKNOWN",
+          "findings": []
+        },
+        "LATE_DATA_HANDLING": {
+          "dimension": "LATE_DATA_HANDLING",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for LATE_DATA_HANDLING: UNKNOWN",
+          "findings": []
+        }
+      }
+    },
+    "duplicate_risk": {
+      "status": "UNKNOWN",
+      "risk_level": "INFO",
+      "summary": "Duplicate-data risk cannot be evaluated without code or write evidence.",
+      "potential_duplicate_sources": [],
+      "findings": []
+    },
+    "data_loss_risk": {
+      "status": "UNKNOWN",
+      "risk_level": "INFO",
+      "summary": "Data loss risk cannot be evaluated without code or write evidence.",
+      "potential_data_loss_sources": [],
+      "findings": []
+    },
+    "performance_risks": [],
+    "all_findings": []
+  },
+  "alignment_analysis": {
+    "pipeline_name": "job-12345",
+    "overall_status": "UNKNOWN",
+    "drift_severity": "NONE",
+    "has_blocking_drift": false,
+    "total_drifts": 0,
+    "unknown_layers_count": 9,
+    "dimensions": {
+      "compute_runtime": {
+        "dimension": "compute_runtime",
+        "status": "UNKNOWN",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Compute and runtime configuration aligned",
+        "expected_summary": "DBR: unspecified, Node: unspecified",
+        "implemented_summary": "DBR: unspecified, Node: unspecified",
+        "actual_summary": "DBR: UNKNOWN (not observed), Node: UNKNOWN"
+      },
+      "cluster_sizing_scaling": {
+        "dimension": "cluster_sizing_scaling",
+        "status": "UNKNOWN",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Cluster sizing and topology aligned",
+        "expected_summary": "Workers: unspecified",
+        "implemented_summary": "Workers: unspecified",
+        "actual_summary": "Workers: UNKNOWN"
+      },
+      "job_workflow_cadence": {
+        "dimension": "job_workflow_cadence",
+        "status": "UNKNOWN",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Job schedule and workflow aligned",
+        "expected_summary": "Frequency: none, Time: none",
+        "implemented_summary": "Job config missing",
+        "actual_summary": "UNKNOWN (no live trigger telemetry)"
+      },
+      "processing_strategy": {
+        "dimension": "processing_strategy",
+        "status": "UNKNOWN",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Processing strategy aligned between contract and code",
+        "expected_summary": "Processing type: unspecified",
+        "implemented_summary": "Incremental markers: watermark=False, filter=False",
+        "actual_summary": "UNKNOWN (runtime input boundary not observed)"
+      },
+      "target_storage_format": {
+        "dimension": "target_storage_format",
+        "status": "UNKNOWN",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Target storage format and destination aligned",
+        "expected_summary": "Format: unspecified",
+        "implemented_summary": "Formats: unspecified",
+        "actual_summary": "UNKNOWN (table metadata uninspected)"
+      },
+      "partitioning_layout": {
+        "dimension": "partitioning_layout",
+        "status": "UNKNOWN",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Partitioning layout aligned",
+        "expected_summary": "Partitions: none",
+        "implemented_summary": "Partitions: none",
+        "actual_summary": "UNKNOWN (data profile partitions not fully inspected)"
+      },
+      "sla_execution_limits": {
+        "dimension": "sla_execution_limits",
+        "status": "UNKNOWN",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "SLA limits and runtime duration aligned",
+        "expected_summary": "SLA unspecified",
+        "implemented_summary": "Timeout unspecified",
+        "actual_summary": "UNKNOWN (offline fixture)"
+      },
+      "reliability_retry_policy": {
+        "dimension": "reliability_retry_policy",
+        "status": "UNKNOWN",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Reliability and retry policies aligned",
+        "expected_summary": "Retries: None, Idempotent: None",
+        "implemented_summary": "Job retries: None",
+        "actual_summary": "UNKNOWN (runtime retry history not observed)"
+      },
+      "workload_volume_bounds": {
+        "dimension": "workload_volume_bounds",
+        "status": "UNKNOWN",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Workload volume aligned with contractual limits",
+        "expected_summary": "Expected: None GB, Peak: None GB",
+        "implemented_summary": "Profile missing",
+        "actual_summary": "UNKNOWN (runtime telemetry unprovided)"
+      }
+    },
+    "findings": []
+  },
+  "evidence_sufficiency": {
+    "overall_confidence": "INSUFFICIENT",
+    "overall_decision_sufficiency": false,
+    "domains_evaluated": 16,
+    "domains_sufficient": 4,
+    "domains_insufficient": 12,
+    "coverage_score": 25.0,
+    "domain_coverages": {
+      "source": {
+        "domain": "source",
+        "evidence_expected": [
+          "source_type",
+          "source_path",
+          "source_format",
+          "expected_volume_gb"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "source_type",
+          "source_path",
+          "source_format",
+          "expected_volume_gb"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Contract source specification with type and path"
+        ],
+        "summary": "Insufficient source contract evidence"
+      },
+      "data": {
+        "domain": "data",
+        "evidence_expected": [
+          "total_bytes",
+          "total_gb",
+          "record_count",
+          "partition_count",
+          "schema_columns"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "total_bytes",
+          "total_gb",
+          "record_count",
+          "partition_count",
+          "schema_columns"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Data profile containing dataset byte size and record count"
+        ],
+        "summary": "Missing or incomplete data profile metrics"
+      },
+      "code": {
+        "domain": "code",
+        "evidence_expected": [
+          "ast_parsed",
+          "dataframe_operations",
+          "read_operations",
+          "write_operations"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "ast_parsed",
+          "dataframe_operations",
+          "read_operations",
+          "write_operations"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Python/PySpark source code with parsed DataFrame operations"
+        ],
+        "summary": "Insufficient code evidence"
+      },
+      "sql": {
+        "domain": "sql",
+        "evidence_expected": [
+          "sql_expressions_inspected",
+          "sql_ast_parsed",
+          "sql_syntax_valid"
+        ],
+        "evidence_available": [
+          "sql_expressions_inspected"
+        ],
+        "evidence_unavailable": [],
+        "provenance": [
+          "STATIC_CODE"
+        ],
+        "freshness": "STATIC",
+        "quality": "MODERATE",
+        "completeness_score": 1.0,
+        "confidence": "HIGH",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "No embedded SQL queries detected (Pure PySpark DataFrame pipeline)"
+      },
+      "cluster": {
+        "domain": "cluster",
+        "evidence_expected": [
+          "node_type_id",
+          "worker_count_or_autoscale",
+          "spark_version",
+          "spark_conf"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "node_type_id",
+          "worker_count_or_autoscale",
+          "spark_version",
+          "spark_conf"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Cluster specification containing node types, worker count or autoscale range"
+        ],
+        "summary": "Missing cluster configuration specification"
+      },
+      "job": {
+        "domain": "job",
+        "evidence_expected": [
+          "job_schedule",
+          "max_concurrent_runs",
+          "timeout_seconds",
+          "retry_policy"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "job_schedule",
+          "max_concurrent_runs",
+          "timeout_seconds",
+          "retry_policy"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Job orchestration configuration (schedule, concurrency, timeout)"
+        ],
+        "summary": "Insufficient job orchestration evidence"
+      },
+      "pipeline": {
+        "domain": "pipeline",
+        "evidence_expected": [
+          "contract_id",
+          "pipeline_name",
+          "environment",
+          "target_definition"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "contract_id",
+          "pipeline_name",
+          "environment",
+          "target_definition"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Pipeline contract definition with contract_id and target specification"
+        ],
+        "summary": "Missing pipeline contract definition"
+      },
+      "runtime": {
+        "domain": "runtime",
+        "evidence_expected": [
+          "execution_duration",
+          "task_count",
+          "bytes_read",
+          "bytes_written",
+          "spill_metrics"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "execution_duration",
+          "task_count",
+          "bytes_read",
+          "bytes_written",
+          "spill_metrics"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Observed runtime execution duration and task telemetry"
+        ],
+        "summary": "No runtime execution telemetry available (Offline static mode)"
+      },
+      "historical_runs": {
+        "domain": "historical_runs",
+        "evidence_expected": [
+          "historical_runs_count",
+          "volume_trend",
+          "duration_trend",
+          "failure_history"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "historical_runs_count",
+          "volume_trend",
+          "duration_trend",
+          "failure_history"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "At least 2 historical execution runs for trend and regression analysis"
+        ],
+        "summary": "Insufficient historical runs (0 run(s) provided; minimum 2 required)"
+      },
+      "scalability": {
+        "domain": "scalability",
+        "evidence_expected": [
+          "baseline_volume",
+          "peak_volume_specification",
+          "growth_projections",
+          "cluster_headroom"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "peak_volume_specification",
+          "growth_projections",
+          "cluster_headroom"
+        ],
+        "provenance": [],
+        "freshness": "STATIC",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Baseline and contractual peak workload volume specifications"
+        ],
+        "summary": "Insufficient workload volume bounds for scalability analysis"
+      },
+      "security": {
+        "domain": "security",
+        "evidence_expected": [
+          "code_secret_scan",
+          "contract_secret_scan",
+          "credential_redaction"
+        ],
+        "evidence_available": [
+          "code_secret_scan",
+          "contract_secret_scan",
+          "credential_redaction"
+        ],
+        "evidence_unavailable": [],
+        "provenance": [
+          "STATIC_CODE",
+          "CONTRACT"
+        ],
+        "freshness": "STATIC",
+        "quality": "STRONG",
+        "completeness_score": 1.0,
+        "confidence": "HIGH",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "Complete static security & credential redaction audit completed"
+      },
+      "governance": {
+        "domain": "governance",
+        "evidence_expected": [
+          "target_catalog_declaration",
+          "pipeline_owner",
+          "data_lineage_declaration"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "target_catalog_declaration",
+          "pipeline_owner",
+          "data_lineage_declaration"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Target catalog declaration and ownership metadata"
+        ],
+        "summary": "Insufficient governance metadata"
+      },
+      "cost": {
+        "domain": "cost",
+        "evidence_expected": [
+          "dbu_pricing_rate",
+          "cluster_operational_hours",
+          "pricing_tier_metadata"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "dbu_pricing_rate",
+          "cluster_operational_hours",
+          "pricing_tier_metadata"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Databricks Unit (DBU) consumption rates and pricing tier metadata"
+        ],
+        "summary": "DBU and cost telemetry unavailable (Cost analysis UNKNOWN)"
+      },
+      "implementation_forensics": {
+        "domain": "implementation_forensics",
+        "evidence_expected": [
+          "ast_transformations_inspected",
+          "anti_pattern_findings",
+          "write_mode_inspected"
+        ],
+        "evidence_available": [
+          "ast_transformations_inspected",
+          "anti_pattern_findings",
+          "write_mode_inspected"
+        ],
+        "evidence_unavailable": [],
+        "provenance": [
+          "STATIC_CODE"
+        ],
+        "freshness": "STATIC",
+        "quality": "STRONG",
+        "completeness_score": 1.0,
+        "confidence": "HIGH",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "Implementation forensics evaluated (0 anti-patterns detected)"
+      },
+      "rerun_idempotency": {
+        "domain": "rerun_idempotency",
+        "evidence_expected": [
+          "idempotency_proof",
+          "merge_key_safety_evidence",
+          "duplicate_risk_analysis"
+        ],
+        "evidence_available": [
+          "duplicate_risk_analysis"
+        ],
+        "evidence_unavailable": [
+          "idempotency_proof",
+          "merge_key_safety_evidence"
+        ],
+        "provenance": [
+          "STATIC_CODE"
+        ],
+        "freshness": "STATIC",
+        "quality": "WEAK",
+        "completeness_score": 0.33,
+        "confidence": "LOW",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Explicit contract uniqueness declaration or source deduplication key evidence"
+        ],
+        "summary": "Rerun idempotency unproven (MERGE key ambiguity or missing uniqueness evidence)"
+      },
+      "three_layer_alignment": {
+        "domain": "three_layer_alignment",
+        "evidence_expected": [
+          "nine_dimensions_evaluated",
+          "layer_divergences_identified",
+          "actual_telemetry_reconciled"
+        ],
+        "evidence_available": [
+          "nine_dimensions_evaluated",
+          "layer_divergences_identified"
+        ],
+        "evidence_unavailable": [
+          "actual_telemetry_reconciled"
+        ],
+        "provenance": [
+          "CONTRACT",
+          "STATIC_CODE"
+        ],
+        "freshness": "STATIC",
+        "quality": "MODERATE",
+        "completeness_score": 0.67,
+        "confidence": "MEDIUM",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [
+          "Live or historical runtime execution metrics for Layer 3 (ACTUAL) reconciliation"
+        ],
+        "summary": "Three-layer alignment complete (0 drifts identified)"
+      }
+    },
+    "decisions": [
+      {
+        "decision_name": "SLA_COMPLIANCE",
+        "domain": "sla",
+        "decision_status": "UNKNOWN",
+        "is_sufficient": false,
+        "confidence": "INSUFFICIENT",
+        "supporting_evidence": [],
+        "missing_evidence": [
+          "Runtime execution duration telemetry"
+        ],
+        "required_evidence": [
+          "Observed runtime duration telemetry"
+        ],
+        "rationale": "SLA compliance cannot be determined without runtime duration telemetry."
+      },
+      {
+        "decision_name": "IDEMPOTENCY_SAFETY",
+        "domain": "rerun_idempotency",
+        "decision_status": "UNKNOWN",
+        "is_sufficient": false,
+        "confidence": "LOW",
+        "supporting_evidence": [
+          "Static AST code inspection"
+        ],
+        "missing_evidence": [
+          "Key uniqueness proof",
+          "Source deduplication evidence"
+        ],
+        "required_evidence": [
+          "Explicit contract key uniqueness declaration or source deduplication key"
+        ],
+        "rationale": "MERGE key stability/uniqueness unproven; idempotency cannot be certified safe."
+      },
+      {
+        "decision_name": "COST_VIABILITY",
+        "domain": "cost",
+        "decision_status": "UNKNOWN",
+        "is_sufficient": false,
+        "confidence": "INSUFFICIENT",
+        "supporting_evidence": [],
+        "missing_evidence": [
+          "DBU consumption rate",
+          "Pricing tier metadata"
+        ],
+        "required_evidence": [
+          "Databricks Unit (DBU) consumption rates and pricing tier metadata"
+        ],
+        "rationale": "Cost projection unavailable in offline static analysis without DBU consumption telemetry."
+      },
+      {
+        "decision_name": "SCALABILITY_AT_PEAK",
+        "domain": "scalability",
+        "decision_status": "UNKNOWN",
+        "is_sufficient": false,
+        "confidence": "INSUFFICIENT",
+        "supporting_evidence": [],
+        "missing_evidence": [
+          "Workload volume bounds",
+          "Cluster scaling limits"
+        ],
+        "required_evidence": [
+          "Baseline and peak volume specifications in contract or profile"
+        ],
+        "rationale": "Scalability cannot be evaluated without workload volume bounds."
+      },
+      {
+        "decision_name": "CONFIGURATION_ALIGNMENT",
+        "domain": "three_layer_alignment",
+        "decision_status": "PASS",
+        "is_sufficient": true,
+        "confidence": "MEDIUM",
+        "supporting_evidence": [
+          "Evaluated 9 dimensions: 0 drift(s) found"
+        ],
+        "missing_evidence": [
+          "Live workspace environment configuration"
+        ],
+        "required_evidence": [
+          "Live Databricks workspace inspection for Layer 3 (ACTUAL)"
+        ],
+        "rationale": "Reconciliation completed across all 9 dimensions (0 blocking drifts)."
+      },
+      {
+        "decision_name": "PRODUCTION_RELEASE",
+        "domain": "readiness",
+        "decision_status": "FAIL",
+        "is_sufficient": true,
+        "confidence": "HIGH",
+        "supporting_evidence": [
+          "1 blocking checkpoint failure(s) detected"
+        ],
+        "missing_evidence": [],
+        "required_evidence": [],
+        "rationale": "Definitive release rejection: blocking failures or missing core contract/code."
+      }
+    ],
+    "critical_missing_evidence": [
+      "Observed runtime duration telemetry",
+      "Explicit contract key uniqueness declaration or source deduplication key",
+      "Databricks Unit (DBU) consumption rates and pricing tier metadata",
+      "Baseline and peak volume specifications in contract or profile",
+      "Contract source specification with type and path",
+      "Data profile containing dataset byte size and record count",
+      "Python/PySpark source code with parsed DataFrame operations",
+      "Cluster specification containing node types, worker count or autoscale range",
+      "Job orchestration configuration (schedule, concurrency, timeout)",
+      "Pipeline contract definition with contract_id and target specification",
+      "Observed runtime execution duration and task telemetry",
+      "At least 2 historical execution runs for trend and regression analysis",
+      "Baseline and contractual peak workload volume specifications",
+      "Target catalog declaration and ownership metadata",
+      "Explicit contract uniqueness declaration or source deduplication key evidence"
+    ],
+    "actionable_recommendations": [
+      "Supply Databricks runtime execution telemetry (run duration, task metrics, shuffle bytes) to enable performance, SLA, and cost decision sufficiency.",
+      "Provide at least 2 historical execution runs under varying data volumes to enable empirical runtime regression and scalability trend forensics.",
+      "Provide DBU pricing tier metadata and cluster duration metrics to enable cost viability analysis.",
+      "Provide explicit contract key uniqueness declarations or source deduplication evidence to establish conclusive rerun idempotency safety."
+    ]
+  },
+  "production_readiness": {
+    "status": "INSUFFICIENT_EVIDENCE",
+    "quality_score": 8.7,
+    "evidence_coverage": 15.8,
+    "comprehensive_coverage": {
+      "total_required": 19,
+      "total_evaluated": 3,
+      "total_unknown": 16,
+      "total_not_applicable": 0,
+      "coverage_percentage": 15.8,
+      "domain_coverages": {
+        "Cluster": {
+          "domain": "Cluster",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Code": {
+          "domain": "Code",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Cost": {
+          "domain": "Cost",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Data": {
+          "domain": "Data",
+          "total_checks": 2,
+          "evaluated_checks": 1,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 50.0,
+          "provenance_breakdown": {
+            "STATIC": 2
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Data Quality": {
+          "domain": "Data Quality",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Governance": {
+          "domain": "Governance",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Job": {
+          "domain": "Job",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Performance": {
+          "domain": "Performance",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Pipeline": {
+          "domain": "Pipeline",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Readiness": {
+          "domain": "Readiness",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "METADATA": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Reliability": {
+          "domain": "Reliability",
+          "total_checks": 4,
+          "evaluated_checks": 0,
+          "unknown_checks": 4,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 4
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "SLA": {
+          "domain": "SLA",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Scalability": {
+          "domain": "Scalability",
+          "total_checks": 1,
+          "evaluated_checks": 1,
+          "unknown_checks": 0,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 100.0,
+          "provenance_breakdown": {
+            "CONTRACT": 4,
+            "METADATA": 12,
+            "RUNTIME": 1
+          },
+          "quality_tier": "EVALUATED"
+        },
+        "Security": {
+          "domain": "Security",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Source": {
+          "domain": "Source",
+          "total_checks": 1,
+          "evaluated_checks": 1,
+          "unknown_checks": 0,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 100.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "EVALUATED"
+        }
+      }
+    },
+    "decision_reasons": [
+      "Evidence coverage (15.8%) is below the minimum required threshold (70.0%)."
+    ],
+    "required_actions": [
+      {
+        "priority": "P1",
+        "rule_id": "SOURCE-001",
+        "checkpoint_id": "source",
+        "title": "Source Format Risk",
+        "description": "Flag unknown/unsupported source formats, or row-based formats (CSV/JSON) at analytical scale where a columnar format is worth evaluating. No format is universally bad: the verdict depends on volume and workload.\n",
+        "recommendation": "Unsupported/unknown source format: confirm the reader contract and parsing strategy before production."
+      },
+      {
+        "priority": "P1",
+        "rule_id": "XDOM-003",
+        "checkpoint_id": "CROSS-DOMAIN",
+        "title": "High Network Shuffle & Spill Risk",
+        "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+        "recommendation": "Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering."
+      },
+      {
+        "priority": "P1",
+        "rule_id": "XDOM-004",
+        "checkpoint_id": "CROSS-DOMAIN",
+        "title": "Peak Workload Capacity Headroom Risk",
+        "description": "Contractual peak ingestion burst exceeds baseline workload capacity on a fixed or constrained cluster configuration without empirical verification.",
+        "recommendation": "Enable cluster autoscaling or validate cluster worker memory sizing against peak ingestion bursts."
+      },
+      {
+        "priority": "P1",
+        "rule_id": "XDOM-005",
+        "checkpoint_id": "CROSS-DOMAIN",
+        "title": "Small File Proliferation & Metastore Pressure",
+        "description": "Average file size is small and projected growth expands file counts beyond safe catalog listing limits, creating driver metadata bottlenecks.",
+        "recommendation": "Enable Delta Auto Compaction and schedule regular `OPTIMIZE` commands."
+      },
+      {
+        "priority": "P2",
+        "rule_id": "DATA-004",
+        "checkpoint_id": "data",
+        "title": "Missing Expected Volume",
+        "description": "Flag contracts that declare no expected (or peak) data volume. Sizing, cluster, SLA, and growth analysis cannot run without it.\n",
+        "recommendation": "Declare expected_daily_volume_gb (and peak) in the contract; sizing, cluster, and SLA analysis require it."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "CP-024-DECISION",
+        "checkpoint_id": "readiness",
+        "title": "Evidence coverage (15.8%) is below the minimum required threshold (70.0%).",
+        "description": "Evidence coverage (15.8%) is below the minimum required threshold (70.0%).",
+        "recommendation": "Unsupported/unknown source format: confirm the reader contract and parsing strategy before production."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-001",
+        "checkpoint_id": "scalability",
+        "title": "Expected Volume Capacity Risk: UNKNOWN",
+        "description": "Compares expected pipeline workload volume against available observed evidence and demonstrated capacity.",
+        "recommendation": "Declare expected daily volume in contract to evaluate capacity."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-002",
+        "checkpoint_id": "scalability",
+        "title": "Peak Volume Capacity Risk: UNKNOWN",
+        "description": "Evaluates contractual peak workload volume against observed runtime capacity and cluster headroom.",
+        "recommendation": "Declare peak volume in contract to assess peak capacity risk."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-003",
+        "checkpoint_id": "scalability",
+        "title": "Data Growth Risk: UNKNOWN",
+        "description": "Calculates deterministic compound data growth projections over the forecast horizon.",
+        "recommendation": "Specify expected growth rate in pipeline contract to evaluate growth risk."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-004",
+        "checkpoint_id": "scalability",
+        "title": "File Count Growth Risk: UNKNOWN",
+        "description": "Projects file count expansion and detects operational metastore listing risks for small-file datasets.",
+        "recommendation": "Provide data profile metadata to evaluate file count scaling."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-005",
+        "checkpoint_id": "scalability",
+        "title": "Partition Scalability Risk: UNKNOWN",
+        "description": "Assesses partitioning strategy to ensure partition count and sizing remain balanced under scaling.",
+        "recommendation": "Provide partition metadata in data profile."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-007",
+        "checkpoint_id": "scalability",
+        "title": "Shuffle Scalability Risk: UNKNOWN",
+        "description": "Projects shuffle volume growth under scaled workload conditions to anticipate disk spill and network saturation.",
+        "recommendation": "Supply runtime execution telemetry to project shuffle volume under scale."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-010",
+        "checkpoint_id": "scalability",
+        "title": "Cluster Capacity Risk: UNKNOWN",
+        "description": "Evaluates whether cluster worker sizing provides sufficient compute capacity for projected peak workloads.",
+        "recommendation": "Provide cluster configuration to evaluate sizing against workload scale."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-011",
+        "checkpoint_id": "scalability",
+        "title": "Autoscaling Boundary Risk: UNKNOWN",
+        "description": "Assesses autoscaling upper boundaries against peak workload expansion multipliers.",
+        "recommendation": "Provide cluster configuration to assess autoscaling bounds."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-012",
+        "checkpoint_id": "scalability",
+        "title": "SLA Scalability Risk: UNKNOWN",
+        "description": "Compares projected execution duration at peak workload against contractual SLA boundaries under explicit projection assumptions.",
+        "recommendation": "Configure `sla.max_runtime_minutes` in contract."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-013",
+        "checkpoint_id": "scalability",
+        "title": "Runtime Regression at Scale: UNKNOWN",
+        "description": "Evaluates empirical historical run telemetry to detect super-linear runtime expansion relative to data volume growth.",
+        "recommendation": "Provide 2 or more historical run records to detect empirical runtime regression."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-014",
+        "checkpoint_id": "scalability",
+        "title": "Reliability Degradation at Scale: UNKNOWN",
+        "description": "Evaluates whether task failure rates, executor evictions, or memory spills correlate with increased workload volume.",
+        "recommendation": "Provide 2 or more historical run records to assess failure rate correlation."
+      }
+    ],
+    "blocking_findings": [],
+    "critical_findings": [],
+    "high_findings": [
+      {
+        "finding_id": "SOURCE-001-source",
+        "rule_id": "SOURCE-001",
+        "name": "Source Format Risk",
+        "title": "Source Format Risk",
+        "category": "source",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "description": "Flag unknown/unsupported source formats, or row-based formats (CSV/JSON) at analytical scale where a columnar format is worth evaluating. No format is universally bad: the verdict depends on volume and workload.\n",
+        "pipeline_name": "job-12345",
+        "timestamp": "2026-09-30T12:30:59.908221+00:00",
+        "evidence": {
+          "rule_id": "SOURCE-001",
+          "status": "FAIL",
+          "severity": "HIGH",
+          "observed": {
+            "format": "unknown",
+            "volume_gb": null,
+            "collection_method": "unknown",
+            "evidence_source": "live databricks"
+          },
+          "expected": {
+            "format": "one of csv/json/parquet/avro/orc/delta"
+          },
+          "evidence": [
+            "evidence source: live databricks",
+            "collection method: unknown"
+          ],
+          "recommendation": "Unsupported/unknown source format: confirm the reader contract and parsing strategy before production.",
+          "confidence": 0.85,
+          "method": "unavailable"
+        },
+        "recommendation": "Unsupported/unknown source format: confirm the reader contract and parsing strategy before production.",
+        "confidence": 0.85,
+        "blocking": false,
+        "assumptions": {
+          "evidence_source": "live databricks",
+          "collection_method": "unknown",
+          "mode": "live-api"
+        }
+      }
+    ],
+    "warning_count": 1,
+    "unknown_count": 16,
+    "applicable_checkpoint_count": 19,
+    "passed_checkpoint_count": 1,
+    "failed_checkpoint_count": 1,
+    "unknown_checkpoint_count": 16,
+    "domain_assessments": {
+      "CP-001_source": "FAIL",
+      "CP-003_data": "WARN",
+      "CP-007_data": "UNKNOWN",
+      "CP-004_code": "UNKNOWN",
+      "CP-008_performance": "UNKNOWN",
+      "CP-009_cluster": "UNKNOWN",
+      "CP-010_scalability": "PASS",
+      "CP-011_job": "UNKNOWN",
+      "CP-012_pipeline": "UNKNOWN",
+      "CP-013_reliability": "UNKNOWN",
+      "CP-014_reliability": "UNKNOWN",
+      "CP-015_reliability": "UNKNOWN",
+      "CP-016_reliability": "UNKNOWN",
+      "CP-019_cost": "UNKNOWN",
+      "CP-020_security": "UNKNOWN",
+      "CP-021_governance": "UNKNOWN",
+      "CP-022_data-quality": "UNKNOWN",
+      "CP-023_sla": "UNKNOWN",
+      "CP-024_readiness": "UNKNOWN"
+    },
+    "config_comparisons": [
+      {
+        "parameter": "Spark/DBR Version",
+        "domain": "Cluster",
+        "expected": null,
+        "implemented": null,
+        "actual": null,
+        "is_drift": false,
+        "drift_severity": "NONE",
+        "notes": ""
+      },
+      {
+        "parameter": "Worker Node Type",
+        "domain": "Cluster",
+        "expected": null,
+        "implemented": null,
+        "actual": null,
+        "is_drift": false,
+        "drift_severity": "NONE",
+        "notes": ""
+      },
+      {
+        "parameter": "Worker Count",
+        "domain": "Cluster",
+        "expected": null,
+        "implemented": null,
+        "actual": null,
+        "is_drift": false,
+        "drift_severity": "NONE",
+        "notes": ""
+      },
+      {
+        "parameter": "Daily Volume (GB)",
+        "domain": "Data",
+        "expected": null,
+        "implemented": null,
+        "actual": null,
+        "is_drift": false,
+        "drift_severity": "NONE",
+        "notes": "Volume observed from telemetry/profile"
+      },
+      {
+        "parameter": "Max Duration (Minutes)",
+        "domain": "SLA",
+        "expected": null,
+        "implemented": null,
+        "actual": null,
+        "is_drift": false,
+        "drift_severity": "NONE",
+        "notes": ""
+      }
+    ],
+    "cross_domain_risks": [
+      {
+        "risk_id": "XDOM-003",
+        "title": "High Network Shuffle & Spill Risk",
+        "severity": "HIGH",
+        "contributing_domains": [
+          "Performance",
+          "Scalability"
+        ],
+        "evidence_sources": [
+          "Runtime Telemetry",
+          "Linear Projections"
+        ],
+        "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+        "recommendation": "Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering.",
+        "confidence": 0.85
+      },
+      {
+        "risk_id": "XDOM-004",
+        "title": "Peak Workload Capacity Headroom Risk",
+        "severity": "MEDIUM",
+        "contributing_domains": [
+          "Cluster",
+          "Scalability",
+          "Contract"
+        ],
+        "evidence_sources": [
+          "Cluster Config",
+          "Contract Declarations"
+        ],
+        "description": "Contractual peak ingestion burst exceeds baseline workload capacity on a fixed or constrained cluster configuration without empirical verification.",
+        "recommendation": "Enable cluster autoscaling or validate cluster worker memory sizing against peak ingestion bursts.",
+        "confidence": 0.8
+      },
+      {
+        "risk_id": "XDOM-005",
+        "title": "Small File Proliferation & Metastore Pressure",
+        "severity": "MEDIUM",
+        "contributing_domains": [
+          "Data",
+          "Scalability"
+        ],
+        "evidence_sources": [
+          "Data Profile Metadata",
+          "File Projections"
+        ],
+        "description": "Average file size is small and projected growth expands file counts beyond safe catalog listing limits, creating driver metadata bottlenecks.",
+        "recommendation": "Enable Delta Auto Compaction and schedule regular `OPTIMIZE` commands.",
+        "confidence": 0.85
+      }
+    ],
+    "runtime_summary": {},
+    "scalability_summary": {
+      "status": "PASS",
+      "observations_count": 0
+    },
+    "sla_summary": {
+      "status": "UNKNOWN",
+      "max_runtime_minutes": null
+    },
+    "security_summary": {
+      "status": "UNKNOWN"
+    },
+    "reliability_summary": {
+      "retry_status": "UNKNOWN",
+      "restart_status": "UNKNOWN",
+      "idempotency_status": "UNKNOWN"
+    },
+    "policy_version": "production-readiness-v1",
+    "framework_version": "1.0.0",
+    "generated_at": "2026-09-30T12:31:05.168764+00:00",
+    "connector_mode": "live"
+  },
+  "decision_risk_synthesis": {
+    "final_decision": "NOT_PRODUCTION_READY",
+    "quality_score": 8.7,
+    "score_band": "CRITICAL",
+    "confidence": "INSUFFICIENT",
+    "decision_sufficiency": false,
+    "decision_explanation": [
+      "Blocked by [HIGH] High Network Shuffle & Spill Risk (Source: XDOM-003)"
+    ],
+    "score_override_reason": null,
+    "blockers": [
+      {
+        "blocker_id": "BLK-RISK-XDOM-003",
+        "title": "High Network Shuffle & Spill Risk",
+        "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+        "source": "XDOM-003",
+        "category": "OPERATIONAL",
+        "severity": "HIGH",
+        "resolution_requirement": "Remediate High Network Shuffle & Spill Risk: Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering."
+      }
+    ],
+    "top_risks": [
+      {
+        "risk_id": "RISK-XDOM-003",
+        "category": "OPERATIONAL",
+        "severity": "HIGH",
+        "title": "High Network Shuffle & Spill Risk",
+        "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+        "source_findings": [
+          "XDOM-003"
+        ],
+        "affected_domains": [
+          "Performance",
+          "Scalability"
+        ],
+        "blocking": true,
+        "consequence": "Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Runtime Telemetry",
+          "Linear Projections"
+        ]
+      },
+      {
+        "risk_id": "RISK-SOURCE-001",
+        "category": "OPERATIONAL",
+        "severity": "HIGH",
+        "title": "Source Format Risk",
+        "description": "Flag unknown/unsupported source formats, or row-based formats (CSV/JSON) at analytical scale where a columnar format is worth evaluating. No format is universally bad: the verdict depends on volume and workload.\n",
+        "source_findings": [
+          "SOURCE-001"
+        ],
+        "affected_domains": [
+          "source"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Source Format Risk.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "evidence source: live databricks",
+          "collection method: unknown"
+        ]
+      },
+      {
+        "risk_id": "RISK-DATA-004",
+        "category": "DATA_QUALITY",
+        "severity": "MEDIUM",
+        "title": "Missing Expected Volume",
+        "description": "Flag contracts that declare no expected (or peak) data volume. Sizing, cluster, SLA, and growth analysis cannot run without it.\n",
+        "source_findings": [
+          "DATA-004"
+        ],
+        "affected_domains": [
+          "data"
+        ],
+        "blocking": false,
+        "consequence": "Malformed, drifting, or unpartitioned data may propagate downstream into gold analytical tables.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "evidence source: live databricks",
+          "collection method: unknown"
+        ]
+      },
+      {
+        "risk_id": "RISK-SUFF-COST_VIABILITY",
+        "category": "EVIDENCE",
+        "severity": "MEDIUM",
+        "title": "Insufficient Evidence: COST_VIABILITY",
+        "description": "Cost projection unavailable in offline static analysis without DBU consumption telemetry.",
+        "source_findings": [
+          "DECISION-COST_VIABILITY"
+        ],
+        "affected_domains": [
+          "cost"
+        ],
+        "blocking": false,
+        "consequence": "Pipeline behavior under production conditions cannot be certified safe.",
+        "confidence": "INSUFFICIENT",
+        "evidence_provenance": [
+          "DBU consumption rate",
+          "Pricing tier metadata"
+        ]
+      },
+      {
+        "risk_id": "RISK-SUFF-IDEMPOTENCY_SAFETY",
+        "category": "EVIDENCE",
+        "severity": "MEDIUM",
+        "title": "Insufficient Evidence: IDEMPOTENCY_SAFETY",
+        "description": "MERGE key stability/uniqueness unproven; idempotency cannot be certified safe.",
+        "source_findings": [
+          "DECISION-IDEMPOTENCY_SAFETY"
+        ],
+        "affected_domains": [
+          "rerun_idempotency"
+        ],
+        "blocking": false,
+        "consequence": "Pipeline behavior under production conditions cannot be certified safe.",
+        "confidence": "INSUFFICIENT",
+        "evidence_provenance": [
+          "Key uniqueness proof",
+          "Source deduplication evidence"
+        ]
+      }
+    ],
+    "all_risks": [
+      {
+        "risk_id": "RISK-SOURCE-001",
+        "category": "OPERATIONAL",
+        "severity": "HIGH",
+        "title": "Source Format Risk",
+        "description": "Flag unknown/unsupported source formats, or row-based formats (CSV/JSON) at analytical scale where a columnar format is worth evaluating. No format is universally bad: the verdict depends on volume and workload.\n",
+        "source_findings": [
+          "SOURCE-001"
+        ],
+        "affected_domains": [
+          "source"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Source Format Risk.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "evidence source: live databricks",
+          "collection method: unknown"
+        ]
+      },
+      {
+        "risk_id": "RISK-DATA-004",
+        "category": "DATA_QUALITY",
+        "severity": "MEDIUM",
+        "title": "Missing Expected Volume",
+        "description": "Flag contracts that declare no expected (or peak) data volume. Sizing, cluster, SLA, and growth analysis cannot run without it.\n",
+        "source_findings": [
+          "DATA-004"
+        ],
+        "affected_domains": [
+          "data"
+        ],
+        "blocking": false,
+        "consequence": "Malformed, drifting, or unpartitioned data may propagate downstream into gold analytical tables.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "evidence source: live databricks",
+          "collection method: unknown"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-001",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Expected Volume Capacity Risk: UNKNOWN",
+        "description": "Compares expected pipeline workload volume against available observed evidence and demonstrated capacity.",
+        "source_findings": [
+          "SCALABILITY-001"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "No expected daily volume declared in pipeline contract"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-002",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Peak Volume Capacity Risk: UNKNOWN",
+        "description": "Evaluates contractual peak workload volume against observed runtime capacity and cluster headroom.",
+        "source_findings": [
+          "SCALABILITY-002"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "No peak daily volume declared in pipeline contract"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-003",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Data Growth Risk: UNKNOWN",
+        "description": "Calculates deterministic compound data growth projections over the forecast horizon.",
+        "source_findings": [
+          "SCALABILITY-003"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Data growth rate is unavailable; cannot project future workload expansion"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-004",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "File Count Growth Risk: UNKNOWN",
+        "description": "Projects file count expansion and detects operational metastore listing risks for small-file datasets.",
+        "source_findings": [
+          "SCALABILITY-004"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Data profile file count metadata is unavailable"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-005",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Partition Scalability Risk: UNKNOWN",
+        "description": "Assesses partitioning strategy to ensure partition count and sizing remain balanced under scaling.",
+        "source_findings": [
+          "SCALABILITY-005"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "No partition profile metadata available for partition scalability analysis"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-007",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Shuffle Scalability Risk: UNKNOWN",
+        "description": "Projects shuffle volume growth under scaled workload conditions to anticipate disk spill and network saturation.",
+        "source_findings": [
+          "SCALABILITY-007"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "No runtime execution telemetry available to project shuffle scalability"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-010",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Cluster Capacity Risk: UNKNOWN",
+        "description": "Evaluates whether cluster worker sizing provides sufficient compute capacity for projected peak workloads.",
+        "source_findings": [
+          "SCALABILITY-010"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Cluster configuration metadata is unavailable to evaluate compute capacity"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-011",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Autoscaling Boundary Risk: UNKNOWN",
+        "description": "Assesses autoscaling upper boundaries against peak workload expansion multipliers.",
+        "source_findings": [
+          "SCALABILITY-011"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Cluster configuration is unavailable to evaluate autoscaling boundaries"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-012",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "SLA Scalability Risk: UNKNOWN",
+        "description": "Compares projected execution duration at peak workload against contractual SLA boundaries under explicit projection assumptions.",
+        "source_findings": [
+          "SCALABILITY-012"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Contractual SLA runtime limit is unconfigured"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-013",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Runtime Regression at Scale: UNKNOWN",
+        "description": "Evaluates empirical historical run telemetry to detect super-linear runtime expansion relative to data volume growth.",
+        "source_findings": [
+          "SCALABILITY-013"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Empirical trend analysis requires at least 2 distinct historical execution runs"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-014",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Reliability Degradation at Scale: UNKNOWN",
+        "description": "Evaluates whether task failure rates, executor evictions, or memory spills correlate with increased workload volume.",
+        "source_findings": [
+          "SCALABILITY-014"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Reliability degradation analysis requires at least 2 historical runs"
+        ]
+      },
+      {
+        "risk_id": "RISK-XDOM-003",
+        "category": "OPERATIONAL",
+        "severity": "HIGH",
+        "title": "High Network Shuffle & Spill Risk",
+        "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+        "source_findings": [
+          "XDOM-003"
+        ],
+        "affected_domains": [
+          "Performance",
+          "Scalability"
+        ],
+        "blocking": true,
+        "consequence": "Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Runtime Telemetry",
+          "Linear Projections"
+        ]
+      },
+      {
+        "risk_id": "RISK-XDOM-004",
+        "category": "OPERATIONAL",
+        "severity": "MEDIUM",
+        "title": "Peak Workload Capacity Headroom Risk",
+        "description": "Contractual peak ingestion burst exceeds baseline workload capacity on a fixed or constrained cluster configuration without empirical verification.",
+        "source_findings": [
+          "XDOM-004"
+        ],
+        "affected_domains": [
+          "Cluster",
+          "Scalability",
+          "Contract"
+        ],
+        "blocking": false,
+        "consequence": "Enable cluster autoscaling or validate cluster worker memory sizing against peak ingestion bursts.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Cluster Config",
+          "Contract Declarations"
+        ]
+      },
+      {
+        "risk_id": "RISK-XDOM-005",
+        "category": "OPERATIONAL",
+        "severity": "MEDIUM",
+        "title": "Small File Proliferation & Metastore Pressure",
+        "description": "Average file size is small and projected growth expands file counts beyond safe catalog listing limits, creating driver metadata bottlenecks.",
+        "source_findings": [
+          "XDOM-005"
+        ],
+        "affected_domains": [
+          "Data",
+          "Scalability"
+        ],
+        "blocking": false,
+        "consequence": "Enable Delta Auto Compaction and schedule regular `OPTIMIZE` commands.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Data Profile Metadata",
+          "File Projections"
+        ]
+      },
+      {
+        "risk_id": "RISK-SUFF-SLA_COMPLIANCE",
+        "category": "EVIDENCE",
+        "severity": "MEDIUM",
+        "title": "Insufficient Evidence: SLA_COMPLIANCE",
+        "description": "SLA compliance cannot be determined without runtime duration telemetry.",
+        "source_findings": [
+          "DECISION-SLA_COMPLIANCE"
+        ],
+        "affected_domains": [
+          "sla"
+        ],
+        "blocking": false,
+        "consequence": "Pipeline behavior under production conditions cannot be certified safe.",
+        "confidence": "INSUFFICIENT",
+        "evidence_provenance": [
+          "Runtime execution duration telemetry"
+        ]
+      },
+      {
+        "risk_id": "RISK-SUFF-IDEMPOTENCY_SAFETY",
+        "category": "EVIDENCE",
+        "severity": "MEDIUM",
+        "title": "Insufficient Evidence: IDEMPOTENCY_SAFETY",
+        "description": "MERGE key stability/uniqueness unproven; idempotency cannot be certified safe.",
+        "source_findings": [
+          "DECISION-IDEMPOTENCY_SAFETY"
+        ],
+        "affected_domains": [
+          "rerun_idempotency"
+        ],
+        "blocking": false,
+        "consequence": "Pipeline behavior under production conditions cannot be certified safe.",
+        "confidence": "INSUFFICIENT",
+        "evidence_provenance": [
+          "Key uniqueness proof",
+          "Source deduplication evidence"
+        ]
+      },
+      {
+        "risk_id": "RISK-SUFF-COST_VIABILITY",
+        "category": "EVIDENCE",
+        "severity": "MEDIUM",
+        "title": "Insufficient Evidence: COST_VIABILITY",
+        "description": "Cost projection unavailable in offline static analysis without DBU consumption telemetry.",
+        "source_findings": [
+          "DECISION-COST_VIABILITY"
+        ],
+        "affected_domains": [
+          "cost"
+        ],
+        "blocking": false,
+        "consequence": "Pipeline behavior under production conditions cannot be certified safe.",
+        "confidence": "INSUFFICIENT",
+        "evidence_provenance": [
+          "DBU consumption rate",
+          "Pricing tier metadata"
+        ]
+      },
+      {
+        "risk_id": "RISK-SUFF-SCALABILITY_AT_PEAK",
+        "category": "EVIDENCE",
+        "severity": "MEDIUM",
+        "title": "Insufficient Evidence: SCALABILITY_AT_PEAK",
+        "description": "Scalability cannot be evaluated without workload volume bounds.",
+        "source_findings": [
+          "DECISION-SCALABILITY_AT_PEAK"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Pipeline behavior under production conditions cannot be certified safe.",
+        "confidence": "INSUFFICIENT",
+        "evidence_provenance": [
+          "Workload volume bounds",
+          "Cluster scaling limits"
+        ]
+      }
+    ],
+    "risk_chains": [
+      {
+        "chain_id": "CHAIN-001",
+        "title": "Append Write Mode + Job Retry Data Duplication Chain",
+        "steps": [
+          "Pipeline write mode configured as APPEND without explicit transaction boundaries",
+          "Automated job retries or task re-attempts enabled in job cluster specification",
+          "Absence of target key uniqueness constraints or pre-write source deduplication",
+          "Transient failure triggers automatic batch re-execution",
+          "Duplicate records written to target table, silently inflating downstream aggregations"
+        ],
+        "root_cause": "Unprotected APPEND write mode coupled with automated job retry",
+        "ultimate_impact": "Data duplication and corruption of target reporting tables",
+        "source_findings": [
+          "RER-DUP-001",
+          "RER-RET-001"
+        ]
+      },
+      {
+        "chain_id": "CHAIN-002",
+        "title": "Workload Surge & Network Shuffle Spill Chain",
+        "steps": [
+          "Contract defines 2x-5x peak ingestion volume burst",
+          "Source dataset lacks partitioning or query contains unkeyed wide transformation",
+          "Worker nodes execute massive all-to-all network shuffle under peak load",
+          "Executor heap memory exhausted, forcing intermediate partitions to disk spill",
+          "Pipeline experiences severe performance degradation or executor out-of-memory crashes"
+        ],
+        "root_cause": "Wide transformations on unpartitioned volume under peak workload bursts",
+        "ultimate_impact": "Task eviction, executor spill, and potential SLA violation",
+        "source_findings": [
+          "SCALABILITY-002",
+          "SCALABILITY-007"
+        ]
+      },
+      {
+        "chain_id": "CHAIN-004",
+        "title": "Offline Telemetry & SLA Uncertainty Chain",
+        "steps": [
+          "Offline static code and contract validation performed without active Spark event logs",
+          "Observed runtime execution duration, task metrics, and memory spill remain UNKNOWN",
+          "SLA compliance and cost viability cannot be empirically certified",
+          "Production release must remain CONDITIONAL or INSUFFICIENT pending telemetry"
+        ],
+        "root_cause": "Absence of runtime execution event logs and Spark telemetry in offline mode",
+        "ultimate_impact": "Inability to certify SLA compliance and cost boundaries prior to release",
+        "source_findings": [
+          "CP-008",
+          "CP-023"
+        ]
+      }
+    ],
+    "missing_evidence": [
+      "Observed runtime duration telemetry",
+      "Explicit contract key uniqueness declaration or source deduplication key",
+      "Databricks Unit (DBU) consumption rates and pricing tier metadata",
+      "Baseline and peak volume specifications in contract or profile",
+      "Contract source specification with type and path",
+      "Data profile containing dataset byte size and record count",
+      "Python/PySpark source code with parsed DataFrame operations",
+      "Cluster specification containing node types, worker count or autoscale range",
+      "Job orchestration configuration (schedule, concurrency, timeout)",
+      "Pipeline contract definition with contract_id and target specification",
+      "Observed runtime execution duration and task telemetry",
+      "At least 2 historical execution runs for trend and regression analysis",
+      "Baseline and contractual peak workload volume specifications",
+      "Target catalog declaration and ownership metadata",
+      "Explicit contract uniqueness declaration or source deduplication key evidence",
+      "CP-007: Blocked: dependency FAILED; result UNKNOWN (not PASS).",
+      "CP-004: No code available for static analysis.",
+      "CP-008: No runtime execution metrics or event log available for performance validation.",
+      "CP-009: No cluster configuration available.",
+      "CP-011: No job configuration available.",
+      "CP-012: No pipeline contract available.",
+      "CP-013: No code available to assess error handling.",
+      "CP-014: No retry configuration available.",
+      "CP-015: No checkpoint/restart metadata available.",
+      "CP-016: No contract available.",
+      "CP-019: No DBU/pricing information available; cost analysis unavailable.",
+      "CP-020: No code/metadata available for security scan.",
+      "CP-022: No data profile available for quality checks.",
+      "CP-023: No runtime metrics available; SLA comparison requires actual/projected runtimes.",
+      "CP-024: Aggregated from all checkpoints."
+    ],
+    "remediations": [
+      {
+        "remediation_id": "REM-BLK-RISK-XDOM-003",
+        "priority": "P0",
+        "severity": "HIGH",
+        "category": "OPERATIONAL",
+        "title": "Resolve Blocker: High Network Shuffle & Spill Risk",
+        "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+        "source_findings": [
+          "XDOM-003"
+        ],
+        "required_evidence": [
+          "Remediate High Network Shuffle & Spill Risk: Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering."
+        ],
+        "expected_outcome": "Removes production deployment blocker."
+      },
+      {
+        "remediation_id": "REM-RISK-SOURCE-001",
+        "priority": "P1",
+        "severity": "HIGH",
+        "category": "OPERATIONAL",
+        "title": "Mitigate High Risk: Source Format Risk",
+        "description": "Flag unknown/unsupported source formats, or row-based formats (CSV/JSON) at analytical scale where a columnar format is worth evaluating. No format is universally bad: the verdict depends on volume and workload.\n",
+        "source_findings": [
+          "SOURCE-001"
+        ],
+        "required_evidence": [
+          "evidence source: live databricks",
+          "collection method: unknown"
+        ],
+        "expected_outcome": "Eliminates high operational or data integrity risk."
+      },
+      {
+        "remediation_id": "REM-RISK-DATA-004",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "DATA_QUALITY",
+        "title": "Address Warning: Missing Expected Volume",
+        "description": "Flag contracts that declare no expected (or peak) data volume. Sizing, cluster, SLA, and growth analysis cannot run without it.\n",
+        "source_findings": [
+          "DATA-004"
+        ],
+        "required_evidence": [
+          "evidence source: live databricks",
+          "collection method: unknown"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-XDOM-004",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "OPERATIONAL",
+        "title": "Address Warning: Peak Workload Capacity Headroom Risk",
+        "description": "Contractual peak ingestion burst exceeds baseline workload capacity on a fixed or constrained cluster configuration without empirical verification.",
+        "source_findings": [
+          "XDOM-004"
+        ],
+        "required_evidence": [
+          "Cluster Config",
+          "Contract Declarations"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-XDOM-005",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "OPERATIONAL",
+        "title": "Address Warning: Small File Proliferation & Metastore Pressure",
+        "description": "Average file size is small and projected growth expands file counts beyond safe catalog listing limits, creating driver metadata bottlenecks.",
+        "source_findings": [
+          "XDOM-005"
+        ],
+        "required_evidence": [
+          "Data Profile Metadata",
+          "File Projections"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-SUFF-SLA_COMPLIANCE",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "EVIDENCE",
+        "title": "Address Warning: Insufficient Evidence: SLA_COMPLIANCE",
+        "description": "SLA compliance cannot be determined without runtime duration telemetry.",
+        "source_findings": [
+          "DECISION-SLA_COMPLIANCE"
+        ],
+        "required_evidence": [
+          "Runtime execution duration telemetry"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-SUFF-IDEMPOTENCY_SAFETY",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "EVIDENCE",
+        "title": "Address Warning: Insufficient Evidence: IDEMPOTENCY_SAFETY",
+        "description": "MERGE key stability/uniqueness unproven; idempotency cannot be certified safe.",
+        "source_findings": [
+          "DECISION-IDEMPOTENCY_SAFETY"
+        ],
+        "required_evidence": [
+          "Key uniqueness proof",
+          "Source deduplication evidence"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-SUFF-COST_VIABILITY",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "EVIDENCE",
+        "title": "Address Warning: Insufficient Evidence: COST_VIABILITY",
+        "description": "Cost projection unavailable in offline static analysis without DBU consumption telemetry.",
+        "source_findings": [
+          "DECISION-COST_VIABILITY"
+        ],
+        "required_evidence": [
+          "DBU consumption rate",
+          "Pricing tier metadata"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-SUFF-SCALABILITY_AT_PEAK",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "EVIDENCE",
+        "title": "Address Warning: Insufficient Evidence: SCALABILITY_AT_PEAK",
+        "description": "Scalability cannot be evaluated without workload volume bounds.",
+        "source_findings": [
+          "DECISION-SCALABILITY_AT_PEAK"
+        ],
+        "required_evidence": [
+          "Workload volume bounds",
+          "Cluster scaling limits"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-EVID-10",
+        "priority": "P3",
+        "severity": "INFO",
+        "category": "EVIDENCE",
+        "title": "Provide Telemetry Evidence",
+        "description": "Supply Databricks runtime execution telemetry (run duration, task metrics, shuffle bytes) to enable performance, SLA, and cost decision sufficiency.",
+        "source_findings": [
+          "M5H-SUFFICIENCY"
+        ],
+        "required_evidence": [
+          "Supply Databricks runtime execution telemetry (run duration, task metrics, shuffle bytes) to enable performance, SLA, and cost decision sufficiency."
+        ],
+        "expected_outcome": "Achieves full evidence coverage and decision sufficiency."
+      },
+      {
+        "remediation_id": "REM-EVID-11",
+        "priority": "P3",
+        "severity": "INFO",
+        "category": "EVIDENCE",
+        "title": "Provide Telemetry Evidence",
+        "description": "Provide at least 2 historical execution runs under varying data volumes to enable empirical runtime regression and scalability trend forensics.",
+        "source_findings": [
+          "M5H-SUFFICIENCY"
+        ],
+        "required_evidence": [
+          "Provide at least 2 historical execution runs under varying data volumes to enable empirical runtime regression and scalability trend forensics."
+        ],
+        "expected_outcome": "Achieves full evidence coverage and decision sufficiency."
+      },
+      {
+        "remediation_id": "REM-EVID-12",
+        "priority": "P3",
+        "severity": "INFO",
+        "category": "EVIDENCE",
+        "title": "Provide Telemetry Evidence",
+        "description": "Provide DBU pricing tier metadata and cluster duration metrics to enable cost viability analysis.",
+        "source_findings": [
+          "M5H-SUFFICIENCY"
+        ],
+        "required_evidence": [
+          "Provide DBU pricing tier metadata and cluster duration metrics to enable cost viability analysis."
+        ],
+        "expected_outcome": "Achieves full evidence coverage and decision sufficiency."
+      }
+    ],
+    "domain_summaries": {
+      "source": {
+        "domain": "source",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [
+          "Source Format Risk"
+        ],
+        "blockers": [],
+        "missing_evidence": [
+          "source_type",
+          "source_path",
+          "source_format"
+        ],
+        "recommended_actions": [
+          "Operational risk associated with Source Format Risk."
+        ]
+      },
+      "data": {
+        "domain": "data",
+        "status": "WARN",
+        "severity": "MEDIUM",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [
+          "Missing Expected Volume"
+        ],
+        "blockers": [],
+        "missing_evidence": [
+          "total_bytes",
+          "total_gb",
+          "record_count"
+        ],
+        "recommended_actions": [
+          "Malformed, drifting, or unpartitioned data may propagate downstream into gold analytical tables."
+        ]
+      },
+      "code": {
+        "domain": "code",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [
+          "ast_parsed",
+          "dataframe_operations",
+          "read_operations"
+        ],
+        "recommended_actions": []
+      },
+      "sql": {
+        "domain": "sql",
+        "status": "PASS",
+        "severity": "INFO",
+        "confidence": "HIGH",
+        "decision_sufficiency": true,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [],
+        "recommended_actions": []
+      },
+      "cluster": {
+        "domain": "cluster",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [
+          "node_type_id",
+          "worker_count_or_autoscale",
+          "spark_version"
+        ],
+        "recommended_actions": []
+      },
+      "job": {
+        "domain": "job",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [
+          "job_schedule",
+          "max_concurrent_runs",
+          "timeout_seconds"
+        ],
+        "recommended_actions": []
+      },
+      "pipeline": {
+        "domain": "pipeline",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [
+          "contract_id",
+          "pipeline_name",
+          "environment"
+        ],
+        "recommended_actions": []
+      },
+      "runtime": {
+        "domain": "runtime",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [
+          "execution_duration",
+          "task_count",
+          "bytes_read"
+        ],
+        "recommended_actions": []
+      },
+      "historical_runs": {
+        "domain": "historical_runs",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [
+          "historical_runs_count",
+          "volume_trend",
+          "duration_trend"
+        ],
+        "recommended_actions": []
+      },
+      "scalability": {
+        "domain": "scalability",
+        "status": "WARN",
+        "severity": "MEDIUM",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [
+          "Expected Volume Capacity Risk: UNKNOWN",
+          "Peak Volume Capacity Risk: UNKNOWN",
+          "Data Growth Risk: UNKNOWN"
+        ],
+        "blockers": [],
+        "missing_evidence": [
+          "peak_volume_specification",
+          "growth_projections",
+          "cluster_headroom"
+        ],
+        "recommended_actions": [
+          "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+          "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures."
+        ]
+      },
+      "security": {
+        "domain": "security",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "confidence": "HIGH",
+        "decision_sufficiency": true,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [],
+        "recommended_actions": []
+      },
+      "governance": {
+        "domain": "governance",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [
+          "target_catalog_declaration",
+          "pipeline_owner",
+          "data_lineage_declaration"
+        ],
+        "recommended_actions": []
+      },
+      "cost": {
+        "domain": "cost",
+        "status": "WARN",
+        "severity": "MEDIUM",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [
+          "Insufficient Evidence: COST_VIABILITY"
+        ],
+        "blockers": [],
+        "missing_evidence": [
+          "dbu_pricing_rate",
+          "cluster_operational_hours",
+          "pricing_tier_metadata"
+        ],
+        "recommended_actions": [
+          "Pipeline behavior under production conditions cannot be certified safe."
+        ]
+      },
+      "implementation_forensics": {
+        "domain": "implementation_forensics",
+        "status": "PASS",
+        "severity": "INFO",
+        "confidence": "HIGH",
+        "decision_sufficiency": true,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [],
+        "recommended_actions": []
+      },
+      "rerun_idempotency": {
+        "domain": "rerun_idempotency",
+        "status": "WARN",
+        "severity": "MEDIUM",
+        "confidence": "LOW",
+        "decision_sufficiency": false,
+        "key_risks": [
+          "Insufficient Evidence: IDEMPOTENCY_SAFETY"
+        ],
+        "blockers": [],
+        "missing_evidence": [
+          "idempotency_proof",
+          "merge_key_safety_evidence"
+        ],
+        "recommended_actions": [
+          "Pipeline behavior under production conditions cannot be certified safe."
+        ]
+      },
+      "three_layer_alignment": {
+        "domain": "three_layer_alignment",
+        "status": "PASS",
+        "severity": "INFO",
+        "confidence": "MEDIUM",
+        "decision_sufficiency": true,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [
+          "actual_telemetry_reconciled"
+        ],
+        "recommended_actions": []
+      }
+    },
+    "metadata": {
+      "checkpoints_count": 19,
+      "blockers_count": 1,
+      "total_risks_count": 20,
+      "chains_count": 3,
+      "remediations_count": 12
+    }
+  },
+  "report_paths": {
+    "json": "reports\\online\\12345\\2026-09-30T12-31-05\\validation.json",
+    "markdown": "reports\\online\\12345\\2026-09-30T12-31-05\\validation.md"
+  }
+}

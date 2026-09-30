@@ -1,0 +1,4557 @@
+{
+  "execution_mode": "offline",
+  "timestamp": "2026-09-17T10:38:29.225171+00:00",
+  "contract_id": "bad_production-contract",
+  "pipeline_name": "bad_production",
+  "environment": "production",
+  "quality_score": 17.7,
+  "readiness_label": "NOT_PRODUCTION_READY",
+  "confidence": "LOW",
+  "decision_sufficiency": false,
+  "final_decision": "NOT_PRODUCTION_READY",
+  "checkpoints": {
+    "CP-001": {
+      "checkpoint_id": "CP-001",
+      "name": "Source Validation",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "score": 1.0,
+      "findings_count": 1,
+      "findings": [
+        {
+          "rule_id": "SOURCE-002",
+          "title": "Missing Incremental Strategy",
+          "severity": "HIGH",
+          "status": "FAIL",
+          "recommendation": "Define an incremental strategy (watermark, CDC, key-based merge) for this large-volume source.\n"
+        }
+      ]
+    },
+    "CP-003": {
+      "checkpoint_id": "CP-003",
+      "name": "Schema Drift Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-004": {
+      "checkpoint_id": "CP-004",
+      "name": "Code Validation",
+      "status": "FAIL",
+      "severity": "CRITICAL",
+      "score": 0.0,
+      "findings_count": 14,
+      "findings": [
+        {
+          "rule_id": "CODE-PYSPARK-001",
+          "title": "Driver Collection Detection",
+          "severity": "CRITICAL",
+          "status": "FAIL",
+          "recommendation": "Avoid collecting large distributed datasets to the driver.\n"
+        },
+        {
+          "rule_id": "CODE-PYSPARK-002",
+          "title": "Pandas UDF Misuse Detection",
+          "severity": "HIGH",
+          "status": "FAIL",
+          "recommendation": "Consider using native Spark UDF or vectorized Pandas UDF (applyInPlace) for better performance.\n"
+        },
+        {
+          "rule_id": "CODE-PYSPARK-003",
+          "title": "Show() in Production Path Detection",
+          "severity": "HIGH",
+          "status": "FAIL",
+          "recommendation": "Replace show()/take() with proper logging or remove from production code paths.\n"
+        },
+        {
+          "rule_id": "CODE-PYSPARK-004",
+          "title": "CrossJoin Detection",
+          "severity": "MEDIUM",
+          "status": "FAIL",
+          "recommendation": "Replace crossJoin with explicit join key if possible, or ensure small right-side dataset.\n"
+        },
+        {
+          "rule_id": "CODE-PYSPARK-005",
+          "title": "Hard-coded Path Detection",
+          "severity": "HIGH",
+          "status": "FAIL",
+          "recommendation": "Use configuration or environment variables for file paths.\n"
+        },
+        {
+          "rule_id": "CODE-PYSPARK-006",
+          "title": "Large Driver Collection Risk",
+          "severity": "CRITICAL",
+          "status": "FAIL",
+          "recommendation": "Potential large driver-side collection: materializing 2048 GB on the driver risks memory pressure/OOM; keep data distributed (write/aggregate) or bound the result."
+        },
+        {
+          "rule_id": "CODE-PYSPARK-007",
+          "title": "toPandas Large Data Risk",
+          "severity": "CRITICAL",
+          "status": "FAIL",
+          "recommendation": "Potential large toPandas() over ~2048 GB: prefer distributed writes/aggregates or Arrow-based bounded transfer."
+        },
+        {
+          "rule_id": "CODE-PYSPARK-008",
+          "title": "Potential Large Shuffle",
+          "severity": "HIGH",
+          "status": "WARN",
+          "recommendation": "Potential shuffle risk: join() over ~2048 GB \u2014 confirm partitioning and skew handling; static analysis cannot prove shuffle volume."
+        },
+        {
+          "rule_id": "CODE-PYSPARK-009",
+          "title": "Potential Excessive Repartition",
+          "severity": "MEDIUM",
+          "status": "WARN",
+          "recommendation": "Potential excessive repartition: 2 repartition() calls on 'huge'; each is a full shuffle \u2014 consolidate."
+        },
+        {
+          "rule_id": "CODE-PYSPARK-011",
+          "title": "Unjustified Cache",
+          "severity": "MEDIUM",
+          "status": "WARN",
+          "recommendation": "Caching benefit is not demonstrated by static analysis: 'df' is used ~1x after cache(); remove or prove reuse with runtime evidence."
+        },
+        {
+          "rule_id": "CODE-PYSPARK-012",
+          "title": "Repeated Spark Action",
+          "severity": "MEDIUM",
+          "status": "WARN",
+          "recommendation": "Repeated Spark actions on 'df' (collect, to_pandas, count, count, write) may require additional computation; cache/persist only with runtime evidence."
+        },
+        {
+          "rule_id": "CODE-PYSPARK-013",
+          "title": "Large Dataset Global Sort",
+          "severity": "MEDIUM",
+          "status": "WARN",
+          "recommendation": "Potential performance warning: global sort over ~2048 GB forces a wide shuffle; prefer partitioned ordering where possible."
+        },
+        {
+          "rule_id": "CODE-PYSPARK-017",
+          "title": "User Defined Function (UDF) Overhead Risk",
+          "severity": "HIGH",
+          "status": "FAIL",
+          "recommendation": "Python UDF over a large input forces row-wise serialization; prefer native Spark SQL/DataFrame expressions where appropriate."
+        },
+        {
+          "rule_id": "CODE-PYSPARK-019",
+          "title": "Cartesian Cross Join Risk",
+          "severity": "HIGH",
+          "status": "FAIL",
+          "recommendation": "Dangerous cross join over ~2048 GB: Cartesian product causes multiplicative row growth (O(N*M)) and catastrophic shuffle/OOM."
+        }
+      ]
+    },
+    "CP-007": {
+      "checkpoint_id": "CP-007",
+      "name": "Data Volume Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 1.0,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-008": {
+      "checkpoint_id": "CP-008",
+      "name": "Performance Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-009": {
+      "checkpoint_id": "CP-009",
+      "name": "Cluster Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-010": {
+      "checkpoint_id": "CP-010",
+      "name": "Scalability Validation",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "score": 1.0,
+      "findings_count": 9,
+      "findings": [
+        {
+          "rule_id": "SCALABILITY-003",
+          "title": "Data Growth Risk: FAIL",
+          "severity": "HIGH",
+          "status": "FAIL",
+          "recommendation": "Under configured growth assumptions, workload will exceed current thresholds. Plan partition maintenance and adjust cluster sizing."
+        },
+        {
+          "rule_id": "SCALABILITY-006",
+          "title": "Driver Scalability Risk: FAIL",
+          "severity": "HIGH",
+          "status": "FAIL",
+          "recommendation": "Replace `collect()` and `toPandas()` with distributed DataFrame transformations or write directly to storage to prevent driver OOM."
+        },
+        {
+          "rule_id": "SCALABILITY-007",
+          "title": "Shuffle Scalability Risk: UNKNOWN",
+          "severity": "INFO",
+          "status": "UNKNOWN",
+          "recommendation": "Supply runtime execution telemetry to project shuffle volume under scale."
+        },
+        {
+          "rule_id": "SCALABILITY-008",
+          "title": "Join Scalability Risk: FAIL",
+          "severity": "HIGH",
+          "status": "FAIL",
+          "recommendation": "Eliminate Cartesian cross join: provide an explicit join key, apply strict pre-filtering, or use broadcast joins for tiny dimension tables."
+        },
+        {
+          "rule_id": "SCALABILITY-010",
+          "title": "Cluster Capacity Risk: UNKNOWN",
+          "severity": "INFO",
+          "status": "UNKNOWN",
+          "recommendation": "Provide cluster configuration to evaluate sizing against workload scale."
+        },
+        {
+          "rule_id": "SCALABILITY-011",
+          "title": "Autoscaling Boundary Risk: UNKNOWN",
+          "severity": "INFO",
+          "status": "UNKNOWN",
+          "recommendation": "Provide cluster configuration to assess autoscaling bounds."
+        },
+        {
+          "rule_id": "SCALABILITY-012",
+          "title": "SLA Scalability Risk: UNKNOWN",
+          "severity": "INFO",
+          "status": "UNKNOWN",
+          "recommendation": "Supply runtime execution telemetry."
+        },
+        {
+          "rule_id": "SCALABILITY-013",
+          "title": "Runtime Regression at Scale: UNKNOWN",
+          "severity": "INFO",
+          "status": "UNKNOWN",
+          "recommendation": "Provide 2 or more historical run records to detect empirical runtime regression."
+        },
+        {
+          "rule_id": "SCALABILITY-014",
+          "title": "Reliability Degradation at Scale: UNKNOWN",
+          "severity": "INFO",
+          "status": "UNKNOWN",
+          "recommendation": "Provide 2 or more historical run records to assess failure rate correlation."
+        }
+      ]
+    },
+    "CP-011": {
+      "checkpoint_id": "CP-011",
+      "name": "Job Validation",
+      "status": "WARN",
+      "severity": "MEDIUM",
+      "score": 0.6,
+      "findings_count": 2,
+      "findings": [
+        {
+          "rule_id": "CONFIG-JOB-001",
+          "title": "Missing Retry Configuration",
+          "severity": "HIGH",
+          "status": "WARN",
+          "recommendation": "Configure retry count (>= 1) on production tasks to prevent transient failure pipeline interruptions."
+        },
+        {
+          "rule_id": "CONFIG-JOB-002",
+          "title": "Missing Task Timeout",
+          "severity": "MEDIUM",
+          "status": "WARN",
+          "recommendation": "Set task or job execution timeouts to prevent hanging jobs from consuming compute indefinitely."
+        }
+      ]
+    },
+    "CP-012": {
+      "checkpoint_id": "CP-012",
+      "name": "Incremental Processing Validation",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "score": 0.2,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-013": {
+      "checkpoint_id": "CP-013",
+      "name": "Error Handling Validation",
+      "status": "WARN",
+      "severity": "MEDIUM",
+      "score": 0.6,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-014": {
+      "checkpoint_id": "CP-014",
+      "name": "Retry Validation",
+      "status": "FAIL",
+      "severity": "HIGH",
+      "score": 0.3,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-015": {
+      "checkpoint_id": "CP-015",
+      "name": "Restartability Validation",
+      "status": "WARN",
+      "severity": "MEDIUM",
+      "score": 0.6,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-016": {
+      "checkpoint_id": "CP-016",
+      "name": "Idempotency Validation",
+      "status": "WARN",
+      "severity": "MEDIUM",
+      "score": 0.6,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-019": {
+      "checkpoint_id": "CP-019",
+      "name": "Cost Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-020": {
+      "checkpoint_id": "CP-020",
+      "name": "Security Validation",
+      "status": "FAIL",
+      "severity": "CRITICAL",
+      "score": 0.0,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-021": {
+      "checkpoint_id": "CP-021",
+      "name": "Governance Validation",
+      "status": "WARN",
+      "severity": "MEDIUM",
+      "score": 0.6,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-022": {
+      "checkpoint_id": "CP-022",
+      "name": "Data Quality Validation",
+      "status": "PASS",
+      "severity": "INFO",
+      "score": 1.0,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-023": {
+      "checkpoint_id": "CP-023",
+      "name": "SLA Validation",
+      "status": "UNKNOWN",
+      "severity": "INFO",
+      "score": 0.0,
+      "findings_count": 0,
+      "findings": []
+    },
+    "CP-024": {
+      "checkpoint_id": "CP-024",
+      "name": "Production Readiness",
+      "status": "FAIL",
+      "severity": "CRITICAL",
+      "score": 0.18,
+      "findings_count": 1,
+      "findings": [
+        {
+          "rule_id": "CP-024-DECISION",
+          "title": "Release blocked by 2 CRITICAL finding(s): [CODE-PYSPARK-001] Driver Collection Detection, [CODE-PYSPARK-006] Large Driver Collection Risk",
+          "severity": "CRITICAL",
+          "status": "FAIL",
+          "recommendation": "Avoid collecting large distributed datasets to the driver.\n"
+        }
+      ]
+    }
+  },
+  "report_paths": {
+    "json": "reports\\offline\\bad_production\\2026-09-17T10-38-29\\validation.json",
+    "markdown": "reports\\offline\\bad_production\\2026-09-17T10-38-29\\validation.md"
+  },
+  "implementation_forensics": {
+    "pipeline_name": "unknown_pipeline",
+    "overall_status": "FAIL",
+    "dimensions": {
+      "transformation_quality": {
+        "dimension": "transformation_quality",
+        "status": "WARN",
+        "findings_count": 1,
+        "max_severity": "HIGH",
+        "summary": "Evaluated 1 forensic finding(s).",
+        "findings": [
+          {
+            "finding_id": "IMP-TRANS-001:15",
+            "rule_id": "IMP-TRANS-001",
+            "dimension": "transformation_quality",
+            "title": "Python UDF Implemented",
+            "description": "Python UDF implementation on large input (~2048 GB) causes PySpark row-wise serialization overhead.",
+            "status": "WARN",
+            "severity": "HIGH",
+            "observed": {
+              "line": 15,
+              "code": "udf(lambda s: s.upper(), StringType())",
+              "input_gb": 2048.0
+            },
+            "expected": {
+              "native_or_vectorized_functions": true
+            },
+            "evidence": [
+              "UDF operation 'udf(lambda s: s.upper(), StringType())' at line 15"
+            ],
+            "recommendation": "Consider refactoring to native PySpark SQL functions or Vectorized Pandas UDF.",
+            "confidence": 0.75,
+            "provenance": "FIXTURE",
+            "location": "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:15:8",
+            "blocking": false
+          }
+        ]
+      },
+      "shuffle_optimization": {
+        "dimension": "shuffle_optimization",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "partitioning_quality": {
+        "dimension": "partitioning_quality",
+        "status": "WARN",
+        "findings_count": 1,
+        "max_severity": "MEDIUM",
+        "summary": "Evaluated 1 forensic finding(s).",
+        "findings": [
+          {
+            "finding_id": "IMP-PART-001:33",
+            "rule_id": "IMP-PART-001",
+            "dimension": "partitioning_quality",
+            "title": "Repeated Repartition Operations",
+            "description": "Multiple repartition() calls (2) detected on dataset flow 'spark'.",
+            "status": "WARN",
+            "severity": "MEDIUM",
+            "observed": {
+              "flow_root": "spark",
+              "repartition_count": 2,
+              "lines": [
+                32,
+                33
+              ]
+            },
+            "expected": {
+              "repartition_count": "<= 1 per flow"
+            },
+            "evidence": [
+              "2 repartition calls at lines [32, 33]"
+            ],
+            "recommendation": "Consolidate repartitioning to avoid unnecessary intermediate full shuffles.",
+            "confidence": 0.8,
+            "provenance": "FIXTURE",
+            "location": "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:33:7",
+            "blocking": false
+          }
+        ]
+      },
+      "join_strategy": {
+        "dimension": "join_strategy",
+        "status": "FAIL",
+        "findings_count": 1,
+        "max_severity": "HIGH",
+        "summary": "Evaluated 1 forensic finding(s).",
+        "findings": [
+          {
+            "finding_id": "IMP-JOIN-004:23",
+            "rule_id": "IMP-JOIN-004",
+            "dimension": "join_strategy",
+            "title": "Cross/Cartesian Join Implemented",
+            "description": "Developer implemented an explicit cross join operation.",
+            "status": "FAIL",
+            "severity": "HIGH",
+            "observed": {
+              "line": 23,
+              "code": "df.crossJoin(df.limit(100))",
+              "how": "cross"
+            },
+            "expected": {
+              "equi_join_condition": true
+            },
+            "evidence": [
+              "crossJoin / join(..., how='cross') at line 23"
+            ],
+            "recommendation": "Ensure cross join is strictly intended on small datasets; add join conditions where applicable.",
+            "confidence": 0.85,
+            "provenance": "FIXTURE",
+            "location": "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:23:8",
+            "blocking": false
+          }
+        ]
+      },
+      "cache_lifecycle": {
+        "dimension": "cache_lifecycle",
+        "status": "WARN",
+        "findings_count": 1,
+        "max_severity": "LOW",
+        "summary": "Evaluated 1 forensic finding(s).",
+        "findings": [
+          {
+            "finding_id": "IMP-CACHE-002:43",
+            "rule_id": "IMP-CACHE-002",
+            "dimension": "cache_lifecycle",
+            "title": "Unproven / Single-Use Cache Implementation",
+            "description": "Dataset 'df' is cached but only 1 downstream action/use is statically visible; cache benefit is unproven.",
+            "status": "WARN",
+            "severity": "LOW",
+            "observed": {
+              "line": 43,
+              "dataframe": "df",
+              "downstream_uses": 1,
+              "unpersisted": false
+            },
+            "expected": {
+              "downstream_uses": ">= 2"
+            },
+            "evidence": [
+              "cache() at line 43 with 1 downstream uses"
+            ],
+            "recommendation": "Remove cache() if dataset is evaluated only once.",
+            "confidence": 0.7,
+            "provenance": "FIXTURE",
+            "location": "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:43",
+            "blocking": false
+          }
+        ]
+      },
+      "checkpoint_lifecycle": {
+        "dimension": "checkpoint_lifecycle",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "resource_lifecycle": {
+        "dimension": "resource_lifecycle",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "exception_safety": {
+        "dimension": "exception_safety",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      },
+      "implementation_completeness": {
+        "dimension": "implementation_completeness",
+        "status": "PASS",
+        "findings_count": 0,
+        "max_severity": "INFO",
+        "summary": "No issues detected.",
+        "findings": []
+      }
+    },
+    "all_findings": [
+      {
+        "finding_id": "IMP-TRANS-001:15",
+        "rule_id": "IMP-TRANS-001",
+        "dimension": "transformation_quality",
+        "title": "Python UDF Implemented",
+        "description": "Python UDF implementation on large input (~2048 GB) causes PySpark row-wise serialization overhead.",
+        "status": "WARN",
+        "severity": "HIGH",
+        "observed": {
+          "line": 15,
+          "code": "udf(lambda s: s.upper(), StringType())",
+          "input_gb": 2048.0
+        },
+        "expected": {
+          "native_or_vectorized_functions": true
+        },
+        "evidence": [
+          "UDF operation 'udf(lambda s: s.upper(), StringType())' at line 15"
+        ],
+        "recommendation": "Consider refactoring to native PySpark SQL functions or Vectorized Pandas UDF.",
+        "confidence": 0.75,
+        "provenance": "FIXTURE",
+        "location": "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:15:8",
+        "blocking": false
+      },
+      {
+        "finding_id": "IMP-PART-001:33",
+        "rule_id": "IMP-PART-001",
+        "dimension": "partitioning_quality",
+        "title": "Repeated Repartition Operations",
+        "description": "Multiple repartition() calls (2) detected on dataset flow 'spark'.",
+        "status": "WARN",
+        "severity": "MEDIUM",
+        "observed": {
+          "flow_root": "spark",
+          "repartition_count": 2,
+          "lines": [
+            32,
+            33
+          ]
+        },
+        "expected": {
+          "repartition_count": "<= 1 per flow"
+        },
+        "evidence": [
+          "2 repartition calls at lines [32, 33]"
+        ],
+        "recommendation": "Consolidate repartitioning to avoid unnecessary intermediate full shuffles.",
+        "confidence": 0.8,
+        "provenance": "FIXTURE",
+        "location": "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:33:7",
+        "blocking": false
+      },
+      {
+        "finding_id": "IMP-JOIN-004:23",
+        "rule_id": "IMP-JOIN-004",
+        "dimension": "join_strategy",
+        "title": "Cross/Cartesian Join Implemented",
+        "description": "Developer implemented an explicit cross join operation.",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "observed": {
+          "line": 23,
+          "code": "df.crossJoin(df.limit(100))",
+          "how": "cross"
+        },
+        "expected": {
+          "equi_join_condition": true
+        },
+        "evidence": [
+          "crossJoin / join(..., how='cross') at line 23"
+        ],
+        "recommendation": "Ensure cross join is strictly intended on small datasets; add join conditions where applicable.",
+        "confidence": 0.85,
+        "provenance": "FIXTURE",
+        "location": "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:23:8",
+        "blocking": false
+      },
+      {
+        "finding_id": "IMP-CACHE-002:43",
+        "rule_id": "IMP-CACHE-002",
+        "dimension": "cache_lifecycle",
+        "title": "Unproven / Single-Use Cache Implementation",
+        "description": "Dataset 'df' is cached but only 1 downstream action/use is statically visible; cache benefit is unproven.",
+        "status": "WARN",
+        "severity": "LOW",
+        "observed": {
+          "line": 43,
+          "dataframe": "df",
+          "downstream_uses": 1,
+          "unpersisted": false
+        },
+        "expected": {
+          "downstream_uses": ">= 2"
+        },
+        "evidence": [
+          "cache() at line 43 with 1 downstream uses"
+        ],
+        "recommendation": "Remove cache() if dataset is evaluated only once.",
+        "confidence": 0.7,
+        "provenance": "FIXTURE",
+        "location": "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:43",
+        "blocking": false
+      }
+    ]
+  },
+  "rerun_analysis": {
+    "pipeline_name": "bad_production",
+    "overall_status": "UNKNOWN",
+    "scenarios": {
+      "SAME_INPUT": {
+        "scenario": "SAME_INPUT",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "Write semantics unclear; same-input rerun behavior cannot be confirmed.",
+        "findings": [],
+        "evidence": [
+          "no clear write mode identified"
+        ],
+        "observed": {
+          "write_modes": []
+        },
+        "expected": {
+          "idempotent_write": true
+        }
+      },
+      "INCREMENTAL_INPUT": {
+        "scenario": "INCREMENTAL_INPUT",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "No incremental boundary or timestamp filter detected; may reprocess entire dataset.",
+        "findings": [],
+        "evidence": [
+          "no incremental predicates, offsets, or checkpoints found"
+        ],
+        "observed": {
+          "has_incremental_filter": false
+        },
+        "expected": {
+          "incremental_filtering": true
+        }
+      },
+      "OVERLAPPING_INPUT": {
+        "scenario": "OVERLAPPING_INPUT",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "Overlapping input behavior cannot be determined with certainty.",
+        "findings": [],
+        "evidence": [],
+        "observed": {},
+        "expected": {}
+      },
+      "PARTIAL_FAILURE": {
+        "scenario": "PARTIAL_FAILURE",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "Partial failure recovery behavior cannot be established.",
+        "findings": [],
+        "evidence": [],
+        "observed": {},
+        "expected": {}
+      },
+      "JOB_RETRY": {
+        "scenario": "JOB_RETRY",
+        "status": "PASS",
+        "severity": "INFO",
+        "risk_summary": "Job retries are disabled (max_retries=0); no retry-triggered duplication risk.",
+        "findings": [],
+        "evidence": [
+          "max_retries: 0"
+        ],
+        "observed": {
+          "max_retries": 0
+        },
+        "expected": {
+          "max_retries_safe": true
+        }
+      },
+      "CONCURRENT_EXECUTION": {
+        "scenario": "CONCURRENT_EXECUTION",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "max_concurrent_runs is not specified in job configuration.",
+        "findings": [],
+        "evidence": [
+          "max_concurrent_runs configuration unavailable"
+        ],
+        "observed": {
+          "max_concurrent_runs": null
+        },
+        "expected": {
+          "concurrency_configured": true
+        }
+      },
+      "LATE_ARRIVING_DATA": {
+        "scenario": "LATE_ARRIVING_DATA",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "risk_summary": "No evidence of watermark, lookback, or upsert handling for late-arriving records.",
+        "findings": [],
+        "evidence": [
+          "no watermark, lookback window, or upsert handling identified"
+        ],
+        "observed": {
+          "has_watermark": false,
+          "has_lookback": false
+        },
+        "expected": {
+          "late_data_handling": true
+        }
+      }
+    },
+    "idempotency": {
+      "overall_status": "UNKNOWN",
+      "is_idempotent": null,
+      "summary": "Overall idempotency status: UNKNOWN",
+      "dimensions": {
+        "INPUT_IDEMPOTENCY": {
+          "dimension": "INPUT_IDEMPOTENCY",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for INPUT_IDEMPOTENCY: UNKNOWN",
+          "findings": []
+        },
+        "TRANSFORMATION_IDEMPOTENCY": {
+          "dimension": "TRANSFORMATION_IDEMPOTENCY",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for TRANSFORMATION_IDEMPOTENCY: UNKNOWN",
+          "findings": []
+        },
+        "OUTPUT_WRITE_IDEMPOTENCY": {
+          "dimension": "OUTPUT_WRITE_IDEMPOTENCY",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for OUTPUT_WRITE_IDEMPOTENCY: UNKNOWN",
+          "findings": []
+        },
+        "RETRY_IDEMPOTENCY": {
+          "dimension": "RETRY_IDEMPOTENCY",
+          "status": "PASS",
+          "max_severity": "INFO",
+          "summary": "Assessment for RETRY_IDEMPOTENCY: PASS",
+          "findings": []
+        },
+        "CONCURRENT_EXECUTION_SAFETY": {
+          "dimension": "CONCURRENT_EXECUTION_SAFETY",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for CONCURRENT_EXECUTION_SAFETY: UNKNOWN",
+          "findings": []
+        },
+        "PARTIAL_FAILURE_RECOVERY": {
+          "dimension": "PARTIAL_FAILURE_RECOVERY",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for PARTIAL_FAILURE_RECOVERY: UNKNOWN",
+          "findings": []
+        },
+        "LATE_DATA_HANDLING": {
+          "dimension": "LATE_DATA_HANDLING",
+          "status": "UNKNOWN",
+          "max_severity": "INFO",
+          "summary": "Assessment for LATE_DATA_HANDLING: UNKNOWN",
+          "findings": []
+        }
+      }
+    },
+    "duplicate_risk": {
+      "status": "UNKNOWN",
+      "risk_level": "INFO",
+      "summary": "Duplicate-data risk cannot be determined; key uniqueness, source deduplication, or write protections are unverified.",
+      "potential_duplicate_sources": [],
+      "findings": []
+    },
+    "data_loss_risk": {
+      "status": "PASS",
+      "risk_level": "INFO",
+      "summary": "No destructive replacement or data-loss risk identified.",
+      "potential_data_loss_sources": [],
+      "findings": []
+    },
+    "performance_risks": [],
+    "all_findings": []
+  },
+  "alignment_analysis": {
+    "pipeline_name": "bad_production",
+    "overall_status": "FAIL",
+    "drift_severity": "BLOCKING",
+    "has_blocking_drift": true,
+    "total_drifts": 1,
+    "unknown_layers_count": 3,
+    "dimensions": {
+      "compute_runtime": {
+        "dimension": "compute_runtime",
+        "status": "UNKNOWN",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Compute and runtime configuration aligned",
+        "expected_summary": "DBR: unspecified, Node: unspecified",
+        "implemented_summary": "DBR: unspecified, Node: unspecified",
+        "actual_summary": "DBR: UNKNOWN (not observed), Node: UNKNOWN"
+      },
+      "cluster_sizing_scaling": {
+        "dimension": "cluster_sizing_scaling",
+        "status": "UNKNOWN",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Cluster sizing and topology aligned",
+        "expected_summary": "Workers: unspecified",
+        "implemented_summary": "Workers: unspecified",
+        "actual_summary": "Workers: UNKNOWN"
+      },
+      "job_workflow_cadence": {
+        "dimension": "job_workflow_cadence",
+        "status": "PASS",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Job schedule and workflow aligned",
+        "expected_summary": "Frequency: daily, Time: 02:00",
+        "implemented_summary": "Job config missing",
+        "actual_summary": "UNKNOWN (no live trigger telemetry)"
+      },
+      "processing_strategy": {
+        "dimension": "processing_strategy",
+        "status": "PASS",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Processing strategy aligned between contract and code",
+        "expected_summary": "Processing type: full_load",
+        "implemented_summary": "Incremental markers: watermark=False, filter=True",
+        "actual_summary": "UNKNOWN (runtime input boundary not observed)"
+      },
+      "target_storage_format": {
+        "dimension": "target_storage_format",
+        "status": "FAIL",
+        "drift_severity": "BLOCKING",
+        "findings_count": 1,
+        "findings": [
+          {
+            "finding_id": "ALIGN-TGT-001",
+            "rule_id": "ALIGN-TGT-001",
+            "category": "three_layer_alignment",
+            "dimension": "target_storage_format",
+            "divergence_kind": "EXPECTED_VS_IMPLEMENTED",
+            "title": "Target Output Format Divergence",
+            "description": "Contract specifies target format 'delta', but code writes 'parquet'.",
+            "status": "FAIL",
+            "severity": "HIGH",
+            "drift_severity": "BLOCKING",
+            "expected": "delta",
+            "implemented": "parquet",
+            "actual": "UNKNOWN (target table uninspected)",
+            "evidence": [
+              "Contract target format: delta",
+              "Code write format: parquet"
+            ],
+            "recommendation": "Update code write format to match contract format 'delta'.",
+            "confidence": 0.94,
+            "blocking": true,
+            "provenance": "STATIC_CODE",
+            "location": "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py"
+          }
+        ],
+        "summary": "1 target storage divergence(s)",
+        "expected_summary": "Format: delta",
+        "implemented_summary": "Formats: parquet",
+        "actual_summary": "UNKNOWN (table metadata uninspected)"
+      },
+      "partitioning_layout": {
+        "dimension": "partitioning_layout",
+        "status": "UNKNOWN",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Partitioning layout aligned",
+        "expected_summary": "Partitions: none",
+        "implemented_summary": "Partitions: none",
+        "actual_summary": "UNKNOWN (data profile partitions not fully inspected)"
+      },
+      "sla_execution_limits": {
+        "dimension": "sla_execution_limits",
+        "status": "PASS",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "SLA limits and runtime duration aligned",
+        "expected_summary": "SLA: 60.0m",
+        "implemented_summary": "Timeout unspecified",
+        "actual_summary": "UNKNOWN (offline fixture)"
+      },
+      "reliability_retry_policy": {
+        "dimension": "reliability_retry_policy",
+        "status": "PASS",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Reliability and retry policies aligned",
+        "expected_summary": "Retries: 0, Idempotent: False",
+        "implemented_summary": "Job retries: 0",
+        "actual_summary": "UNKNOWN (runtime retry history not observed)"
+      },
+      "workload_volume_bounds": {
+        "dimension": "workload_volume_bounds",
+        "status": "PASS",
+        "drift_severity": "NONE",
+        "findings_count": 0,
+        "findings": [],
+        "summary": "Workload volume aligned with contractual limits",
+        "expected_summary": "Expected: 2048.0 GB, Peak: 3072.0 GB",
+        "implemented_summary": "Profile: 3072.0 GB",
+        "actual_summary": "UNKNOWN (runtime telemetry unprovided)"
+      }
+    },
+    "findings": [
+      {
+        "finding_id": "ALIGN-TGT-001",
+        "rule_id": "ALIGN-TGT-001",
+        "category": "three_layer_alignment",
+        "dimension": "target_storage_format",
+        "divergence_kind": "EXPECTED_VS_IMPLEMENTED",
+        "title": "Target Output Format Divergence",
+        "description": "Contract specifies target format 'delta', but code writes 'parquet'.",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "drift_severity": "BLOCKING",
+        "expected": "delta",
+        "implemented": "parquet",
+        "actual": "UNKNOWN (target table uninspected)",
+        "evidence": [
+          "Contract target format: delta",
+          "Code write format: parquet"
+        ],
+        "recommendation": "Update code write format to match contract format 'delta'.",
+        "confidence": 0.94,
+        "blocking": true,
+        "provenance": "STATIC_CODE",
+        "location": "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py"
+      }
+    ]
+  },
+  "evidence_sufficiency": {
+    "overall_confidence": "LOW",
+    "overall_decision_sufficiency": false,
+    "domains_evaluated": 16,
+    "domains_sufficient": 11,
+    "domains_insufficient": 5,
+    "coverage_score": 58.9,
+    "domain_coverages": {
+      "source": {
+        "domain": "source",
+        "evidence_expected": [
+          "source_type",
+          "source_path",
+          "source_format",
+          "expected_volume_gb"
+        ],
+        "evidence_available": [
+          "source_type",
+          "source_path",
+          "source_format",
+          "expected_volume_gb"
+        ],
+        "evidence_unavailable": [],
+        "provenance": [
+          "CONTRACT"
+        ],
+        "freshness": "STATIC",
+        "quality": "STRONG",
+        "completeness_score": 1.0,
+        "confidence": "HIGH",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "Source contract evidence present (4/4 fields)"
+      },
+      "data": {
+        "domain": "data",
+        "evidence_expected": [
+          "total_bytes",
+          "total_gb",
+          "record_count",
+          "partition_count",
+          "schema_columns"
+        ],
+        "evidence_available": [
+          "total_bytes",
+          "total_gb",
+          "record_count",
+          "partition_count",
+          "schema_columns"
+        ],
+        "evidence_unavailable": [],
+        "provenance": [
+          "FIXTURE"
+        ],
+        "freshness": "CURRENT",
+        "quality": "STRONG",
+        "completeness_score": 1.0,
+        "confidence": "HIGH",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "Data profile evidence available (5/5 metrics; FIXTURE)"
+      },
+      "code": {
+        "domain": "code",
+        "evidence_expected": [
+          "ast_parsed",
+          "dataframe_operations",
+          "read_operations",
+          "write_operations"
+        ],
+        "evidence_available": [
+          "ast_parsed",
+          "dataframe_operations"
+        ],
+        "evidence_unavailable": [
+          "read_operations",
+          "write_operations"
+        ],
+        "provenance": [
+          "STATIC_CODE"
+        ],
+        "freshness": "STATIC",
+        "quality": "MODERATE",
+        "completeness_score": 0.5,
+        "confidence": "MEDIUM",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "Static PySpark AST analysis complete (2/4 artifacts)"
+      },
+      "sql": {
+        "domain": "sql",
+        "evidence_expected": [
+          "sql_expressions_inspected",
+          "sql_ast_parsed",
+          "sql_syntax_valid"
+        ],
+        "evidence_available": [
+          "sql_expressions_inspected"
+        ],
+        "evidence_unavailable": [],
+        "provenance": [
+          "STATIC_CODE"
+        ],
+        "freshness": "STATIC",
+        "quality": "MODERATE",
+        "completeness_score": 1.0,
+        "confidence": "HIGH",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "No embedded SQL queries detected (Pure PySpark DataFrame pipeline)"
+      },
+      "cluster": {
+        "domain": "cluster",
+        "evidence_expected": [
+          "node_type_id",
+          "worker_count_or_autoscale",
+          "spark_version",
+          "spark_conf"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "node_type_id",
+          "worker_count_or_autoscale",
+          "spark_version",
+          "spark_conf"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Cluster specification containing node types, worker count or autoscale range"
+        ],
+        "summary": "Missing cluster configuration specification"
+      },
+      "job": {
+        "domain": "job",
+        "evidence_expected": [
+          "job_schedule",
+          "max_concurrent_runs",
+          "timeout_seconds",
+          "retry_policy"
+        ],
+        "evidence_available": [
+          "timeout_seconds",
+          "retry_policy"
+        ],
+        "evidence_unavailable": [
+          "job_schedule",
+          "max_concurrent_runs"
+        ],
+        "provenance": [
+          "JOB_CONFIG"
+        ],
+        "freshness": "STATIC",
+        "quality": "MODERATE",
+        "completeness_score": 0.5,
+        "confidence": "MEDIUM",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "Job workflow configuration present (2/4 settings)"
+      },
+      "pipeline": {
+        "domain": "pipeline",
+        "evidence_expected": [
+          "contract_id",
+          "pipeline_name",
+          "environment",
+          "target_definition"
+        ],
+        "evidence_available": [
+          "contract_id",
+          "pipeline_name",
+          "environment",
+          "target_definition"
+        ],
+        "evidence_unavailable": [],
+        "provenance": [
+          "CONTRACT"
+        ],
+        "freshness": "STATIC",
+        "quality": "STRONG",
+        "completeness_score": 1.0,
+        "confidence": "HIGH",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "Pipeline contract evidence established (4/4 fields)"
+      },
+      "runtime": {
+        "domain": "runtime",
+        "evidence_expected": [
+          "execution_duration",
+          "task_count",
+          "bytes_read",
+          "bytes_written",
+          "spill_metrics"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "execution_duration",
+          "task_count",
+          "bytes_read",
+          "bytes_written",
+          "spill_metrics"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Observed runtime execution duration and task telemetry"
+        ],
+        "summary": "No runtime execution telemetry available (Offline static mode)"
+      },
+      "historical_runs": {
+        "domain": "historical_runs",
+        "evidence_expected": [
+          "historical_runs_count",
+          "volume_trend",
+          "duration_trend",
+          "failure_history"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "historical_runs_count",
+          "volume_trend",
+          "duration_trend",
+          "failure_history"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "At least 2 historical execution runs for trend and regression analysis"
+        ],
+        "summary": "Insufficient historical runs (0 run(s) provided; minimum 2 required)"
+      },
+      "scalability": {
+        "domain": "scalability",
+        "evidence_expected": [
+          "baseline_volume",
+          "peak_volume_specification",
+          "growth_projections",
+          "cluster_headroom"
+        ],
+        "evidence_available": [
+          "baseline_volume",
+          "peak_volume_specification",
+          "growth_projections"
+        ],
+        "evidence_unavailable": [
+          "cluster_headroom"
+        ],
+        "provenance": [
+          "FIXTURE",
+          "CONTRACT"
+        ],
+        "freshness": "STATIC",
+        "quality": "STRONG",
+        "completeness_score": 0.75,
+        "confidence": "MEDIUM",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "Scalability modeling evidence present (3/4 inputs)"
+      },
+      "security": {
+        "domain": "security",
+        "evidence_expected": [
+          "code_secret_scan",
+          "contract_secret_scan",
+          "credential_redaction"
+        ],
+        "evidence_available": [
+          "code_secret_scan",
+          "contract_secret_scan",
+          "credential_redaction"
+        ],
+        "evidence_unavailable": [],
+        "provenance": [
+          "STATIC_CODE",
+          "CONTRACT"
+        ],
+        "freshness": "STATIC",
+        "quality": "STRONG",
+        "completeness_score": 1.0,
+        "confidence": "HIGH",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "Complete static security & credential redaction audit completed"
+      },
+      "governance": {
+        "domain": "governance",
+        "evidence_expected": [
+          "target_catalog_declaration",
+          "pipeline_owner",
+          "data_lineage_declaration"
+        ],
+        "evidence_available": [
+          "target_catalog_declaration",
+          "data_lineage_declaration"
+        ],
+        "evidence_unavailable": [
+          "pipeline_owner"
+        ],
+        "provenance": [
+          "CONTRACT"
+        ],
+        "freshness": "STATIC",
+        "quality": "STRONG",
+        "completeness_score": 0.67,
+        "confidence": "HIGH",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "Governance catalog evidence present (2/3 items)"
+      },
+      "cost": {
+        "domain": "cost",
+        "evidence_expected": [
+          "dbu_pricing_rate",
+          "cluster_operational_hours",
+          "pricing_tier_metadata"
+        ],
+        "evidence_available": [],
+        "evidence_unavailable": [
+          "dbu_pricing_rate",
+          "cluster_operational_hours",
+          "pricing_tier_metadata"
+        ],
+        "provenance": [],
+        "freshness": "UNKNOWN",
+        "quality": "INSUFFICIENT",
+        "completeness_score": 0.0,
+        "confidence": "INSUFFICIENT",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Databricks Unit (DBU) consumption rates and pricing tier metadata"
+        ],
+        "summary": "DBU and cost telemetry unavailable (Cost analysis UNKNOWN)"
+      },
+      "implementation_forensics": {
+        "domain": "implementation_forensics",
+        "evidence_expected": [
+          "ast_transformations_inspected",
+          "anti_pattern_findings",
+          "write_mode_inspected"
+        ],
+        "evidence_available": [
+          "ast_transformations_inspected",
+          "anti_pattern_findings",
+          "write_mode_inspected"
+        ],
+        "evidence_unavailable": [],
+        "provenance": [
+          "STATIC_CODE"
+        ],
+        "freshness": "STATIC",
+        "quality": "STRONG",
+        "completeness_score": 1.0,
+        "confidence": "HIGH",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [],
+        "summary": "Implementation forensics evaluated (4 anti-patterns detected)"
+      },
+      "rerun_idempotency": {
+        "domain": "rerun_idempotency",
+        "evidence_expected": [
+          "idempotency_proof",
+          "merge_key_safety_evidence",
+          "duplicate_risk_analysis"
+        ],
+        "evidence_available": [
+          "duplicate_risk_analysis"
+        ],
+        "evidence_unavailable": [
+          "idempotency_proof",
+          "merge_key_safety_evidence"
+        ],
+        "provenance": [
+          "STATIC_CODE"
+        ],
+        "freshness": "STATIC",
+        "quality": "WEAK",
+        "completeness_score": 0.33,
+        "confidence": "LOW",
+        "decision_sufficient": false,
+        "required_evidence_for_sufficiency": [
+          "Explicit contract uniqueness declaration or source deduplication key evidence"
+        ],
+        "summary": "Rerun idempotency unproven (MERGE key ambiguity or missing uniqueness evidence)"
+      },
+      "three_layer_alignment": {
+        "domain": "three_layer_alignment",
+        "evidence_expected": [
+          "nine_dimensions_evaluated",
+          "layer_divergences_identified",
+          "actual_telemetry_reconciled"
+        ],
+        "evidence_available": [
+          "nine_dimensions_evaluated",
+          "layer_divergences_identified"
+        ],
+        "evidence_unavailable": [
+          "actual_telemetry_reconciled"
+        ],
+        "provenance": [
+          "CONTRACT",
+          "STATIC_CODE"
+        ],
+        "freshness": "STATIC",
+        "quality": "MODERATE",
+        "completeness_score": 0.67,
+        "confidence": "MEDIUM",
+        "decision_sufficient": true,
+        "required_evidence_for_sufficiency": [
+          "Live or historical runtime execution metrics for Layer 3 (ACTUAL) reconciliation"
+        ],
+        "summary": "Three-layer alignment complete (1 drifts identified)"
+      }
+    },
+    "decisions": [
+      {
+        "decision_name": "SLA_COMPLIANCE",
+        "domain": "sla",
+        "decision_status": "UNKNOWN",
+        "is_sufficient": false,
+        "confidence": "INSUFFICIENT",
+        "supporting_evidence": [],
+        "missing_evidence": [
+          "Runtime execution duration telemetry"
+        ],
+        "required_evidence": [
+          "Observed runtime duration telemetry"
+        ],
+        "rationale": "SLA compliance cannot be determined without runtime duration telemetry."
+      },
+      {
+        "decision_name": "IDEMPOTENCY_SAFETY",
+        "domain": "rerun_idempotency",
+        "decision_status": "UNKNOWN",
+        "is_sufficient": false,
+        "confidence": "LOW",
+        "supporting_evidence": [
+          "Static AST code inspection"
+        ],
+        "missing_evidence": [
+          "Key uniqueness proof",
+          "Source deduplication evidence"
+        ],
+        "required_evidence": [
+          "Explicit contract key uniqueness declaration or source deduplication key"
+        ],
+        "rationale": "MERGE key stability/uniqueness unproven; idempotency cannot be certified safe."
+      },
+      {
+        "decision_name": "COST_VIABILITY",
+        "domain": "cost",
+        "decision_status": "UNKNOWN",
+        "is_sufficient": false,
+        "confidence": "INSUFFICIENT",
+        "supporting_evidence": [],
+        "missing_evidence": [
+          "DBU consumption rate",
+          "Pricing tier metadata"
+        ],
+        "required_evidence": [
+          "Databricks Unit (DBU) consumption rates and pricing tier metadata"
+        ],
+        "rationale": "Cost projection unavailable in offline static analysis without DBU consumption telemetry."
+      },
+      {
+        "decision_name": "SCALABILITY_AT_PEAK",
+        "domain": "scalability",
+        "decision_status": "WARN",
+        "is_sufficient": true,
+        "confidence": "MEDIUM",
+        "supporting_evidence": [
+          "Static profile and contract volume bounds"
+        ],
+        "missing_evidence": [
+          "Empirical multi-run historical telemetry"
+        ],
+        "required_evidence": [
+          "At least 2 historical runs under scale to confirm headroom without spill"
+        ],
+        "rationale": "Static volume bounds modeled, but empirical scale behavior unverified."
+      },
+      {
+        "decision_name": "CONFIGURATION_ALIGNMENT",
+        "domain": "three_layer_alignment",
+        "decision_status": "FAIL",
+        "is_sufficient": true,
+        "confidence": "MEDIUM",
+        "supporting_evidence": [
+          "Evaluated 9 dimensions: 1 drift(s) found"
+        ],
+        "missing_evidence": [
+          "Live workspace environment configuration"
+        ],
+        "required_evidence": [
+          "Live Databricks workspace inspection for Layer 3 (ACTUAL)"
+        ],
+        "rationale": "Reconciliation completed across all 9 dimensions (1 blocking drifts)."
+      },
+      {
+        "decision_name": "PRODUCTION_RELEASE",
+        "domain": "readiness",
+        "decision_status": "FAIL",
+        "is_sufficient": true,
+        "confidence": "HIGH",
+        "supporting_evidence": [
+          "7 blocking checkpoint failure(s) detected"
+        ],
+        "missing_evidence": [],
+        "required_evidence": [],
+        "rationale": "Definitive release rejection: blocking failures or missing core contract/code."
+      }
+    ],
+    "critical_missing_evidence": [
+      "Observed runtime duration telemetry",
+      "Explicit contract key uniqueness declaration or source deduplication key",
+      "Databricks Unit (DBU) consumption rates and pricing tier metadata",
+      "Cluster specification containing node types, worker count or autoscale range",
+      "Observed runtime execution duration and task telemetry",
+      "At least 2 historical execution runs for trend and regression analysis",
+      "Explicit contract uniqueness declaration or source deduplication key evidence"
+    ],
+    "actionable_recommendations": [
+      "Supply Databricks runtime execution telemetry (run duration, task metrics, shuffle bytes) to enable performance, SLA, and cost decision sufficiency.",
+      "Provide at least 2 historical execution runs under varying data volumes to enable empirical runtime regression and scalability trend forensics.",
+      "Provide DBU pricing tier metadata and cluster duration metrics to enable cost viability analysis.",
+      "Provide explicit contract key uniqueness declarations or source deduplication evidence to establish conclusive rerun idempotency safety."
+    ]
+  },
+  "production_readiness": {
+    "status": "NOT_PRODUCTION_READY",
+    "quality_score": 17.7,
+    "evidence_coverage": 63.2,
+    "comprehensive_coverage": {
+      "total_required": 19,
+      "total_evaluated": 12,
+      "total_unknown": 7,
+      "total_not_applicable": 0,
+      "coverage_percentage": 63.2,
+      "domain_coverages": {
+        "Cluster": {
+          "domain": "Cluster",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Code": {
+          "domain": "Code",
+          "total_checks": 1,
+          "evaluated_checks": 1,
+          "unknown_checks": 0,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 100.0,
+          "provenance_breakdown": {
+            "FIXTURE": 13
+          },
+          "quality_tier": "EVALUATED"
+        },
+        "Cost": {
+          "domain": "Cost",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Data": {
+          "domain": "Data",
+          "total_checks": 2,
+          "evaluated_checks": 0,
+          "unknown_checks": 2,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 2
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Data Quality": {
+          "domain": "Data Quality",
+          "total_checks": 1,
+          "evaluated_checks": 1,
+          "unknown_checks": 0,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 100.0,
+          "provenance_breakdown": {
+            "METADATA": 1
+          },
+          "quality_tier": "EVALUATED"
+        },
+        "Governance": {
+          "domain": "Governance",
+          "total_checks": 1,
+          "evaluated_checks": 1,
+          "unknown_checks": 0,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 100.0,
+          "provenance_breakdown": {
+            "CONTRACT": 1,
+            "METADATA": 1
+          },
+          "quality_tier": "EVALUATED"
+        },
+        "Job": {
+          "domain": "Job",
+          "total_checks": 1,
+          "evaluated_checks": 1,
+          "unknown_checks": 0,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 100.0,
+          "provenance_breakdown": {
+            "METADATA": 3
+          },
+          "quality_tier": "EVALUATED"
+        },
+        "Performance": {
+          "domain": "Performance",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Pipeline": {
+          "domain": "Pipeline",
+          "total_checks": 1,
+          "evaluated_checks": 1,
+          "unknown_checks": 0,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 100.0,
+          "provenance_breakdown": {
+            "CONTRACT": 1,
+            "METADATA": 1
+          },
+          "quality_tier": "EVALUATED"
+        },
+        "Readiness": {
+          "domain": "Readiness",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Reliability": {
+          "domain": "Reliability",
+          "total_checks": 4,
+          "evaluated_checks": 4,
+          "unknown_checks": 0,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 100.0,
+          "provenance_breakdown": {
+            "METADATA": 4,
+            "CONTRACT": 2
+          },
+          "quality_tier": "EVALUATED"
+        },
+        "SLA": {
+          "domain": "SLA",
+          "total_checks": 1,
+          "evaluated_checks": 0,
+          "unknown_checks": 1,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 0.0,
+          "provenance_breakdown": {
+            "STATIC": 1
+          },
+          "quality_tier": "UNKNOWN"
+        },
+        "Scalability": {
+          "domain": "Scalability",
+          "total_checks": 1,
+          "evaluated_checks": 1,
+          "unknown_checks": 0,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 100.0,
+          "provenance_breakdown": {
+            "SAMPLE": 2,
+            "METADATA": 8,
+            "RUNTIME": 2
+          },
+          "quality_tier": "EVALUATED"
+        },
+        "Security": {
+          "domain": "Security",
+          "total_checks": 1,
+          "evaluated_checks": 1,
+          "unknown_checks": 0,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 100.0,
+          "provenance_breakdown": {
+            "METADATA": 1
+          },
+          "quality_tier": "EVALUATED"
+        },
+        "Source": {
+          "domain": "Source",
+          "total_checks": 1,
+          "evaluated_checks": 1,
+          "unknown_checks": 0,
+          "not_applicable_checks": 0,
+          "coverage_percentage": 100.0,
+          "provenance_breakdown": {
+            "FIXTURE": 4
+          },
+          "quality_tier": "EVALUATED"
+        }
+      }
+    },
+    "decision_reasons": [
+      "Release blocked by 2 CRITICAL finding(s): [CODE-PYSPARK-001] Driver Collection Detection, [CODE-PYSPARK-006] Large Driver Collection Risk"
+    ],
+    "required_actions": [
+      {
+        "priority": "P0",
+        "rule_id": "CODE-PYSPARK-001",
+        "checkpoint_id": "code",
+        "title": "Driver Collection Detection",
+        "description": "Detect driver-side collection of distributed data.\n",
+        "recommendation": "Avoid collecting large distributed datasets to the driver.\n"
+      },
+      {
+        "priority": "P0",
+        "rule_id": "CODE-PYSPARK-006",
+        "checkpoint_id": "code",
+        "title": "Large Driver Collection Risk",
+        "description": "Detect collect() calls evaluated against data evidence. An unrestricted collect() over a large input risks driver memory pressure/OOM, while the same call after limit() or on a small input is a qualified warning.\n",
+        "recommendation": "Potential large driver-side collection: materializing 2048 GB on the driver risks memory pressure/OOM; keep data distributed (write/aggregate) or bound the result."
+      },
+      {
+        "priority": "P0",
+        "rule_id": "CODE-PYSPARK-007",
+        "checkpoint_id": "code",
+        "title": "toPandas Large Data Risk",
+        "description": "Detect toPandas() calls evaluated against data evidence. A bounded toPandas() (e.g. after limit()) is a qualified warning; an unbounded call over a large input is high risk. toPandas() is not banned.\n",
+        "recommendation": "Potential large toPandas() over ~2048 GB: prefer distributed writes/aggregates or Arrow-based bounded transfer."
+      },
+      {
+        "priority": "P0",
+        "rule_id": "CODE-PYSPARK-019",
+        "checkpoint_id": "code",
+        "title": "Cartesian Cross Join Risk",
+        "description": "Detect crossJoin() or join(how=\"cross\"). Cartesian products produce multiplicative row growth (O(N*M)), leading to massive shuffles, performance degradation, and executor OOM.\n",
+        "recommendation": "Dangerous cross join over ~2048 GB: Cartesian product causes multiplicative row growth (O(N*M)) and catastrophic shuffle/OOM."
+      },
+      {
+        "priority": "P0",
+        "rule_id": "XDOM-001",
+        "checkpoint_id": "CROSS-DOMAIN",
+        "title": "Driver Memory Exhaustion Risk at Scale",
+        "description": "Driver-side materialization (`collect`/`toPandas`) detected in pipeline code combined with a substantial data workload (3072.0 GB). Materializing distributed datasets to the Spark driver causes out-of-memory driver crashes.",
+        "recommendation": "Replace `collect()` and `toPandas()` with distributed DataFrame actions or write transformations directly to Delta lake."
+      },
+      {
+        "priority": "P0",
+        "rule_id": "XDOM-002",
+        "checkpoint_id": "CROSS-DOMAIN",
+        "title": "Cartesian Product Scaling Risk",
+        "description": "Cartesian cross join detected on a non-trivial workload (3072.0 GB). Unconstrained cross joins generate O(N*M) record explosions at scale, saturating executor disk and network.",
+        "recommendation": "Eliminate Cartesian joins: supply explicit join conditions with ON clauses or apply strict pre-filtering."
+      },
+      {
+        "priority": "P1",
+        "rule_id": "CODE-PYSPARK-002",
+        "checkpoint_id": "code",
+        "title": "Pandas UDF Misuse Detection",
+        "description": "Detect use of Pandas UDF where native Spark UDF would be more appropriate.\n",
+        "recommendation": "Consider using native Spark UDF or vectorized Pandas UDF (applyInPlace) for better performance.\n"
+      },
+      {
+        "priority": "P1",
+        "rule_id": "CODE-PYSPARK-003",
+        "checkpoint_id": "code",
+        "title": "Show() in Production Path Detection",
+        "description": "Detect show() or take() calls in production pipeline code paths.\n",
+        "recommendation": "Replace show()/take() with proper logging or remove from production code paths.\n"
+      },
+      {
+        "priority": "P1",
+        "rule_id": "CODE-PYSPARK-005",
+        "checkpoint_id": "code",
+        "title": "Hard-coded Path Detection",
+        "description": "Detect hard-coded file paths in pipeline code.\n",
+        "recommendation": "Use configuration or environment variables for file paths.\n"
+      },
+      {
+        "priority": "P1",
+        "rule_id": "CODE-PYSPARK-008",
+        "checkpoint_id": "code",
+        "title": "Potential Large Shuffle",
+        "description": "Flag shuffle-class operations (groupBy, distinct, repartition, orderBy, large joins, windows) over sizable inputs as potential shuffle risk. Static analysis cannot prove shuffle volume, so findings are WARN only.\n",
+        "recommendation": "Potential shuffle risk: join() over ~2048 GB \u2014 confirm partitioning and skew handling; static analysis cannot prove shuffle volume."
+      },
+      {
+        "priority": "P1",
+        "rule_id": "CODE-PYSPARK-017",
+        "checkpoint_id": "code",
+        "title": "User Defined Function (UDF) Overhead Risk",
+        "description": "Detect Python and Pandas UDF usages. Standard Python UDFs force row-by-row serialization across the Python-JVM boundary, incurring severe performance penalties on large datasets. Prefer native Spark SQL/DataFrame expressions or vectorized Pandas UDFs.\n",
+        "recommendation": "Python UDF over a large input forces row-wise serialization; prefer native Spark SQL/DataFrame expressions where appropriate."
+      },
+      {
+        "priority": "P1",
+        "rule_id": "CONFIG-JOB-001",
+        "checkpoint_id": "job",
+        "title": "Missing Retry Configuration",
+        "description": "Detects production jobs or tasks without retry configuration where resilience is required.",
+        "recommendation": "Configure retry count (>= 1) on production tasks to prevent transient failure pipeline interruptions."
+      },
+      {
+        "priority": "P1",
+        "rule_id": "SCALABILITY-003",
+        "checkpoint_id": "scalability",
+        "title": "Data Growth Risk: FAIL",
+        "description": "Calculates deterministic compound data growth projections over the forecast horizon.",
+        "recommendation": "Under configured growth assumptions, workload will exceed current thresholds. Plan partition maintenance and adjust cluster sizing."
+      },
+      {
+        "priority": "P1",
+        "rule_id": "SCALABILITY-006",
+        "checkpoint_id": "scalability",
+        "title": "Driver Scalability Risk: FAIL",
+        "description": "Evaluates driver-side materialization (collect, toPandas) in the context of scaled data volume.",
+        "recommendation": "Replace `collect()` and `toPandas()` with distributed DataFrame transformations or write directly to storage to prevent driver OOM."
+      },
+      {
+        "priority": "P1",
+        "rule_id": "SCALABILITY-008",
+        "checkpoint_id": "scalability",
+        "title": "Join Scalability Risk: FAIL",
+        "description": "Evaluates join architecture to prevent Cartesian row explosion and unbounded shuffle joins at scale.",
+        "recommendation": "Eliminate Cartesian cross join: provide an explicit join key, apply strict pre-filtering, or use broadcast joins for tiny dimension tables."
+      },
+      {
+        "priority": "P1",
+        "rule_id": "SOURCE-002",
+        "checkpoint_id": "source",
+        "title": "Missing Incremental Strategy",
+        "description": "Flag large-volume sources with no incremental ingestion evidence (no incremental/CDC/streaming mode and no watermark, CDC, checkpoint, or partitioning evidence).\n",
+        "recommendation": "Define an incremental strategy (watermark, CDC, key-based merge) for this large-volume source.\n"
+      },
+      {
+        "priority": "P1",
+        "rule_id": "XDOM-003",
+        "checkpoint_id": "CROSS-DOMAIN",
+        "title": "High Network Shuffle & Spill Risk",
+        "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+        "recommendation": "Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering."
+      },
+      {
+        "priority": "P1",
+        "rule_id": "XDOM-004",
+        "checkpoint_id": "CROSS-DOMAIN",
+        "title": "Peak Workload Capacity Headroom Risk",
+        "description": "Contractual peak ingestion burst exceeds baseline workload capacity on a fixed or constrained cluster configuration without empirical verification.",
+        "recommendation": "Enable cluster autoscaling or validate cluster worker memory sizing against peak ingestion bursts."
+      },
+      {
+        "priority": "P2",
+        "rule_id": "CODE-PYSPARK-004",
+        "checkpoint_id": "code",
+        "title": "CrossJoin Detection",
+        "description": "Detect crossJoin operations which can produce cartesian products.\n",
+        "recommendation": "Replace crossJoin with explicit join key if possible, or ensure small right-side dataset.\n"
+      },
+      {
+        "priority": "P2",
+        "rule_id": "CODE-PYSPARK-009",
+        "checkpoint_id": "code",
+        "title": "Potential Excessive Repartition",
+        "description": "Flag repeated repartition() calls on one DataFrame or unnecessarily large literal partition counts. A single reasonable repartition is not flagged.\n",
+        "recommendation": "Potential excessive repartition: 2 repartition() calls on 'huge'; each is a full shuffle \u2014 consolidate."
+      },
+      {
+        "priority": "P2",
+        "rule_id": "CODE-PYSPARK-011",
+        "checkpoint_id": "code",
+        "title": "Unjustified Cache",
+        "description": "Flag cache()/persist() where static analysis shows no demonstrated reuse of the cached DataFrame. Reused frames are not flagged, and no runtime benefit is ever claimed without runtime evidence.\n",
+        "recommendation": "Caching benefit is not demonstrated by static analysis: 'df' is used ~1x after cache(); remove or prove reuse with runtime evidence."
+      },
+      {
+        "priority": "P2",
+        "rule_id": "CODE-PYSPARK-012",
+        "checkpoint_id": "code",
+        "title": "Repeated Spark Action",
+        "description": "Flag multiple actions (count/collect/take/show/write) on one DataFrame, which may require additional computation. count() alone is never bad.\n",
+        "recommendation": "Repeated Spark actions on 'df' (collect, to_pandas, count, count, write) may require additional computation; cache/persist only with runtime evidence."
+      },
+      {
+        "priority": "P2",
+        "rule_id": "CODE-PYSPARK-013",
+        "checkpoint_id": "code",
+        "title": "Large Dataset Global Sort",
+        "description": "Flag global orderBy()/sort() over large inputs as a potential performance warning \u2014 never a definite failure without runtime evidence.\n",
+        "recommendation": "Potential performance warning: global sort over ~2048 GB forces a wide shuffle; prefer partitioned ordering where possible."
+      },
+      {
+        "priority": "P2",
+        "rule_id": "CONFIG-JOB-002",
+        "checkpoint_id": "job",
+        "title": "Missing Task Timeout",
+        "description": "Detects production tasks without an explicit timeout configured.",
+        "recommendation": "Set task or job execution timeouts to prevent hanging jobs from consuming compute indefinitely."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-007",
+        "checkpoint_id": "scalability",
+        "title": "Shuffle Scalability Risk: UNKNOWN",
+        "description": "Projects shuffle volume growth under scaled workload conditions to anticipate disk spill and network saturation.",
+        "recommendation": "Supply runtime execution telemetry to project shuffle volume under scale."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-010",
+        "checkpoint_id": "scalability",
+        "title": "Cluster Capacity Risk: UNKNOWN",
+        "description": "Evaluates whether cluster worker sizing provides sufficient compute capacity for projected peak workloads.",
+        "recommendation": "Provide cluster configuration to evaluate sizing against workload scale."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-011",
+        "checkpoint_id": "scalability",
+        "title": "Autoscaling Boundary Risk: UNKNOWN",
+        "description": "Assesses autoscaling upper boundaries against peak workload expansion multipliers.",
+        "recommendation": "Provide cluster configuration to assess autoscaling bounds."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-012",
+        "checkpoint_id": "scalability",
+        "title": "SLA Scalability Risk: UNKNOWN",
+        "description": "Compares projected execution duration at peak workload against contractual SLA boundaries under explicit projection assumptions.",
+        "recommendation": "Supply runtime execution telemetry."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-013",
+        "checkpoint_id": "scalability",
+        "title": "Runtime Regression at Scale: UNKNOWN",
+        "description": "Evaluates empirical historical run telemetry to detect super-linear runtime expansion relative to data volume growth.",
+        "recommendation": "Provide 2 or more historical run records to detect empirical runtime regression."
+      },
+      {
+        "priority": "P3",
+        "rule_id": "SCALABILITY-014",
+        "checkpoint_id": "scalability",
+        "title": "Reliability Degradation at Scale: UNKNOWN",
+        "description": "Evaluates whether task failure rates, executor evictions, or memory spills correlate with increased workload volume.",
+        "recommendation": "Provide 2 or more historical run records to assess failure rate correlation."
+      }
+    ],
+    "blocking_findings": [
+      {
+        "finding_id": "CODE-PYSPARK-001-code",
+        "rule_id": "CODE-PYSPARK-001",
+        "name": "Driver Collection Detection",
+        "title": "Driver Collection Detection",
+        "category": "code",
+        "status": "FAIL",
+        "severity": "CRITICAL",
+        "description": "Detect driver-side collection of distributed data.\n",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:27.699724+00:00",
+        "evidence": {
+          "rule_id": "CODE-PYSPARK-001",
+          "status": "FAIL",
+          "severity": "CRITICAL",
+          "observed": {
+            "code_snippet": "\"\"\"Deliberately bad production pipeline fixture: full reload + driver ops, no retries.\"\"\"\n\nfrom pyspark.sql.functions import udf\nfrom pyspark.sql.types import StringType\n\ndf = spark.read.format(\"parquet\").load(\"abfss://landing@acct.dfs.core.windows.net/bad_production/\")\n\n# Driver-side collection of a distributed dataset (CODE-PYSPARK-001, blocking)\nrows = df.collect()\n\n# Pandas conversion on the driver (large-data risk)\npdf = df.toPandas()\n\n# Python UDF instead of native Spark SQL (CODE-PYSPARK-002)\nshout = udf(lambda s: s.upper(), StringType())\ndf2 = df.withColumn(\"name_upper\", shout(\"name\"))\n\n# Debug action left in production path (CODE-PYSPARK-003)\ndf2.show()\nfirst = df2.take(5)\n\n# Cartesian product without a join key (CODE-PYSPARK-004)\npairs = df.crossJoin(df.limit(100))\n\n# Hard-coded local path (CODE-PYSPARK-005)\npairs.write.parquet(\"/tmp/bad_production_output\")\n\n# Hard-coded credential (CP-020 must flag; value must be masked in reports)\npassword = [MASKED_SECRET]\n\n# Unnecessary repeated repartition (CODE-PYSPARK-009)\nhuge = df.repartition(200)\nhuge = huge.repartition(50)\n\n# Global sort over the huge frame (CODE-PYSPARK-013)\nsorted_huge = huge.orderBy(\"name\")\n\n# Repeated actions on one frame (CODE-PYSPARK-012)\nprint(df.count())\nprint(df.count())\n\n# Cache with no demonstrated reuse (CODE-PYSPARK-011)\ndf.cache()\ndf.write.parquet(\"/tmp/bad_production_output2\")\n\n# No try/except, no restart config, no retries/timeout (see contract).\n"
+          },
+          "expected": {},
+          "evidence": [],
+          "recommendation": "Avoid collecting large distributed datasets to the driver.\n",
+          "confidence": 0.9,
+          "method": "unavailable"
+        },
+        "recommendation": "Avoid collecting large distributed datasets to the driver.\n",
+        "confidence": 0.9,
+        "blocking": true,
+        "assumptions": {
+          "mode": "offline-fixture",
+          "context": {
+            "source_type": "adls",
+            "workload_type": "full_load",
+            "data_size_gb": 2048.0
+          }
+        }
+      },
+      {
+        "finding_id": "CODE-PYSPARK-006-code",
+        "rule_id": "CODE-PYSPARK-006",
+        "name": "Large Driver Collection Risk",
+        "title": "Large Driver Collection Risk",
+        "category": "code",
+        "status": "FAIL",
+        "severity": "CRITICAL",
+        "description": "Detect collect() calls evaluated against data evidence. An unrestricted collect() over a large input risks driver memory pressure/OOM, while the same call after limit() or on a small input is a qualified warning.\n",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:27.700995+00:00",
+        "evidence": {
+          "rule_id": "CODE-PYSPARK-006",
+          "status": "FAIL",
+          "severity": "CRITICAL",
+          "observed": {
+            "operations": [
+              {
+                "method": "fixture",
+                "evidence_source": "fixture metadata",
+                "operation": "collect()",
+                "line": 9,
+                "dataframe": "df",
+                "code": "df.collect()",
+                "limited": false,
+                "limit_n": null,
+                "filtered": false,
+                "input_gb": 2048.0
+              }
+            ],
+            "data_context_gb": 2048.0
+          },
+          "expected": {
+            "policy": "see rule params"
+          },
+          "evidence": [
+            "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:9 `df.collect()`",
+            "Expected input: 2048 GB/day"
+          ],
+          "recommendation": "Potential large driver-side collection: materializing 2048 GB on the driver risks memory pressure/OOM; keep data distributed (write/aggregate) or bound the result.",
+          "confidence": 0.9,
+          "method": "unavailable"
+        },
+        "recommendation": "Potential large driver-side collection: materializing 2048 GB on the driver risks memory pressure/OOM; keep data distributed (write/aggregate) or bound the result.",
+        "confidence": 0.9,
+        "blocking": true,
+        "assumptions": {
+          "static-analysis": "no runtime metrics claimed",
+          "mode": "offline-fixture"
+        }
+      },
+      {
+        "finding_id": "CODE-PYSPARK-019-code",
+        "rule_id": "CODE-PYSPARK-019",
+        "name": "Cartesian Cross Join Risk",
+        "title": "Cartesian Cross Join Risk",
+        "category": "code",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "description": "Detect crossJoin() or join(how=\"cross\"). Cartesian products produce multiplicative row growth (O(N*M)), leading to massive shuffles, performance degradation, and executor OOM.\n",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:27.703016+00:00",
+        "evidence": {
+          "rule_id": "CODE-PYSPARK-019",
+          "status": "FAIL",
+          "severity": "HIGH",
+          "observed": {
+            "operations": [
+              {
+                "method": "fixture",
+                "evidence_source": "fixture metadata",
+                "operation": "cross_join",
+                "line": 23,
+                "dataframe": "df",
+                "code": "df.crossJoin(df.limit(100))",
+                "how": "cross",
+                "input_gb": 2048.0
+              }
+            ],
+            "data_context_gb": 2048.0
+          },
+          "expected": {
+            "policy": "see rule params"
+          },
+          "evidence": [
+            "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:23 `df.crossJoin(df.limit(100))`",
+            "Expected input: 2048 GB/day"
+          ],
+          "recommendation": "Dangerous cross join over ~2048 GB: Cartesian product causes multiplicative row growth (O(N*M)) and catastrophic shuffle/OOM.",
+          "confidence": 0.8,
+          "method": "unavailable"
+        },
+        "recommendation": "Dangerous cross join over ~2048 GB: Cartesian product causes multiplicative row growth (O(N*M)) and catastrophic shuffle/OOM.",
+        "confidence": 0.8,
+        "blocking": true,
+        "assumptions": {
+          "static-analysis": "no runtime metrics claimed",
+          "mode": "offline-fixture"
+        }
+      }
+    ],
+    "critical_findings": [
+      {
+        "finding_id": "CODE-PYSPARK-001-code",
+        "rule_id": "CODE-PYSPARK-001",
+        "name": "Driver Collection Detection",
+        "title": "Driver Collection Detection",
+        "category": "code",
+        "status": "FAIL",
+        "severity": "CRITICAL",
+        "description": "Detect driver-side collection of distributed data.\n",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:27.699724+00:00",
+        "evidence": {
+          "rule_id": "CODE-PYSPARK-001",
+          "status": "FAIL",
+          "severity": "CRITICAL",
+          "observed": {
+            "code_snippet": "\"\"\"Deliberately bad production pipeline fixture: full reload + driver ops, no retries.\"\"\"\n\nfrom pyspark.sql.functions import udf\nfrom pyspark.sql.types import StringType\n\ndf = spark.read.format(\"parquet\").load(\"abfss://landing@acct.dfs.core.windows.net/bad_production/\")\n\n# Driver-side collection of a distributed dataset (CODE-PYSPARK-001, blocking)\nrows = df.collect()\n\n# Pandas conversion on the driver (large-data risk)\npdf = df.toPandas()\n\n# Python UDF instead of native Spark SQL (CODE-PYSPARK-002)\nshout = udf(lambda s: s.upper(), StringType())\ndf2 = df.withColumn(\"name_upper\", shout(\"name\"))\n\n# Debug action left in production path (CODE-PYSPARK-003)\ndf2.show()\nfirst = df2.take(5)\n\n# Cartesian product without a join key (CODE-PYSPARK-004)\npairs = df.crossJoin(df.limit(100))\n\n# Hard-coded local path (CODE-PYSPARK-005)\npairs.write.parquet(\"/tmp/bad_production_output\")\n\n# Hard-coded credential (CP-020 must flag; value must be masked in reports)\npassword = [MASKED_SECRET]\n\n# Unnecessary repeated repartition (CODE-PYSPARK-009)\nhuge = df.repartition(200)\nhuge = huge.repartition(50)\n\n# Global sort over the huge frame (CODE-PYSPARK-013)\nsorted_huge = huge.orderBy(\"name\")\n\n# Repeated actions on one frame (CODE-PYSPARK-012)\nprint(df.count())\nprint(df.count())\n\n# Cache with no demonstrated reuse (CODE-PYSPARK-011)\ndf.cache()\ndf.write.parquet(\"/tmp/bad_production_output2\")\n\n# No try/except, no restart config, no retries/timeout (see contract).\n"
+          },
+          "expected": {},
+          "evidence": [],
+          "recommendation": "Avoid collecting large distributed datasets to the driver.\n",
+          "confidence": 0.9,
+          "method": "unavailable"
+        },
+        "recommendation": "Avoid collecting large distributed datasets to the driver.\n",
+        "confidence": 0.9,
+        "blocking": true,
+        "assumptions": {
+          "mode": "offline-fixture",
+          "context": {
+            "source_type": "adls",
+            "workload_type": "full_load",
+            "data_size_gb": 2048.0
+          }
+        }
+      },
+      {
+        "finding_id": "CODE-PYSPARK-006-code",
+        "rule_id": "CODE-PYSPARK-006",
+        "name": "Large Driver Collection Risk",
+        "title": "Large Driver Collection Risk",
+        "category": "code",
+        "status": "FAIL",
+        "severity": "CRITICAL",
+        "description": "Detect collect() calls evaluated against data evidence. An unrestricted collect() over a large input risks driver memory pressure/OOM, while the same call after limit() or on a small input is a qualified warning.\n",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:27.700995+00:00",
+        "evidence": {
+          "rule_id": "CODE-PYSPARK-006",
+          "status": "FAIL",
+          "severity": "CRITICAL",
+          "observed": {
+            "operations": [
+              {
+                "method": "fixture",
+                "evidence_source": "fixture metadata",
+                "operation": "collect()",
+                "line": 9,
+                "dataframe": "df",
+                "code": "df.collect()",
+                "limited": false,
+                "limit_n": null,
+                "filtered": false,
+                "input_gb": 2048.0
+              }
+            ],
+            "data_context_gb": 2048.0
+          },
+          "expected": {
+            "policy": "see rule params"
+          },
+          "evidence": [
+            "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:9 `df.collect()`",
+            "Expected input: 2048 GB/day"
+          ],
+          "recommendation": "Potential large driver-side collection: materializing 2048 GB on the driver risks memory pressure/OOM; keep data distributed (write/aggregate) or bound the result.",
+          "confidence": 0.9,
+          "method": "unavailable"
+        },
+        "recommendation": "Potential large driver-side collection: materializing 2048 GB on the driver risks memory pressure/OOM; keep data distributed (write/aggregate) or bound the result.",
+        "confidence": 0.9,
+        "blocking": true,
+        "assumptions": {
+          "static-analysis": "no runtime metrics claimed",
+          "mode": "offline-fixture"
+        }
+      },
+      {
+        "finding_id": "CODE-PYSPARK-007-code",
+        "rule_id": "CODE-PYSPARK-007",
+        "name": "toPandas Large Data Risk",
+        "title": "toPandas Large Data Risk",
+        "category": "code",
+        "status": "FAIL",
+        "severity": "CRITICAL",
+        "description": "Detect toPandas() calls evaluated against data evidence. A bounded toPandas() (e.g. after limit()) is a qualified warning; an unbounded call over a large input is high risk. toPandas() is not banned.\n",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:27.700995+00:00",
+        "evidence": {
+          "rule_id": "CODE-PYSPARK-007",
+          "status": "FAIL",
+          "severity": "CRITICAL",
+          "observed": {
+            "operations": [
+              {
+                "method": "fixture",
+                "evidence_source": "fixture metadata",
+                "operation": "toPandas()",
+                "line": 12,
+                "dataframe": "df",
+                "code": "df.toPandas()",
+                "limited": false,
+                "limit_n": null,
+                "input_gb": 2048.0
+              }
+            ],
+            "data_context_gb": 2048.0
+          },
+          "expected": {
+            "policy": "see rule params"
+          },
+          "evidence": [
+            "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:12 `df.toPandas()`",
+            "Expected input: 2048 GB/day"
+          ],
+          "recommendation": "Potential large toPandas() over ~2048 GB: prefer distributed writes/aggregates or Arrow-based bounded transfer.",
+          "confidence": 0.9,
+          "method": "unavailable"
+        },
+        "recommendation": "Potential large toPandas() over ~2048 GB: prefer distributed writes/aggregates or Arrow-based bounded transfer.",
+        "confidence": 0.9,
+        "blocking": false,
+        "assumptions": {
+          "static-analysis": "no runtime metrics claimed",
+          "mode": "offline-fixture"
+        }
+      }
+    ],
+    "high_findings": [
+      {
+        "finding_id": "SOURCE-002-source",
+        "rule_id": "SOURCE-002",
+        "name": "Missing Incremental Strategy",
+        "title": "Missing Incremental Strategy",
+        "category": "source",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "description": "Flag large-volume sources with no incremental ingestion evidence (no incremental/CDC/streaming mode and no watermark, CDC, checkpoint, or partitioning evidence).\n",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:27.375405+00:00",
+        "evidence": {
+          "rule_id": "SOURCE-002",
+          "status": "FAIL",
+          "severity": "HIGH",
+          "observed": {
+            "ingestion_mode": "full_load",
+            "expected_volume_gb": 2048.0,
+            "collection_method": "fixture",
+            "evidence_source": "fixture metadata"
+          },
+          "expected": {
+            "incremental_strategy": "documented for large volumes"
+          },
+          "evidence": [
+            "evidence source: fixture metadata",
+            "collection method: fixture"
+          ],
+          "recommendation": "Define an incremental strategy (watermark, CDC, key-based merge) for this large-volume source.\n",
+          "confidence": 0.8,
+          "method": "unavailable"
+        },
+        "recommendation": "Define an incremental strategy (watermark, CDC, key-based merge) for this large-volume source.\n",
+        "confidence": 0.8,
+        "blocking": false,
+        "assumptions": {
+          "large-no-incremental": "2048.0 GB without incremental evidence",
+          "evidence_source": "fixture metadata",
+          "collection_method": "fixture",
+          "mode": "offline-fixture"
+        }
+      },
+      {
+        "finding_id": "CODE-PYSPARK-002-code",
+        "rule_id": "CODE-PYSPARK-002",
+        "name": "Pandas UDF Misuse Detection",
+        "title": "Pandas UDF Misuse Detection",
+        "category": "code",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "description": "Detect use of Pandas UDF where native Spark UDF would be more appropriate.\n",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:27.699724+00:00",
+        "evidence": {
+          "rule_id": "CODE-PYSPARK-002",
+          "status": "FAIL",
+          "severity": "HIGH",
+          "observed": {
+            "code_snippet": "\"\"\"Deliberately bad production pipeline fixture: full reload + driver ops, no retries.\"\"\"\n\nfrom pyspark.sql.functions import udf\nfrom pyspark.sql.types import StringType\n\ndf = spark.read.format(\"parquet\").load(\"abfss://landing@acct.dfs.core.windows.net/bad_production/\")\n\n# Driver-side collection of a distributed dataset (CODE-PYSPARK-001, blocking)\nrows = df.collect()\n\n# Pandas conversion on the driver (large-data risk)\npdf = df.toPandas()\n\n# Python UDF instead of native Spark SQL (CODE-PYSPARK-002)\nshout = udf(lambda s: s.upper(), StringType())\ndf2 = df.withColumn(\"name_upper\", shout(\"name\"))\n\n# Debug action left in production path (CODE-PYSPARK-003)\ndf2.show()\nfirst = df2.take(5)\n\n# Cartesian product without a join key (CODE-PYSPARK-004)\npairs = df.crossJoin(df.limit(100))\n\n# Hard-coded local path (CODE-PYSPARK-005)\npairs.write.parquet(\"/tmp/bad_production_output\")\n\n# Hard-coded credential (CP-020 must flag; value must be masked in reports)\npassword = [MASKED_SECRET]\n\n# Unnecessary repeated repartition (CODE-PYSPARK-009)\nhuge = df.repartition(200)\nhuge = huge.repartition(50)\n\n# Global sort over the huge frame (CODE-PYSPARK-013)\nsorted_huge = huge.orderBy(\"name\")\n\n# Repeated actions on one frame (CODE-PYSPARK-012)\nprint(df.count())\nprint(df.count())\n\n# Cache with no demonstrated reuse (CODE-PYSPARK-011)\ndf.cache()\ndf.write.parquet(\"/tmp/bad_production_output2\")\n\n# No try/except, no restart config, no retries/timeout (see contract).\n"
+          },
+          "expected": {},
+          "evidence": [],
+          "recommendation": "Consider using native Spark UDF or vectorized Pandas UDF (applyInPlace) for better performance.\n",
+          "confidence": 0.9,
+          "method": "unavailable"
+        },
+        "recommendation": "Consider using native Spark UDF or vectorized Pandas UDF (applyInPlace) for better performance.\n",
+        "confidence": 0.9,
+        "blocking": false,
+        "assumptions": {
+          "mode": "offline-fixture",
+          "context": {
+            "source_type": "adls",
+            "workload_type": "full_load",
+            "data_size_gb": 2048.0
+          }
+        }
+      },
+      {
+        "finding_id": "CODE-PYSPARK-003-code",
+        "rule_id": "CODE-PYSPARK-003",
+        "name": "Show() in Production Path Detection",
+        "title": "Show() in Production Path Detection",
+        "category": "code",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "description": "Detect show() or take() calls in production pipeline code paths.\n",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:27.699724+00:00",
+        "evidence": {
+          "rule_id": "CODE-PYSPARK-003",
+          "status": "FAIL",
+          "severity": "HIGH",
+          "observed": {
+            "code_snippet": "\"\"\"Deliberately bad production pipeline fixture: full reload + driver ops, no retries.\"\"\"\n\nfrom pyspark.sql.functions import udf\nfrom pyspark.sql.types import StringType\n\ndf = spark.read.format(\"parquet\").load(\"abfss://landing@acct.dfs.core.windows.net/bad_production/\")\n\n# Driver-side collection of a distributed dataset (CODE-PYSPARK-001, blocking)\nrows = df.collect()\n\n# Pandas conversion on the driver (large-data risk)\npdf = df.toPandas()\n\n# Python UDF instead of native Spark SQL (CODE-PYSPARK-002)\nshout = udf(lambda s: s.upper(), StringType())\ndf2 = df.withColumn(\"name_upper\", shout(\"name\"))\n\n# Debug action left in production path (CODE-PYSPARK-003)\ndf2.show()\nfirst = df2.take(5)\n\n# Cartesian product without a join key (CODE-PYSPARK-004)\npairs = df.crossJoin(df.limit(100))\n\n# Hard-coded local path (CODE-PYSPARK-005)\npairs.write.parquet(\"/tmp/bad_production_output\")\n\n# Hard-coded credential (CP-020 must flag; value must be masked in reports)\npassword = [MASKED_SECRET]\n\n# Unnecessary repeated repartition (CODE-PYSPARK-009)\nhuge = df.repartition(200)\nhuge = huge.repartition(50)\n\n# Global sort over the huge frame (CODE-PYSPARK-013)\nsorted_huge = huge.orderBy(\"name\")\n\n# Repeated actions on one frame (CODE-PYSPARK-012)\nprint(df.count())\nprint(df.count())\n\n# Cache with no demonstrated reuse (CODE-PYSPARK-011)\ndf.cache()\ndf.write.parquet(\"/tmp/bad_production_output2\")\n\n# No try/except, no restart config, no retries/timeout (see contract).\n"
+          },
+          "expected": {},
+          "evidence": [],
+          "recommendation": "Replace show()/take() with proper logging or remove from production code paths.\n",
+          "confidence": 0.9,
+          "method": "unavailable"
+        },
+        "recommendation": "Replace show()/take() with proper logging or remove from production code paths.\n",
+        "confidence": 0.9,
+        "blocking": false,
+        "assumptions": {
+          "mode": "offline-fixture",
+          "context": {
+            "source_type": "adls",
+            "workload_type": "full_load",
+            "data_size_gb": 2048.0
+          }
+        }
+      },
+      {
+        "finding_id": "CODE-PYSPARK-005-code",
+        "rule_id": "CODE-PYSPARK-005",
+        "name": "Hard-coded Path Detection",
+        "title": "Hard-coded Path Detection",
+        "category": "code",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "description": "Detect hard-coded file paths in pipeline code.\n",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:27.700995+00:00",
+        "evidence": {
+          "rule_id": "CODE-PYSPARK-005",
+          "status": "FAIL",
+          "severity": "HIGH",
+          "observed": {
+            "code_snippet": "\"\"\"Deliberately bad production pipeline fixture: full reload + driver ops, no retries.\"\"\"\n\nfrom pyspark.sql.functions import udf\nfrom pyspark.sql.types import StringType\n\ndf = spark.read.format(\"parquet\").load(\"abfss://landing@acct.dfs.core.windows.net/bad_production/\")\n\n# Driver-side collection of a distributed dataset (CODE-PYSPARK-001, blocking)\nrows = df.collect()\n\n# Pandas conversion on the driver (large-data risk)\npdf = df.toPandas()\n\n# Python UDF instead of native Spark SQL (CODE-PYSPARK-002)\nshout = udf(lambda s: s.upper(), StringType())\ndf2 = df.withColumn(\"name_upper\", shout(\"name\"))\n\n# Debug action left in production path (CODE-PYSPARK-003)\ndf2.show()\nfirst = df2.take(5)\n\n# Cartesian product without a join key (CODE-PYSPARK-004)\npairs = df.crossJoin(df.limit(100))\n\n# Hard-coded local path (CODE-PYSPARK-005)\npairs.write.parquet(\"/tmp/bad_production_output\")\n\n# Hard-coded credential (CP-020 must flag; value must be masked in reports)\npassword = [MASKED_SECRET]\n\n# Unnecessary repeated repartition (CODE-PYSPARK-009)\nhuge = df.repartition(200)\nhuge = huge.repartition(50)\n\n# Global sort over the huge frame (CODE-PYSPARK-013)\nsorted_huge = huge.orderBy(\"name\")\n\n# Repeated actions on one frame (CODE-PYSPARK-012)\nprint(df.count())\nprint(df.count())\n\n# Cache with no demonstrated reuse (CODE-PYSPARK-011)\ndf.cache()\ndf.write.parquet(\"/tmp/bad_production_output2\")\n\n# No try/except, no restart config, no retries/timeout (see contract).\n"
+          },
+          "expected": {},
+          "evidence": [],
+          "recommendation": "Use configuration or environment variables for file paths.\n",
+          "confidence": 0.9,
+          "method": "unavailable"
+        },
+        "recommendation": "Use configuration or environment variables for file paths.\n",
+        "confidence": 0.9,
+        "blocking": false,
+        "assumptions": {
+          "mode": "offline-fixture",
+          "context": {
+            "source_type": "adls",
+            "workload_type": "full_load",
+            "data_size_gb": 2048.0
+          }
+        }
+      },
+      {
+        "finding_id": "CODE-PYSPARK-017-code",
+        "rule_id": "CODE-PYSPARK-017",
+        "name": "User Defined Function (UDF) Overhead Risk",
+        "title": "User Defined Function (UDF) Overhead Risk",
+        "category": "code",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "description": "Detect Python and Pandas UDF usages. Standard Python UDFs force row-by-row serialization across the Python-JVM boundary, incurring severe performance penalties on large datasets. Prefer native Spark SQL/DataFrame expressions or vectorized Pandas UDFs.\n",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:27.702010+00:00",
+        "evidence": {
+          "rule_id": "CODE-PYSPARK-017",
+          "status": "FAIL",
+          "severity": "HIGH",
+          "observed": {
+            "operations": [
+              {
+                "method": "fixture",
+                "evidence_source": "fixture metadata",
+                "kind": "python-udf",
+                "line": 15,
+                "code": "udf(lambda s: s.upper(), StringType())",
+                "input_gb": 2048.0
+              }
+            ],
+            "data_context_gb": 2048.0
+          },
+          "expected": {
+            "policy": "see rule params"
+          },
+          "evidence": [
+            "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:15 `udf(lambda s: s.upper(), StringType())`",
+            "Expected input: 2048 GB/day"
+          ],
+          "recommendation": "Python UDF over a large input forces row-wise serialization; prefer native Spark SQL/DataFrame expressions where appropriate.",
+          "confidence": 0.75,
+          "method": "unavailable"
+        },
+        "recommendation": "Python UDF over a large input forces row-wise serialization; prefer native Spark SQL/DataFrame expressions where appropriate.",
+        "confidence": 0.75,
+        "blocking": false,
+        "assumptions": {
+          "static-analysis": "no runtime metrics claimed",
+          "mode": "offline-fixture"
+        }
+      },
+      {
+        "finding_id": "CODE-PYSPARK-019-code",
+        "rule_id": "CODE-PYSPARK-019",
+        "name": "Cartesian Cross Join Risk",
+        "title": "Cartesian Cross Join Risk",
+        "category": "code",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "description": "Detect crossJoin() or join(how=\"cross\"). Cartesian products produce multiplicative row growth (O(N*M)), leading to massive shuffles, performance degradation, and executor OOM.\n",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:27.703016+00:00",
+        "evidence": {
+          "rule_id": "CODE-PYSPARK-019",
+          "status": "FAIL",
+          "severity": "HIGH",
+          "observed": {
+            "operations": [
+              {
+                "method": "fixture",
+                "evidence_source": "fixture metadata",
+                "operation": "cross_join",
+                "line": 23,
+                "dataframe": "df",
+                "code": "df.crossJoin(df.limit(100))",
+                "how": "cross",
+                "input_gb": 2048.0
+              }
+            ],
+            "data_context_gb": 2048.0
+          },
+          "expected": {
+            "policy": "see rule params"
+          },
+          "evidence": [
+            "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:23 `df.crossJoin(df.limit(100))`",
+            "Expected input: 2048 GB/day"
+          ],
+          "recommendation": "Dangerous cross join over ~2048 GB: Cartesian product causes multiplicative row growth (O(N*M)) and catastrophic shuffle/OOM.",
+          "confidence": 0.8,
+          "method": "unavailable"
+        },
+        "recommendation": "Dangerous cross join over ~2048 GB: Cartesian product causes multiplicative row growth (O(N*M)) and catastrophic shuffle/OOM.",
+        "confidence": 0.8,
+        "blocking": true,
+        "assumptions": {
+          "static-analysis": "no runtime metrics claimed",
+          "mode": "offline-fixture"
+        }
+      },
+      {
+        "finding_id": "SCALABILITY-003-data-growth-fail",
+        "rule_id": "SCALABILITY-003",
+        "name": "Data Growth Risk",
+        "title": "Data Growth Risk: FAIL",
+        "category": "scalability",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "description": "Calculates deterministic compound data growth projections over the forecast horizon.",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:28.111177+00:00",
+        "evidence": {
+          "rule_id": "SCALABILITY-003",
+          "status": "FAIL",
+          "severity": "HIGH",
+          "observed": {
+            "growth_rate_percent": 15.0,
+            "baseline_volume_gb": 3072.0,
+            "projected_horizon_volume_gb": 4062.72,
+            "projection": {
+              "baseline_volume_gb": 3072.0,
+              "target_volume_gb": 4062.72,
+              "scaling_factor": 1.32,
+              "projection_method": "LINEAR",
+              "projected_metric": "annual_volume_gb",
+              "baseline_value": 3072.0,
+              "projected_value": 4062.72,
+              "confidence": 0.75,
+              "assumptions": [
+                "Assumes deterministic linear scaling of annual_volume_gb with workload volume (1.32x).",
+                "Assumes cluster worker capacity and resource allocation remain fixed.",
+                "Assumes uniform key distribution and no new skew or spilling at higher scale."
+              ],
+              "evidence_source": "PROJECTED"
+            }
+          },
+          "expected": {
+            "max_annual_growth_rate": 20.0,
+            "max_projected_volume_gb": 1000.0
+          },
+          "evidence": [
+            "Configured growth rate (15.0%) projects data volume to expand from 3072.0 GB to 4062.7 GB over the forecast horizon"
+          ],
+          "recommendation": "Under configured growth assumptions, workload will exceed current thresholds. Plan partition maintenance and adjust cluster sizing.",
+          "confidence": 0.8,
+          "method": "sample"
+        },
+        "recommendation": "Under configured growth assumptions, workload will exceed current thresholds. Plan partition maintenance and adjust cluster sizing.",
+        "confidence": 0.8,
+        "blocking": false,
+        "assumptions": {
+          "evidence_provenance": "PROJECTED",
+          "mode": "offline-fixture"
+        }
+      },
+      {
+        "finding_id": "SCALABILITY-006-driver-scalability-fail",
+        "rule_id": "SCALABILITY-006",
+        "name": "Driver Scalability Risk",
+        "title": "Driver Scalability Risk: FAIL",
+        "category": "scalability",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "description": "Evaluates driver-side materialization (collect, toPandas) in the context of scaled data volume.",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:28.111177+00:00",
+        "evidence": {
+          "rule_id": "SCALABILITY-006",
+          "status": "FAIL",
+          "severity": "HIGH",
+          "observed": {
+            "driver_materializations": 2,
+            "workload_volume_gb": 3072.0
+          },
+          "expected": {
+            "driver_materialization_at_scale": false
+          },
+          "evidence": [
+            "Driver-side materialization detected (2 collect/toPandas call(s)) combined with a substantial data workload (3072.0 GB)"
+          ],
+          "recommendation": "Replace `collect()` and `toPandas()` with distributed DataFrame transformations or write directly to storage to prevent driver OOM.",
+          "confidence": 0.9,
+          "method": "metadata"
+        },
+        "recommendation": "Replace `collect()` and `toPandas()` with distributed DataFrame transformations or write directly to storage to prevent driver OOM.",
+        "confidence": 0.9,
+        "blocking": false,
+        "assumptions": {
+          "evidence_provenance": "STATIC",
+          "mode": "offline-fixture"
+        }
+      },
+      {
+        "finding_id": "SCALABILITY-008-join-scalability-fail",
+        "rule_id": "SCALABILITY-008",
+        "name": "Join Scalability Risk",
+        "title": "Join Scalability Risk: FAIL",
+        "category": "scalability",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "description": "Evaluates join architecture to prevent Cartesian row explosion and unbounded shuffle joins at scale.",
+        "pipeline_name": "bad_production",
+        "timestamp": "2026-09-17T10:38:28.111177+00:00",
+        "evidence": {
+          "rule_id": "SCALABILITY-008",
+          "status": "FAIL",
+          "severity": "HIGH",
+          "observed": {
+            "cross_join_detected": true,
+            "workload_volume_gb": 3072.0,
+            "details": [
+              "PySpark crossJoin() call"
+            ]
+          },
+          "expected": {
+            "cross_join_at_scale": false
+          },
+          "evidence": [
+            "Cartesian cross join detected: PySpark crossJoin() call. At 3072.0 GB workload, Cartesian product produces severe scaling risk"
+          ],
+          "recommendation": "Eliminate Cartesian cross join: provide an explicit join key, apply strict pre-filtering, or use broadcast joins for tiny dimension tables.",
+          "confidence": 0.9,
+          "method": "metadata"
+        },
+        "recommendation": "Eliminate Cartesian cross join: provide an explicit join key, apply strict pre-filtering, or use broadcast joins for tiny dimension tables.",
+        "confidence": 0.9,
+        "blocking": false,
+        "assumptions": {
+          "evidence_provenance": "STATIC",
+          "mode": "offline-fixture"
+        }
+      }
+    ],
+    "warning_count": 8,
+    "unknown_count": 7,
+    "applicable_checkpoint_count": 19,
+    "passed_checkpoint_count": 1,
+    "failed_checkpoint_count": 6,
+    "unknown_checkpoint_count": 7,
+    "domain_assessments": {
+      "CP-001_source": "FAIL",
+      "CP-003_data": "UNKNOWN",
+      "CP-007_data": "UNKNOWN",
+      "CP-004_code": "FAIL",
+      "CP-008_performance": "UNKNOWN",
+      "CP-009_cluster": "UNKNOWN",
+      "CP-010_scalability": "FAIL",
+      "CP-011_job": "WARN",
+      "CP-012_pipeline": "FAIL",
+      "CP-013_reliability": "WARN",
+      "CP-014_reliability": "FAIL",
+      "CP-015_reliability": "WARN",
+      "CP-016_reliability": "WARN",
+      "CP-019_cost": "UNKNOWN",
+      "CP-020_security": "FAIL",
+      "CP-021_governance": "WARN",
+      "CP-022_data-quality": "PASS",
+      "CP-023_sla": "UNKNOWN",
+      "CP-024_readiness": "UNKNOWN"
+    },
+    "config_comparisons": [
+      {
+        "parameter": "Spark/DBR Version",
+        "domain": "Cluster",
+        "expected": null,
+        "implemented": null,
+        "actual": null,
+        "is_drift": false,
+        "drift_severity": "NONE",
+        "notes": ""
+      },
+      {
+        "parameter": "Worker Node Type",
+        "domain": "Cluster",
+        "expected": null,
+        "implemented": null,
+        "actual": null,
+        "is_drift": false,
+        "drift_severity": "NONE",
+        "notes": ""
+      },
+      {
+        "parameter": "Worker Count",
+        "domain": "Cluster",
+        "expected": null,
+        "implemented": null,
+        "actual": null,
+        "is_drift": false,
+        "drift_severity": "NONE",
+        "notes": ""
+      },
+      {
+        "parameter": "Daily Volume (GB)",
+        "domain": "Data",
+        "expected": 2048.0,
+        "implemented": 3072.0,
+        "actual": null,
+        "is_drift": false,
+        "drift_severity": "NONE",
+        "notes": "Volume observed from telemetry/profile"
+      },
+      {
+        "parameter": "Max Duration (Minutes)",
+        "domain": "SLA",
+        "expected": 60.0,
+        "implemented": 0.0,
+        "actual": null,
+        "is_drift": false,
+        "drift_severity": "NONE",
+        "notes": ""
+      }
+    ],
+    "cross_domain_risks": [
+      {
+        "risk_id": "XDOM-001",
+        "title": "Driver Memory Exhaustion Risk at Scale",
+        "severity": "CRITICAL",
+        "contributing_domains": [
+          "Code",
+          "Data",
+          "Scalability"
+        ],
+        "evidence_sources": [
+          "AST Code Analysis",
+          "Data Profile Metadata"
+        ],
+        "description": "Driver-side materialization (`collect`/`toPandas`) detected in pipeline code combined with a substantial data workload (3072.0 GB). Materializing distributed datasets to the Spark driver causes out-of-memory driver crashes.",
+        "recommendation": "Replace `collect()` and `toPandas()` with distributed DataFrame actions or write transformations directly to Delta lake.",
+        "confidence": 0.95
+      },
+      {
+        "risk_id": "XDOM-002",
+        "title": "Cartesian Product Scaling Risk",
+        "severity": "CRITICAL",
+        "contributing_domains": [
+          "Code",
+          "SQL",
+          "Data"
+        ],
+        "evidence_sources": [
+          "AST / SQL Parser",
+          "Data Profile"
+        ],
+        "description": "Cartesian cross join detected on a non-trivial workload (3072.0 GB). Unconstrained cross joins generate O(N*M) record explosions at scale, saturating executor disk and network.",
+        "recommendation": "Eliminate Cartesian joins: supply explicit join conditions with ON clauses or apply strict pre-filtering.",
+        "confidence": 0.95
+      },
+      {
+        "risk_id": "XDOM-003",
+        "title": "High Network Shuffle & Spill Risk",
+        "severity": "HIGH",
+        "contributing_domains": [
+          "Performance",
+          "Scalability"
+        ],
+        "evidence_sources": [
+          "Runtime Telemetry",
+          "Linear Projections"
+        ],
+        "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+        "recommendation": "Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering.",
+        "confidence": 0.85
+      },
+      {
+        "risk_id": "XDOM-004",
+        "title": "Peak Workload Capacity Headroom Risk",
+        "severity": "MEDIUM",
+        "contributing_domains": [
+          "Cluster",
+          "Scalability",
+          "Contract"
+        ],
+        "evidence_sources": [
+          "Cluster Config",
+          "Contract Declarations"
+        ],
+        "description": "Contractual peak ingestion burst exceeds baseline workload capacity on a fixed or constrained cluster configuration without empirical verification.",
+        "recommendation": "Enable cluster autoscaling or validate cluster worker memory sizing against peak ingestion bursts.",
+        "confidence": 0.8
+      }
+    ],
+    "runtime_summary": {},
+    "scalability_summary": {
+      "status": "FAIL",
+      "observations_count": 0
+    },
+    "sla_summary": {
+      "status": "UNKNOWN",
+      "max_runtime_minutes": 60.0
+    },
+    "security_summary": {
+      "status": "FAIL"
+    },
+    "reliability_summary": {
+      "retry_status": "FAIL",
+      "restart_status": "WARN",
+      "idempotency_status": "WARN"
+    },
+    "policy_version": "production-readiness-v1",
+    "framework_version": "1.0.0",
+    "generated_at": "2026-09-17T10:38:29.218010+00:00",
+    "connector_mode": "offline"
+  },
+  "decision_risk_synthesis": {
+    "final_decision": "NOT_PRODUCTION_READY",
+    "quality_score": 17.7,
+    "score_band": "CRITICAL",
+    "confidence": "LOW",
+    "decision_sufficiency": false,
+    "decision_explanation": [
+      "Blocked by [CRITICAL] Driver Collection Detection (Source: CODE-PYSPARK-001)",
+      "Blocked by [CRITICAL] Large Driver Collection Risk (Source: CODE-PYSPARK-006)",
+      "Blocked by [HIGH] Cartesian Cross Join Risk (Source: CODE-PYSPARK-019)"
+    ],
+    "score_override_reason": null,
+    "blockers": [
+      {
+        "blocker_id": "BLK-CODE-PYSPARK-001",
+        "title": "Driver Collection Detection",
+        "description": "Detect driver-side collection of distributed data.\n",
+        "source": "CODE-PYSPARK-001",
+        "category": "IMPLEMENTATION",
+        "severity": "CRITICAL",
+        "resolution_requirement": "Avoid collecting large distributed datasets to the driver.\n"
+      },
+      {
+        "blocker_id": "BLK-CODE-PYSPARK-006",
+        "title": "Large Driver Collection Risk",
+        "description": "Detect collect() calls evaluated against data evidence. An unrestricted collect() over a large input risks driver memory pressure/OOM, while the same call after limit() or on a small input is a qualified warning.\n",
+        "source": "CODE-PYSPARK-006",
+        "category": "IMPLEMENTATION",
+        "severity": "CRITICAL",
+        "resolution_requirement": "Potential large driver-side collection: materializing 2048 GB on the driver risks memory pressure/OOM; keep data distributed (write/aggregate) or bound the result."
+      },
+      {
+        "blocker_id": "BLK-CODE-PYSPARK-019",
+        "title": "Cartesian Cross Join Risk",
+        "description": "Detect crossJoin() or join(how=\"cross\"). Cartesian products produce multiplicative row growth (O(N*M)), leading to massive shuffles, performance degradation, and executor OOM.\n",
+        "source": "CODE-PYSPARK-019",
+        "category": "IMPLEMENTATION",
+        "severity": "HIGH",
+        "resolution_requirement": "Dangerous cross join over ~2048 GB: Cartesian product causes multiplicative row growth (O(N*M)) and catastrophic shuffle/OOM."
+      },
+      {
+        "blocker_id": "BLK-CODE-PYSPARK-007",
+        "title": "toPandas Large Data Risk",
+        "description": "Detect toPandas() calls evaluated against data evidence. A bounded toPandas() (e.g. after limit()) is a qualified warning; an unbounded call over a large input is high risk. toPandas() is not banned.\n",
+        "source": "CODE-PYSPARK-007",
+        "category": "IMPLEMENTATION",
+        "severity": "CRITICAL",
+        "resolution_requirement": "Potential large toPandas() over ~2048 GB: prefer distributed writes/aggregates or Arrow-based bounded transfer."
+      },
+      {
+        "blocker_id": "BLK-ALIGN-TARGET_STORAGE_FORMAT",
+        "title": "Blocking Configuration Drift: target_storage_format",
+        "description": "Expected='Format: delta' vs Implemented='Formats: parquet' vs Actual='UNKNOWN (table metadata uninspected)'",
+        "source": "ALIGN-TARGET_STORAGE_FORMAT",
+        "category": "CONFIGURATION_DRIFT",
+        "severity": "CRITICAL",
+        "resolution_requirement": "Align target_storage_format between pipeline contract, implementation, and Databricks runtime."
+      },
+      {
+        "blocker_id": "BLK-RISK-CODE-PYSPARK-001",
+        "title": "Driver Collection Detection",
+        "description": "Detect driver-side collection of distributed data.\n",
+        "source": "CODE-PYSPARK-001",
+        "category": "IMPLEMENTATION",
+        "severity": "CRITICAL",
+        "resolution_requirement": "Remediate Driver Collection Detection: Operational risk associated with Driver Collection Detection."
+      },
+      {
+        "blocker_id": "BLK-RISK-CODE-PYSPARK-006",
+        "title": "Large Driver Collection Risk",
+        "description": "Detect collect() calls evaluated against data evidence. An unrestricted collect() over a large input risks driver memory pressure/OOM, while the same call after limit() or on a small input is a qualified warning.\n",
+        "source": "CODE-PYSPARK-006",
+        "category": "IMPLEMENTATION",
+        "severity": "CRITICAL",
+        "resolution_requirement": "Remediate Large Driver Collection Risk: Operational risk associated with Large Driver Collection Risk."
+      },
+      {
+        "blocker_id": "BLK-RISK-CODE-PYSPARK-007",
+        "title": "toPandas Large Data Risk",
+        "description": "Detect toPandas() calls evaluated against data evidence. A bounded toPandas() (e.g. after limit()) is a qualified warning; an unbounded call over a large input is high risk. toPandas() is not banned.\n",
+        "source": "CODE-PYSPARK-007",
+        "category": "IMPLEMENTATION",
+        "severity": "CRITICAL",
+        "resolution_requirement": "Remediate toPandas Large Data Risk: Operational risk associated with toPandas Large Data Risk."
+      },
+      {
+        "blocker_id": "BLK-RISK-CODE-PYSPARK-019",
+        "title": "Cartesian Cross Join Risk",
+        "description": "Detect crossJoin() or join(how=\"cross\"). Cartesian products produce multiplicative row growth (O(N*M)), leading to massive shuffles, performance degradation, and executor OOM.\n",
+        "source": "CODE-PYSPARK-019",
+        "category": "IMPLEMENTATION",
+        "severity": "HIGH",
+        "resolution_requirement": "Remediate Cartesian Cross Join Risk: Operational risk associated with Cartesian Cross Join Risk."
+      },
+      {
+        "blocker_id": "BLK-RISK-ALIGN-TARGET_STORAGE_FORMAT",
+        "title": "Configuration Drift: target_storage_format",
+        "description": "Configuration divergence across layers on target_storage_format: Expected='Format: delta', Implemented='Formats: parquet', Actual='UNKNOWN (table metadata uninspected)'.",
+        "source": "ALIGN-TGT-001",
+        "category": "CONFIGURATION_DRIFT",
+        "severity": "CRITICAL",
+        "resolution_requirement": "Remediate Configuration Drift: target_storage_format: Runtime behavior and dependencies will diverge from declared pipeline contract."
+      },
+      {
+        "blocker_id": "BLK-RISK-XDOM-001",
+        "title": "Driver Memory Exhaustion Risk at Scale",
+        "description": "Driver-side materialization (`collect`/`toPandas`) detected in pipeline code combined with a substantial data workload (3072.0 GB). Materializing distributed datasets to the Spark driver causes out-of-memory driver crashes.",
+        "source": "XDOM-001",
+        "category": "OPERATIONAL",
+        "severity": "CRITICAL",
+        "resolution_requirement": "Remediate Driver Memory Exhaustion Risk at Scale: Replace `collect()` and `toPandas()` with distributed DataFrame actions or write transformations directly to Delta lake."
+      },
+      {
+        "blocker_id": "BLK-RISK-XDOM-002",
+        "title": "Cartesian Product Scaling Risk",
+        "description": "Cartesian cross join detected on a non-trivial workload (3072.0 GB). Unconstrained cross joins generate O(N*M) record explosions at scale, saturating executor disk and network.",
+        "source": "XDOM-002",
+        "category": "OPERATIONAL",
+        "severity": "CRITICAL",
+        "resolution_requirement": "Remediate Cartesian Product Scaling Risk: Eliminate Cartesian joins: supply explicit join conditions with ON clauses or apply strict pre-filtering."
+      },
+      {
+        "blocker_id": "BLK-RISK-XDOM-003",
+        "title": "High Network Shuffle & Spill Risk",
+        "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+        "source": "XDOM-003",
+        "category": "OPERATIONAL",
+        "severity": "HIGH",
+        "resolution_requirement": "Remediate High Network Shuffle & Spill Risk: Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering."
+      }
+    ],
+    "top_risks": [
+      {
+        "risk_id": "RISK-ALIGN-TARGET_STORAGE_FORMAT",
+        "category": "CONFIGURATION_DRIFT",
+        "severity": "CRITICAL",
+        "title": "Configuration Drift: target_storage_format",
+        "description": "Configuration divergence across layers on target_storage_format: Expected='Format: delta', Implemented='Formats: parquet', Actual='UNKNOWN (table metadata uninspected)'.",
+        "source_findings": [
+          "ALIGN-TGT-001"
+        ],
+        "affected_domains": [
+          "three_layer_alignment",
+          "target_storage_format"
+        ],
+        "blocking": true,
+        "consequence": "Runtime behavior and dependencies will diverge from declared pipeline contract.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "Expected: Format: delta",
+          "Implemented: Formats: parquet"
+        ]
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-001",
+        "category": "IMPLEMENTATION",
+        "severity": "CRITICAL",
+        "title": "Driver Collection Detection",
+        "description": "Detect driver-side collection of distributed data.\n",
+        "source_findings": [
+          "CODE-PYSPARK-001"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": true,
+        "consequence": "Operational risk associated with Driver Collection Detection.",
+        "confidence": "HIGH",
+        "evidence_provenance": []
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-006",
+        "category": "IMPLEMENTATION",
+        "severity": "CRITICAL",
+        "title": "Large Driver Collection Risk",
+        "description": "Detect collect() calls evaluated against data evidence. An unrestricted collect() over a large input risks driver memory pressure/OOM, while the same call after limit() or on a small input is a qualified warning.\n",
+        "source_findings": [
+          "CODE-PYSPARK-006"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": true,
+        "consequence": "Operational risk associated with Large Driver Collection Risk.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:9 `df.collect()`",
+          "Expected input: 2048 GB/day"
+        ]
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-007",
+        "category": "IMPLEMENTATION",
+        "severity": "CRITICAL",
+        "title": "toPandas Large Data Risk",
+        "description": "Detect toPandas() calls evaluated against data evidence. A bounded toPandas() (e.g. after limit()) is a qualified warning; an unbounded call over a large input is high risk. toPandas() is not banned.\n",
+        "source_findings": [
+          "CODE-PYSPARK-007"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": true,
+        "consequence": "Operational risk associated with toPandas Large Data Risk.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:12 `df.toPandas()`",
+          "Expected input: 2048 GB/day"
+        ]
+      },
+      {
+        "risk_id": "RISK-XDOM-001",
+        "category": "OPERATIONAL",
+        "severity": "CRITICAL",
+        "title": "Driver Memory Exhaustion Risk at Scale",
+        "description": "Driver-side materialization (`collect`/`toPandas`) detected in pipeline code combined with a substantial data workload (3072.0 GB). Materializing distributed datasets to the Spark driver causes out-of-memory driver crashes.",
+        "source_findings": [
+          "XDOM-001"
+        ],
+        "affected_domains": [
+          "Code",
+          "Data",
+          "Scalability"
+        ],
+        "blocking": true,
+        "consequence": "Replace `collect()` and `toPandas()` with distributed DataFrame actions or write transformations directly to Delta lake.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "AST Code Analysis",
+          "Data Profile Metadata"
+        ]
+      }
+    ],
+    "all_risks": [
+      {
+        "risk_id": "RISK-SOURCE-002",
+        "category": "OPERATIONAL",
+        "severity": "HIGH",
+        "title": "Missing Incremental Strategy",
+        "description": "Flag large-volume sources with no incremental ingestion evidence (no incremental/CDC/streaming mode and no watermark, CDC, checkpoint, or partitioning evidence).\n",
+        "source_findings": [
+          "SOURCE-002"
+        ],
+        "affected_domains": [
+          "source"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Missing Incremental Strategy.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "evidence source: fixture metadata",
+          "collection method: fixture"
+        ]
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-001",
+        "category": "IMPLEMENTATION",
+        "severity": "CRITICAL",
+        "title": "Driver Collection Detection",
+        "description": "Detect driver-side collection of distributed data.\n",
+        "source_findings": [
+          "CODE-PYSPARK-001"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": true,
+        "consequence": "Operational risk associated with Driver Collection Detection.",
+        "confidence": "HIGH",
+        "evidence_provenance": []
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-002",
+        "category": "IMPLEMENTATION",
+        "severity": "HIGH",
+        "title": "Pandas UDF Misuse Detection",
+        "description": "Detect use of Pandas UDF where native Spark UDF would be more appropriate.\n",
+        "source_findings": [
+          "CODE-PYSPARK-002"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Pandas UDF Misuse Detection.",
+        "confidence": "HIGH",
+        "evidence_provenance": []
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-003",
+        "category": "IMPLEMENTATION",
+        "severity": "HIGH",
+        "title": "Show() in Production Path Detection",
+        "description": "Detect show() or take() calls in production pipeline code paths.\n",
+        "source_findings": [
+          "CODE-PYSPARK-003"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Show() in Production Path Detection.",
+        "confidence": "HIGH",
+        "evidence_provenance": []
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-004",
+        "category": "IMPLEMENTATION",
+        "severity": "MEDIUM",
+        "title": "CrossJoin Detection",
+        "description": "Detect crossJoin operations which can produce cartesian products.\n",
+        "source_findings": [
+          "CODE-PYSPARK-004"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with CrossJoin Detection.",
+        "confidence": "HIGH",
+        "evidence_provenance": []
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-005",
+        "category": "IMPLEMENTATION",
+        "severity": "HIGH",
+        "title": "Hard-coded Path Detection",
+        "description": "Detect hard-coded file paths in pipeline code.\n",
+        "source_findings": [
+          "CODE-PYSPARK-005"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Hard-coded Path Detection.",
+        "confidence": "HIGH",
+        "evidence_provenance": []
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-006",
+        "category": "IMPLEMENTATION",
+        "severity": "CRITICAL",
+        "title": "Large Driver Collection Risk",
+        "description": "Detect collect() calls evaluated against data evidence. An unrestricted collect() over a large input risks driver memory pressure/OOM, while the same call after limit() or on a small input is a qualified warning.\n",
+        "source_findings": [
+          "CODE-PYSPARK-006"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": true,
+        "consequence": "Operational risk associated with Large Driver Collection Risk.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:9 `df.collect()`",
+          "Expected input: 2048 GB/day"
+        ]
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-007",
+        "category": "IMPLEMENTATION",
+        "severity": "CRITICAL",
+        "title": "toPandas Large Data Risk",
+        "description": "Detect toPandas() calls evaluated against data evidence. A bounded toPandas() (e.g. after limit()) is a qualified warning; an unbounded call over a large input is high risk. toPandas() is not banned.\n",
+        "source_findings": [
+          "CODE-PYSPARK-007"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": true,
+        "consequence": "Operational risk associated with toPandas Large Data Risk.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:12 `df.toPandas()`",
+          "Expected input: 2048 GB/day"
+        ]
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-008",
+        "category": "IMPLEMENTATION",
+        "severity": "HIGH",
+        "title": "Potential Large Shuffle",
+        "description": "Flag shuffle-class operations (groupBy, distinct, repartition, orderBy, large joins, windows) over sizable inputs as potential shuffle risk. Static analysis cannot prove shuffle volume, so findings are WARN only.\n",
+        "source_findings": [
+          "CODE-PYSPARK-008"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Potential Large Shuffle.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:23 `df.crossJoin(df.limit(100))`",
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:32 `df.repartition(200)`"
+        ]
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-009",
+        "category": "IMPLEMENTATION",
+        "severity": "MEDIUM",
+        "title": "Potential Excessive Repartition",
+        "description": "Flag repeated repartition() calls on one DataFrame or unnecessarily large literal partition counts. A single reasonable repartition is not flagged.\n",
+        "source_findings": [
+          "CODE-PYSPARK-009"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Potential Excessive Repartition.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:33 `huge.repartition(50)`",
+          "Expected input: 2048 GB/day"
+        ]
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-011",
+        "category": "IMPLEMENTATION",
+        "severity": "MEDIUM",
+        "title": "Unjustified Cache",
+        "description": "Flag cache()/persist() where static analysis shows no demonstrated reuse of the cached DataFrame. Reused frames are not flagged, and no runtime benefit is ever claimed without runtime evidence.\n",
+        "source_findings": [
+          "CODE-PYSPARK-011"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Unjustified Cache.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:43 `df.cache()`",
+          "Expected input: 2048 GB/day"
+        ]
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-012",
+        "category": "IMPLEMENTATION",
+        "severity": "MEDIUM",
+        "title": "Repeated Spark Action",
+        "description": "Flag multiple actions (count/collect/take/show/write) on one DataFrame, which may require additional computation. count() alone is never bad.\n",
+        "source_findings": [
+          "CODE-PYSPARK-012"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Repeated Spark Action.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:12 `df.toPandas()`",
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:20 `df2.take(5)`"
+        ]
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-013",
+        "category": "IMPLEMENTATION",
+        "severity": "MEDIUM",
+        "title": "Large Dataset Global Sort",
+        "description": "Flag global orderBy()/sort() over large inputs as a potential performance warning \u2014 never a definite failure without runtime evidence.\n",
+        "source_findings": [
+          "CODE-PYSPARK-013"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Large Dataset Global Sort.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:36 `huge.orderBy(\"name\")`",
+          "Expected input: 2048 GB/day"
+        ]
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-017",
+        "category": "IMPLEMENTATION",
+        "severity": "HIGH",
+        "title": "User Defined Function (UDF) Overhead Risk",
+        "description": "Detect Python and Pandas UDF usages. Standard Python UDFs force row-by-row serialization across the Python-JVM boundary, incurring severe performance penalties on large datasets. Prefer native Spark SQL/DataFrame expressions or vectorized Pandas UDFs.\n",
+        "source_findings": [
+          "CODE-PYSPARK-017"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with User Defined Function (UDF) Overhead Risk.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:15 `udf(lambda s: s.upper(), StringType())`",
+          "Expected input: 2048 GB/day"
+        ]
+      },
+      {
+        "risk_id": "RISK-CODE-PYSPARK-019",
+        "category": "IMPLEMENTATION",
+        "severity": "HIGH",
+        "title": "Cartesian Cross Join Risk",
+        "description": "Detect crossJoin() or join(how=\"cross\"). Cartesian products produce multiplicative row growth (O(N*M)), leading to massive shuffles, performance degradation, and executor OOM.\n",
+        "source_findings": [
+          "CODE-PYSPARK-019"
+        ],
+        "affected_domains": [
+          "code"
+        ],
+        "blocking": true,
+        "consequence": "Operational risk associated with Cartesian Cross Join Risk.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:23 `df.crossJoin(df.limit(100))`",
+          "Expected input: 2048 GB/day"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-003",
+        "category": "SCALABILITY",
+        "severity": "HIGH",
+        "title": "Data Growth Risk: FAIL",
+        "description": "Calculates deterministic compound data growth projections over the forecast horizon.",
+        "source_findings": [
+          "SCALABILITY-003"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "Configured growth rate (15.0%) projects data volume to expand from 3072.0 GB to 4062.7 GB over the forecast horizon"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-006",
+        "category": "SCALABILITY",
+        "severity": "HIGH",
+        "title": "Driver Scalability Risk: FAIL",
+        "description": "Evaluates driver-side materialization (collect, toPandas) in the context of scaled data volume.",
+        "source_findings": [
+          "SCALABILITY-006"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "Driver-side materialization detected (2 collect/toPandas call(s)) combined with a substantial data workload (3072.0 GB)"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-007",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Shuffle Scalability Risk: UNKNOWN",
+        "description": "Projects shuffle volume growth under scaled workload conditions to anticipate disk spill and network saturation.",
+        "source_findings": [
+          "SCALABILITY-007"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "No runtime execution telemetry available to project shuffle scalability"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-008",
+        "category": "SCALABILITY",
+        "severity": "HIGH",
+        "title": "Join Scalability Risk: FAIL",
+        "description": "Evaluates join architecture to prevent Cartesian row explosion and unbounded shuffle joins at scale.",
+        "source_findings": [
+          "SCALABILITY-008"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "Cartesian cross join detected: PySpark crossJoin() call. At 3072.0 GB workload, Cartesian product produces severe scaling risk"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-010",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Cluster Capacity Risk: UNKNOWN",
+        "description": "Evaluates whether cluster worker sizing provides sufficient compute capacity for projected peak workloads.",
+        "source_findings": [
+          "SCALABILITY-010"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Cluster configuration metadata is unavailable to evaluate compute capacity"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-011",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Autoscaling Boundary Risk: UNKNOWN",
+        "description": "Assesses autoscaling upper boundaries against peak workload expansion multipliers.",
+        "source_findings": [
+          "SCALABILITY-011"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Cluster configuration is unavailable to evaluate autoscaling boundaries"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-012",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "SLA Scalability Risk: UNKNOWN",
+        "description": "Compares projected execution duration at peak workload against contractual SLA boundaries under explicit projection assumptions.",
+        "source_findings": [
+          "SCALABILITY-012"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "No runtime execution telemetry available to project SLA compliance at scale"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-013",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Runtime Regression at Scale: UNKNOWN",
+        "description": "Evaluates empirical historical run telemetry to detect super-linear runtime expansion relative to data volume growth.",
+        "source_findings": [
+          "SCALABILITY-013"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Empirical trend analysis requires at least 2 distinct historical execution runs"
+        ]
+      },
+      {
+        "risk_id": "RISK-SCALABILITY-014",
+        "category": "SCALABILITY",
+        "severity": "INFO",
+        "title": "Reliability Degradation at Scale: UNKNOWN",
+        "description": "Evaluates whether task failure rates, executor evictions, or memory spills correlate with increased workload volume.",
+        "source_findings": [
+          "SCALABILITY-014"
+        ],
+        "affected_domains": [
+          "scalability"
+        ],
+        "blocking": false,
+        "consequence": "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Reliability degradation analysis requires at least 2 historical runs"
+        ]
+      },
+      {
+        "risk_id": "RISK-CONFIG-JOB-001",
+        "category": "OPERATIONAL",
+        "severity": "HIGH",
+        "title": "Missing Retry Configuration",
+        "description": "Detects production jobs or tasks without retry configuration where resilience is required.",
+        "source_findings": [
+          "CONFIG-JOB-001"
+        ],
+        "affected_domains": [
+          "job"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Missing Retry Configuration.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "Job has 0 retries (expected >= 1)"
+        ]
+      },
+      {
+        "risk_id": "RISK-CONFIG-JOB-002",
+        "category": "OPERATIONAL",
+        "severity": "MEDIUM",
+        "title": "Missing Task Timeout",
+        "description": "Detects production tasks without an explicit timeout configured.",
+        "source_findings": [
+          "CONFIG-JOB-002"
+        ],
+        "affected_domains": [
+          "job"
+        ],
+        "blocking": false,
+        "consequence": "Operational risk associated with Missing Task Timeout.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "Job has timeout 0s (expected >= 60s)"
+        ]
+      },
+      {
+        "risk_id": "RISK-ALIGN-TARGET_STORAGE_FORMAT",
+        "category": "CONFIGURATION_DRIFT",
+        "severity": "CRITICAL",
+        "title": "Configuration Drift: target_storage_format",
+        "description": "Configuration divergence across layers on target_storage_format: Expected='Format: delta', Implemented='Formats: parquet', Actual='UNKNOWN (table metadata uninspected)'.",
+        "source_findings": [
+          "ALIGN-TGT-001"
+        ],
+        "affected_domains": [
+          "three_layer_alignment",
+          "target_storage_format"
+        ],
+        "blocking": true,
+        "consequence": "Runtime behavior and dependencies will diverge from declared pipeline contract.",
+        "confidence": "HIGH",
+        "evidence_provenance": [
+          "Expected: Format: delta",
+          "Implemented: Formats: parquet"
+        ]
+      },
+      {
+        "risk_id": "RISK-XDOM-001",
+        "category": "OPERATIONAL",
+        "severity": "CRITICAL",
+        "title": "Driver Memory Exhaustion Risk at Scale",
+        "description": "Driver-side materialization (`collect`/`toPandas`) detected in pipeline code combined with a substantial data workload (3072.0 GB). Materializing distributed datasets to the Spark driver causes out-of-memory driver crashes.",
+        "source_findings": [
+          "XDOM-001"
+        ],
+        "affected_domains": [
+          "Code",
+          "Data",
+          "Scalability"
+        ],
+        "blocking": true,
+        "consequence": "Replace `collect()` and `toPandas()` with distributed DataFrame actions or write transformations directly to Delta lake.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "AST Code Analysis",
+          "Data Profile Metadata"
+        ]
+      },
+      {
+        "risk_id": "RISK-XDOM-002",
+        "category": "OPERATIONAL",
+        "severity": "CRITICAL",
+        "title": "Cartesian Product Scaling Risk",
+        "description": "Cartesian cross join detected on a non-trivial workload (3072.0 GB). Unconstrained cross joins generate O(N*M) record explosions at scale, saturating executor disk and network.",
+        "source_findings": [
+          "XDOM-002"
+        ],
+        "affected_domains": [
+          "Code",
+          "SQL",
+          "Data"
+        ],
+        "blocking": true,
+        "consequence": "Eliminate Cartesian joins: supply explicit join conditions with ON clauses or apply strict pre-filtering.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "AST / SQL Parser",
+          "Data Profile"
+        ]
+      },
+      {
+        "risk_id": "RISK-XDOM-003",
+        "category": "OPERATIONAL",
+        "severity": "HIGH",
+        "title": "High Network Shuffle & Spill Risk",
+        "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+        "source_findings": [
+          "XDOM-003"
+        ],
+        "affected_domains": [
+          "Performance",
+          "Scalability"
+        ],
+        "blocking": true,
+        "consequence": "Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Runtime Telemetry",
+          "Linear Projections"
+        ]
+      },
+      {
+        "risk_id": "RISK-XDOM-004",
+        "category": "OPERATIONAL",
+        "severity": "MEDIUM",
+        "title": "Peak Workload Capacity Headroom Risk",
+        "description": "Contractual peak ingestion burst exceeds baseline workload capacity on a fixed or constrained cluster configuration without empirical verification.",
+        "source_findings": [
+          "XDOM-004"
+        ],
+        "affected_domains": [
+          "Cluster",
+          "Scalability",
+          "Contract"
+        ],
+        "blocking": false,
+        "consequence": "Enable cluster autoscaling or validate cluster worker memory sizing against peak ingestion bursts.",
+        "confidence": "MEDIUM",
+        "evidence_provenance": [
+          "Cluster Config",
+          "Contract Declarations"
+        ]
+      },
+      {
+        "risk_id": "RISK-SUFF-SLA_COMPLIANCE",
+        "category": "EVIDENCE",
+        "severity": "MEDIUM",
+        "title": "Insufficient Evidence: SLA_COMPLIANCE",
+        "description": "SLA compliance cannot be determined without runtime duration telemetry.",
+        "source_findings": [
+          "DECISION-SLA_COMPLIANCE"
+        ],
+        "affected_domains": [
+          "sla"
+        ],
+        "blocking": false,
+        "consequence": "Pipeline behavior under production conditions cannot be certified safe.",
+        "confidence": "INSUFFICIENT",
+        "evidence_provenance": [
+          "Runtime execution duration telemetry"
+        ]
+      },
+      {
+        "risk_id": "RISK-SUFF-IDEMPOTENCY_SAFETY",
+        "category": "EVIDENCE",
+        "severity": "MEDIUM",
+        "title": "Insufficient Evidence: IDEMPOTENCY_SAFETY",
+        "description": "MERGE key stability/uniqueness unproven; idempotency cannot be certified safe.",
+        "source_findings": [
+          "DECISION-IDEMPOTENCY_SAFETY"
+        ],
+        "affected_domains": [
+          "rerun_idempotency"
+        ],
+        "blocking": false,
+        "consequence": "Pipeline behavior under production conditions cannot be certified safe.",
+        "confidence": "INSUFFICIENT",
+        "evidence_provenance": [
+          "Key uniqueness proof",
+          "Source deduplication evidence"
+        ]
+      },
+      {
+        "risk_id": "RISK-SUFF-COST_VIABILITY",
+        "category": "EVIDENCE",
+        "severity": "MEDIUM",
+        "title": "Insufficient Evidence: COST_VIABILITY",
+        "description": "Cost projection unavailable in offline static analysis without DBU consumption telemetry.",
+        "source_findings": [
+          "DECISION-COST_VIABILITY"
+        ],
+        "affected_domains": [
+          "cost"
+        ],
+        "blocking": false,
+        "consequence": "Pipeline behavior under production conditions cannot be certified safe.",
+        "confidence": "INSUFFICIENT",
+        "evidence_provenance": [
+          "DBU consumption rate",
+          "Pricing tier metadata"
+        ]
+      }
+    ],
+    "risk_chains": [
+      {
+        "chain_id": "CHAIN-001",
+        "title": "Append Write Mode + Job Retry Data Duplication Chain",
+        "steps": [
+          "Pipeline write mode configured as APPEND without explicit transaction boundaries",
+          "Automated job retries or task re-attempts enabled in job cluster specification",
+          "Absence of target key uniqueness constraints or pre-write source deduplication",
+          "Transient failure triggers automatic batch re-execution",
+          "Duplicate records written to target table, silently inflating downstream aggregations"
+        ],
+        "root_cause": "Unprotected APPEND write mode coupled with automated job retry",
+        "ultimate_impact": "Data duplication and corruption of target reporting tables",
+        "source_findings": [
+          "RER-DUP-001",
+          "RER-RET-001"
+        ]
+      },
+      {
+        "chain_id": "CHAIN-002",
+        "title": "Workload Surge & Network Shuffle Spill Chain",
+        "steps": [
+          "Contract defines 2x-5x peak ingestion volume burst",
+          "Source dataset lacks partitioning or query contains unkeyed wide transformation",
+          "Worker nodes execute massive all-to-all network shuffle under peak load",
+          "Executor heap memory exhausted, forcing intermediate partitions to disk spill",
+          "Pipeline experiences severe performance degradation or executor out-of-memory crashes"
+        ],
+        "root_cause": "Wide transformations on unpartitioned volume under peak workload bursts",
+        "ultimate_impact": "Task eviction, executor spill, and potential SLA violation",
+        "source_findings": [
+          "SCALABILITY-002",
+          "SCALABILITY-007"
+        ]
+      },
+      {
+        "chain_id": "CHAIN-003",
+        "title": "Three-Layer Configuration Drift Incompatibility Chain",
+        "steps": [
+          "Contract establishes canonical runtime version and cluster sizing",
+          "Code implementation or active Databricks workspace environment deviates from contract",
+          "Incompatible Databricks Runtime (DBR) or driver/worker memory limits applied",
+          "Pipeline experiences runtime class-path divergence or unexpected cluster throttling"
+        ],
+        "root_cause": "Unsynchronized configuration changes across contract, code, and live workspace",
+        "ultimate_impact": "Deployment failure or operational drift in production",
+        "source_findings": [
+          "ALIGN-COMPUTE_RUNTIME",
+          "ALIGN-CLUSTER_TOPOLOGY"
+        ]
+      },
+      {
+        "chain_id": "CHAIN-004",
+        "title": "Offline Telemetry & SLA Uncertainty Chain",
+        "steps": [
+          "Offline static code and contract validation performed without active Spark event logs",
+          "Observed runtime execution duration, task metrics, and memory spill remain UNKNOWN",
+          "SLA compliance and cost viability cannot be empirically certified",
+          "Production release must remain CONDITIONAL or INSUFFICIENT pending telemetry"
+        ],
+        "root_cause": "Absence of runtime execution event logs and Spark telemetry in offline mode",
+        "ultimate_impact": "Inability to certify SLA compliance and cost boundaries prior to release",
+        "source_findings": [
+          "CP-008",
+          "CP-023"
+        ]
+      }
+    ],
+    "missing_evidence": [
+      "Observed runtime duration telemetry",
+      "Explicit contract key uniqueness declaration or source deduplication key",
+      "Databricks Unit (DBU) consumption rates and pricing tier metadata",
+      "Cluster specification containing node types, worker count or autoscale range",
+      "Observed runtime execution duration and task telemetry",
+      "At least 2 historical execution runs for trend and regression analysis",
+      "Explicit contract uniqueness declaration or source deduplication key evidence",
+      "CP-003: No contract source or schema definition available.",
+      "CP-007: Blocked: dependency FAILED; result UNKNOWN (not PASS).",
+      "CP-008: No runtime execution metrics or event log available for performance validation.",
+      "CP-009: No cluster configuration available.",
+      "CP-019: No DBU/pricing information available; cost analysis unavailable.",
+      "CP-023: No runtime metrics available; SLA comparison requires actual/projected runtimes."
+    ],
+    "remediations": [
+      {
+        "remediation_id": "REM-BLK-CODE-PYSPARK-001",
+        "priority": "P0",
+        "severity": "CRITICAL",
+        "category": "IMPLEMENTATION",
+        "title": "Resolve Blocker: Driver Collection Detection",
+        "description": "Detect driver-side collection of distributed data.\n",
+        "source_findings": [
+          "CODE-PYSPARK-001"
+        ],
+        "required_evidence": [
+          "Avoid collecting large distributed datasets to the driver.\n"
+        ],
+        "expected_outcome": "Removes production deployment blocker."
+      },
+      {
+        "remediation_id": "REM-BLK-CODE-PYSPARK-006",
+        "priority": "P0",
+        "severity": "CRITICAL",
+        "category": "IMPLEMENTATION",
+        "title": "Resolve Blocker: Large Driver Collection Risk",
+        "description": "Detect collect() calls evaluated against data evidence. An unrestricted collect() over a large input risks driver memory pressure/OOM, while the same call after limit() or on a small input is a qualified warning.\n",
+        "source_findings": [
+          "CODE-PYSPARK-006"
+        ],
+        "required_evidence": [
+          "Potential large driver-side collection: materializing 2048 GB on the driver risks memory pressure/OOM; keep data distributed (write/aggregate) or bound the result."
+        ],
+        "expected_outcome": "Removes production deployment blocker."
+      },
+      {
+        "remediation_id": "REM-BLK-CODE-PYSPARK-019",
+        "priority": "P0",
+        "severity": "HIGH",
+        "category": "IMPLEMENTATION",
+        "title": "Resolve Blocker: Cartesian Cross Join Risk",
+        "description": "Detect crossJoin() or join(how=\"cross\"). Cartesian products produce multiplicative row growth (O(N*M)), leading to massive shuffles, performance degradation, and executor OOM.\n",
+        "source_findings": [
+          "CODE-PYSPARK-019"
+        ],
+        "required_evidence": [
+          "Dangerous cross join over ~2048 GB: Cartesian product causes multiplicative row growth (O(N*M)) and catastrophic shuffle/OOM."
+        ],
+        "expected_outcome": "Removes production deployment blocker."
+      },
+      {
+        "remediation_id": "REM-BLK-CODE-PYSPARK-007",
+        "priority": "P0",
+        "severity": "CRITICAL",
+        "category": "IMPLEMENTATION",
+        "title": "Resolve Blocker: toPandas Large Data Risk",
+        "description": "Detect toPandas() calls evaluated against data evidence. A bounded toPandas() (e.g. after limit()) is a qualified warning; an unbounded call over a large input is high risk. toPandas() is not banned.\n",
+        "source_findings": [
+          "CODE-PYSPARK-007"
+        ],
+        "required_evidence": [
+          "Potential large toPandas() over ~2048 GB: prefer distributed writes/aggregates or Arrow-based bounded transfer."
+        ],
+        "expected_outcome": "Removes production deployment blocker."
+      },
+      {
+        "remediation_id": "REM-BLK-ALIGN-TARGET_STORAGE_FORMAT",
+        "priority": "P0",
+        "severity": "CRITICAL",
+        "category": "CONFIGURATION_DRIFT",
+        "title": "Resolve Blocker: Blocking Configuration Drift: target_storage_format",
+        "description": "Expected='Format: delta' vs Implemented='Formats: parquet' vs Actual='UNKNOWN (table metadata uninspected)'",
+        "source_findings": [
+          "ALIGN-TARGET_STORAGE_FORMAT"
+        ],
+        "required_evidence": [
+          "Align target_storage_format between pipeline contract, implementation, and Databricks runtime."
+        ],
+        "expected_outcome": "Removes production deployment blocker."
+      },
+      {
+        "remediation_id": "REM-BLK-RISK-ALIGN-TARGET_STORAGE_FORMAT",
+        "priority": "P0",
+        "severity": "CRITICAL",
+        "category": "CONFIGURATION_DRIFT",
+        "title": "Resolve Blocker: Configuration Drift: target_storage_format",
+        "description": "Configuration divergence across layers on target_storage_format: Expected='Format: delta', Implemented='Formats: parquet', Actual='UNKNOWN (table metadata uninspected)'.",
+        "source_findings": [
+          "ALIGN-TGT-001"
+        ],
+        "required_evidence": [
+          "Remediate Configuration Drift: target_storage_format: Runtime behavior and dependencies will diverge from declared pipeline contract."
+        ],
+        "expected_outcome": "Removes production deployment blocker."
+      },
+      {
+        "remediation_id": "REM-BLK-RISK-XDOM-001",
+        "priority": "P0",
+        "severity": "CRITICAL",
+        "category": "OPERATIONAL",
+        "title": "Resolve Blocker: Driver Memory Exhaustion Risk at Scale",
+        "description": "Driver-side materialization (`collect`/`toPandas`) detected in pipeline code combined with a substantial data workload (3072.0 GB). Materializing distributed datasets to the Spark driver causes out-of-memory driver crashes.",
+        "source_findings": [
+          "XDOM-001"
+        ],
+        "required_evidence": [
+          "Remediate Driver Memory Exhaustion Risk at Scale: Replace `collect()` and `toPandas()` with distributed DataFrame actions or write transformations directly to Delta lake."
+        ],
+        "expected_outcome": "Removes production deployment blocker."
+      },
+      {
+        "remediation_id": "REM-BLK-RISK-XDOM-002",
+        "priority": "P0",
+        "severity": "CRITICAL",
+        "category": "OPERATIONAL",
+        "title": "Resolve Blocker: Cartesian Product Scaling Risk",
+        "description": "Cartesian cross join detected on a non-trivial workload (3072.0 GB). Unconstrained cross joins generate O(N*M) record explosions at scale, saturating executor disk and network.",
+        "source_findings": [
+          "XDOM-002"
+        ],
+        "required_evidence": [
+          "Remediate Cartesian Product Scaling Risk: Eliminate Cartesian joins: supply explicit join conditions with ON clauses or apply strict pre-filtering."
+        ],
+        "expected_outcome": "Removes production deployment blocker."
+      },
+      {
+        "remediation_id": "REM-BLK-RISK-XDOM-003",
+        "priority": "P0",
+        "severity": "HIGH",
+        "category": "OPERATIONAL",
+        "title": "Resolve Blocker: High Network Shuffle & Spill Risk",
+        "description": "Observed or projected shuffle volume exceeds safe network thresholds, causing executor memory spill to disk and stage stragglers.",
+        "source_findings": [
+          "XDOM-003"
+        ],
+        "required_evidence": [
+          "Remediate High Network Shuffle & Spill Risk: Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, and avoid wide transformations before filtering."
+        ],
+        "expected_outcome": "Removes production deployment blocker."
+      },
+      {
+        "remediation_id": "REM-RISK-SOURCE-002",
+        "priority": "P1",
+        "severity": "HIGH",
+        "category": "OPERATIONAL",
+        "title": "Mitigate High Risk: Missing Incremental Strategy",
+        "description": "Flag large-volume sources with no incremental ingestion evidence (no incremental/CDC/streaming mode and no watermark, CDC, checkpoint, or partitioning evidence).\n",
+        "source_findings": [
+          "SOURCE-002"
+        ],
+        "required_evidence": [
+          "evidence source: fixture metadata",
+          "collection method: fixture"
+        ],
+        "expected_outcome": "Eliminates high operational or data integrity risk."
+      },
+      {
+        "remediation_id": "REM-RISK-CODE-PYSPARK-002",
+        "priority": "P1",
+        "severity": "HIGH",
+        "category": "IMPLEMENTATION",
+        "title": "Mitigate High Risk: Pandas UDF Misuse Detection",
+        "description": "Detect use of Pandas UDF where native Spark UDF would be more appropriate.\n",
+        "source_findings": [
+          "CODE-PYSPARK-002"
+        ],
+        "required_evidence": [
+          "Operational risk associated with Pandas UDF Misuse Detection."
+        ],
+        "expected_outcome": "Eliminates high operational or data integrity risk."
+      },
+      {
+        "remediation_id": "REM-RISK-CODE-PYSPARK-003",
+        "priority": "P1",
+        "severity": "HIGH",
+        "category": "IMPLEMENTATION",
+        "title": "Mitigate High Risk: Show() in Production Path Detection",
+        "description": "Detect show() or take() calls in production pipeline code paths.\n",
+        "source_findings": [
+          "CODE-PYSPARK-003"
+        ],
+        "required_evidence": [
+          "Operational risk associated with Show() in Production Path Detection."
+        ],
+        "expected_outcome": "Eliminates high operational or data integrity risk."
+      },
+      {
+        "remediation_id": "REM-RISK-CODE-PYSPARK-005",
+        "priority": "P1",
+        "severity": "HIGH",
+        "category": "IMPLEMENTATION",
+        "title": "Mitigate High Risk: Hard-coded Path Detection",
+        "description": "Detect hard-coded file paths in pipeline code.\n",
+        "source_findings": [
+          "CODE-PYSPARK-005"
+        ],
+        "required_evidence": [
+          "Operational risk associated with Hard-coded Path Detection."
+        ],
+        "expected_outcome": "Eliminates high operational or data integrity risk."
+      },
+      {
+        "remediation_id": "REM-RISK-CODE-PYSPARK-008",
+        "priority": "P1",
+        "severity": "HIGH",
+        "category": "IMPLEMENTATION",
+        "title": "Mitigate High Risk: Potential Large Shuffle",
+        "description": "Flag shuffle-class operations (groupBy, distinct, repartition, orderBy, large joins, windows) over sizable inputs as potential shuffle risk. Static analysis cannot prove shuffle volume, so findings are WARN only.\n",
+        "source_findings": [
+          "CODE-PYSPARK-008"
+        ],
+        "required_evidence": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:23 `df.crossJoin(df.limit(100))`",
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:32 `df.repartition(200)`"
+        ],
+        "expected_outcome": "Eliminates high operational or data integrity risk."
+      },
+      {
+        "remediation_id": "REM-RISK-CODE-PYSPARK-017",
+        "priority": "P1",
+        "severity": "HIGH",
+        "category": "IMPLEMENTATION",
+        "title": "Mitigate High Risk: User Defined Function (UDF) Overhead Risk",
+        "description": "Detect Python and Pandas UDF usages. Standard Python UDFs force row-by-row serialization across the Python-JVM boundary, incurring severe performance penalties on large datasets. Prefer native Spark SQL/DataFrame expressions or vectorized Pandas UDFs.\n",
+        "source_findings": [
+          "CODE-PYSPARK-017"
+        ],
+        "required_evidence": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:15 `udf(lambda s: s.upper(), StringType())`",
+          "Expected input: 2048 GB/day"
+        ],
+        "expected_outcome": "Eliminates high operational or data integrity risk."
+      },
+      {
+        "remediation_id": "REM-RISK-SCALABILITY-003",
+        "priority": "P1",
+        "severity": "HIGH",
+        "category": "SCALABILITY",
+        "title": "Mitigate High Risk: Data Growth Risk: FAIL",
+        "description": "Calculates deterministic compound data growth projections over the forecast horizon.",
+        "source_findings": [
+          "SCALABILITY-003"
+        ],
+        "required_evidence": [
+          "Configured growth rate (15.0%) projects data volume to expand from 3072.0 GB to 4062.7 GB over the forecast horizon"
+        ],
+        "expected_outcome": "Eliminates high operational or data integrity risk."
+      },
+      {
+        "remediation_id": "REM-RISK-SCALABILITY-006",
+        "priority": "P1",
+        "severity": "HIGH",
+        "category": "SCALABILITY",
+        "title": "Mitigate High Risk: Driver Scalability Risk: FAIL",
+        "description": "Evaluates driver-side materialization (collect, toPandas) in the context of scaled data volume.",
+        "source_findings": [
+          "SCALABILITY-006"
+        ],
+        "required_evidence": [
+          "Driver-side materialization detected (2 collect/toPandas call(s)) combined with a substantial data workload (3072.0 GB)"
+        ],
+        "expected_outcome": "Eliminates high operational or data integrity risk."
+      },
+      {
+        "remediation_id": "REM-RISK-SCALABILITY-008",
+        "priority": "P1",
+        "severity": "HIGH",
+        "category": "SCALABILITY",
+        "title": "Mitigate High Risk: Join Scalability Risk: FAIL",
+        "description": "Evaluates join architecture to prevent Cartesian row explosion and unbounded shuffle joins at scale.",
+        "source_findings": [
+          "SCALABILITY-008"
+        ],
+        "required_evidence": [
+          "Cartesian cross join detected: PySpark crossJoin() call. At 3072.0 GB workload, Cartesian product produces severe scaling risk"
+        ],
+        "expected_outcome": "Eliminates high operational or data integrity risk."
+      },
+      {
+        "remediation_id": "REM-RISK-CONFIG-JOB-001",
+        "priority": "P1",
+        "severity": "HIGH",
+        "category": "OPERATIONAL",
+        "title": "Mitigate High Risk: Missing Retry Configuration",
+        "description": "Detects production jobs or tasks without retry configuration where resilience is required.",
+        "source_findings": [
+          "CONFIG-JOB-001"
+        ],
+        "required_evidence": [
+          "Job has 0 retries (expected >= 1)"
+        ],
+        "expected_outcome": "Eliminates high operational or data integrity risk."
+      },
+      {
+        "remediation_id": "REM-RISK-CODE-PYSPARK-004",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "IMPLEMENTATION",
+        "title": "Address Warning: CrossJoin Detection",
+        "description": "Detect crossJoin operations which can produce cartesian products.\n",
+        "source_findings": [
+          "CODE-PYSPARK-004"
+        ],
+        "required_evidence": [
+          "Operational risk associated with CrossJoin Detection."
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-CODE-PYSPARK-009",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "IMPLEMENTATION",
+        "title": "Address Warning: Potential Excessive Repartition",
+        "description": "Flag repeated repartition() calls on one DataFrame or unnecessarily large literal partition counts. A single reasonable repartition is not flagged.\n",
+        "source_findings": [
+          "CODE-PYSPARK-009"
+        ],
+        "required_evidence": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:33 `huge.repartition(50)`",
+          "Expected input: 2048 GB/day"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-CODE-PYSPARK-011",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "IMPLEMENTATION",
+        "title": "Address Warning: Unjustified Cache",
+        "description": "Flag cache()/persist() where static analysis shows no demonstrated reuse of the cached DataFrame. Reused frames are not flagged, and no runtime benefit is ever claimed without runtime evidence.\n",
+        "source_findings": [
+          "CODE-PYSPARK-011"
+        ],
+        "required_evidence": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:43 `df.cache()`",
+          "Expected input: 2048 GB/day"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-CODE-PYSPARK-012",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "IMPLEMENTATION",
+        "title": "Address Warning: Repeated Spark Action",
+        "description": "Flag multiple actions (count/collect/take/show/write) on one DataFrame, which may require additional computation. count() alone is never bad.\n",
+        "source_findings": [
+          "CODE-PYSPARK-012"
+        ],
+        "required_evidence": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:12 `df.toPandas()`",
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:20 `df2.take(5)`"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-CODE-PYSPARK-013",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "IMPLEMENTATION",
+        "title": "Address Warning: Large Dataset Global Sort",
+        "description": "Flag global orderBy()/sort() over large inputs as a potential performance warning \u2014 never a definite failure without runtime evidence.\n",
+        "source_findings": [
+          "CODE-PYSPARK-013"
+        ],
+        "required_evidence": [
+          "tests\\fixtures\\contracts\\..\\code\\bad_pipeline.py:36 `huge.orderBy(\"name\")`",
+          "Expected input: 2048 GB/day"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-CONFIG-JOB-002",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "OPERATIONAL",
+        "title": "Address Warning: Missing Task Timeout",
+        "description": "Detects production tasks without an explicit timeout configured.",
+        "source_findings": [
+          "CONFIG-JOB-002"
+        ],
+        "required_evidence": [
+          "Job has timeout 0s (expected >= 60s)"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-XDOM-004",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "OPERATIONAL",
+        "title": "Address Warning: Peak Workload Capacity Headroom Risk",
+        "description": "Contractual peak ingestion burst exceeds baseline workload capacity on a fixed or constrained cluster configuration without empirical verification.",
+        "source_findings": [
+          "XDOM-004"
+        ],
+        "required_evidence": [
+          "Cluster Config",
+          "Contract Declarations"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-SUFF-SLA_COMPLIANCE",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "EVIDENCE",
+        "title": "Address Warning: Insufficient Evidence: SLA_COMPLIANCE",
+        "description": "SLA compliance cannot be determined without runtime duration telemetry.",
+        "source_findings": [
+          "DECISION-SLA_COMPLIANCE"
+        ],
+        "required_evidence": [
+          "Runtime execution duration telemetry"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-SUFF-IDEMPOTENCY_SAFETY",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "EVIDENCE",
+        "title": "Address Warning: Insufficient Evidence: IDEMPOTENCY_SAFETY",
+        "description": "MERGE key stability/uniqueness unproven; idempotency cannot be certified safe.",
+        "source_findings": [
+          "DECISION-IDEMPOTENCY_SAFETY"
+        ],
+        "required_evidence": [
+          "Key uniqueness proof",
+          "Source deduplication evidence"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-RISK-SUFF-COST_VIABILITY",
+        "priority": "P2",
+        "severity": "MEDIUM",
+        "category": "EVIDENCE",
+        "title": "Address Warning: Insufficient Evidence: COST_VIABILITY",
+        "description": "Cost projection unavailable in offline static analysis without DBU consumption telemetry.",
+        "source_findings": [
+          "DECISION-COST_VIABILITY"
+        ],
+        "required_evidence": [
+          "DBU consumption rate",
+          "Pricing tier metadata"
+        ],
+        "expected_outcome": "Improves pipeline stability and efficiency."
+      },
+      {
+        "remediation_id": "REM-EVID-30",
+        "priority": "P3",
+        "severity": "INFO",
+        "category": "EVIDENCE",
+        "title": "Provide Telemetry Evidence",
+        "description": "Supply Databricks runtime execution telemetry (run duration, task metrics, shuffle bytes) to enable performance, SLA, and cost decision sufficiency.",
+        "source_findings": [
+          "M5H-SUFFICIENCY"
+        ],
+        "required_evidence": [
+          "Supply Databricks runtime execution telemetry (run duration, task metrics, shuffle bytes) to enable performance, SLA, and cost decision sufficiency."
+        ],
+        "expected_outcome": "Achieves full evidence coverage and decision sufficiency."
+      },
+      {
+        "remediation_id": "REM-EVID-31",
+        "priority": "P3",
+        "severity": "INFO",
+        "category": "EVIDENCE",
+        "title": "Provide Telemetry Evidence",
+        "description": "Provide at least 2 historical execution runs under varying data volumes to enable empirical runtime regression and scalability trend forensics.",
+        "source_findings": [
+          "M5H-SUFFICIENCY"
+        ],
+        "required_evidence": [
+          "Provide at least 2 historical execution runs under varying data volumes to enable empirical runtime regression and scalability trend forensics."
+        ],
+        "expected_outcome": "Achieves full evidence coverage and decision sufficiency."
+      },
+      {
+        "remediation_id": "REM-EVID-32",
+        "priority": "P3",
+        "severity": "INFO",
+        "category": "EVIDENCE",
+        "title": "Provide Telemetry Evidence",
+        "description": "Provide DBU pricing tier metadata and cluster duration metrics to enable cost viability analysis.",
+        "source_findings": [
+          "M5H-SUFFICIENCY"
+        ],
+        "required_evidence": [
+          "Provide DBU pricing tier metadata and cluster duration metrics to enable cost viability analysis."
+        ],
+        "expected_outcome": "Achieves full evidence coverage and decision sufficiency."
+      }
+    ],
+    "domain_summaries": {
+      "source": {
+        "domain": "source",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "confidence": "HIGH",
+        "decision_sufficiency": true,
+        "key_risks": [
+          "Missing Incremental Strategy"
+        ],
+        "blockers": [],
+        "missing_evidence": [],
+        "recommended_actions": [
+          "Operational risk associated with Missing Incremental Strategy."
+        ]
+      },
+      "data": {
+        "domain": "data",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "confidence": "HIGH",
+        "decision_sufficiency": true,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [],
+        "recommended_actions": []
+      },
+      "code": {
+        "domain": "code",
+        "status": "FAIL",
+        "severity": "CRITICAL",
+        "confidence": "MEDIUM",
+        "decision_sufficiency": true,
+        "key_risks": [
+          "Driver Collection Detection",
+          "Pandas UDF Misuse Detection",
+          "Show() in Production Path Detection"
+        ],
+        "blockers": [
+          "Driver Collection Detection",
+          "Large Driver Collection Risk",
+          "Cartesian Cross Join Risk",
+          "toPandas Large Data Risk",
+          "Driver Collection Detection",
+          "Large Driver Collection Risk",
+          "toPandas Large Data Risk",
+          "Cartesian Cross Join Risk"
+        ],
+        "missing_evidence": [
+          "read_operations",
+          "write_operations"
+        ],
+        "recommended_actions": [
+          "Operational risk associated with Driver Collection Detection.",
+          "Operational risk associated with Pandas UDF Misuse Detection."
+        ]
+      },
+      "sql": {
+        "domain": "sql",
+        "status": "PASS",
+        "severity": "INFO",
+        "confidence": "HIGH",
+        "decision_sufficiency": true,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [],
+        "recommended_actions": []
+      },
+      "cluster": {
+        "domain": "cluster",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [
+          "node_type_id",
+          "worker_count_or_autoscale",
+          "spark_version"
+        ],
+        "recommended_actions": []
+      },
+      "job": {
+        "domain": "job",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "confidence": "MEDIUM",
+        "decision_sufficiency": true,
+        "key_risks": [
+          "Missing Retry Configuration",
+          "Missing Task Timeout"
+        ],
+        "blockers": [],
+        "missing_evidence": [
+          "job_schedule",
+          "max_concurrent_runs"
+        ],
+        "recommended_actions": [
+          "Operational risk associated with Missing Retry Configuration.",
+          "Operational risk associated with Missing Task Timeout."
+        ]
+      },
+      "pipeline": {
+        "domain": "pipeline",
+        "status": "PASS",
+        "severity": "INFO",
+        "confidence": "HIGH",
+        "decision_sufficiency": true,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [],
+        "recommended_actions": []
+      },
+      "runtime": {
+        "domain": "runtime",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [
+          "execution_duration",
+          "task_count",
+          "bytes_read"
+        ],
+        "recommended_actions": []
+      },
+      "historical_runs": {
+        "domain": "historical_runs",
+        "status": "UNKNOWN",
+        "severity": "INFO",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [
+          "historical_runs_count",
+          "volume_trend",
+          "duration_trend"
+        ],
+        "recommended_actions": []
+      },
+      "scalability": {
+        "domain": "scalability",
+        "status": "FAIL",
+        "severity": "HIGH",
+        "confidence": "MEDIUM",
+        "decision_sufficiency": true,
+        "key_risks": [
+          "Data Growth Risk: FAIL",
+          "Driver Scalability Risk: FAIL",
+          "Shuffle Scalability Risk: UNKNOWN"
+        ],
+        "blockers": [],
+        "missing_evidence": [
+          "cluster_headroom"
+        ],
+        "recommended_actions": [
+          "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures.",
+          "Workload surges may cause heavy executor memory spill, severe performance degradation, or cluster out-of-memory failures."
+        ]
+      },
+      "security": {
+        "domain": "security",
+        "status": "PASS",
+        "severity": "INFO",
+        "confidence": "HIGH",
+        "decision_sufficiency": true,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [],
+        "recommended_actions": []
+      },
+      "governance": {
+        "domain": "governance",
+        "status": "PASS",
+        "severity": "INFO",
+        "confidence": "HIGH",
+        "decision_sufficiency": true,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [
+          "pipeline_owner"
+        ],
+        "recommended_actions": []
+      },
+      "cost": {
+        "domain": "cost",
+        "status": "WARN",
+        "severity": "MEDIUM",
+        "confidence": "INSUFFICIENT",
+        "decision_sufficiency": false,
+        "key_risks": [
+          "Insufficient Evidence: COST_VIABILITY"
+        ],
+        "blockers": [],
+        "missing_evidence": [
+          "dbu_pricing_rate",
+          "cluster_operational_hours",
+          "pricing_tier_metadata"
+        ],
+        "recommended_actions": [
+          "Pipeline behavior under production conditions cannot be certified safe."
+        ]
+      },
+      "implementation_forensics": {
+        "domain": "implementation_forensics",
+        "status": "PASS",
+        "severity": "INFO",
+        "confidence": "HIGH",
+        "decision_sufficiency": true,
+        "key_risks": [],
+        "blockers": [],
+        "missing_evidence": [],
+        "recommended_actions": []
+      },
+      "rerun_idempotency": {
+        "domain": "rerun_idempotency",
+        "status": "WARN",
+        "severity": "MEDIUM",
+        "confidence": "LOW",
+        "decision_sufficiency": false,
+        "key_risks": [
+          "Insufficient Evidence: IDEMPOTENCY_SAFETY"
+        ],
+        "blockers": [],
+        "missing_evidence": [
+          "idempotency_proof",
+          "merge_key_safety_evidence"
+        ],
+        "recommended_actions": [
+          "Pipeline behavior under production conditions cannot be certified safe."
+        ]
+      },
+      "three_layer_alignment": {
+        "domain": "three_layer_alignment",
+        "status": "PASS",
+        "severity": "INFO",
+        "confidence": "MEDIUM",
+        "decision_sufficiency": true,
+        "key_risks": [
+          "Configuration Drift: target_storage_format"
+        ],
+        "blockers": [],
+        "missing_evidence": [
+          "actual_telemetry_reconciled"
+        ],
+        "recommended_actions": [
+          "Runtime behavior and dependencies will diverge from declared pipeline contract."
+        ]
+      }
+    },
+    "metadata": {
+      "checkpoints_count": 19,
+      "blockers_count": 13,
+      "total_risks_count": 34,
+      "chains_count": 4,
+      "remediations_count": 32
+    }
+  }
+}

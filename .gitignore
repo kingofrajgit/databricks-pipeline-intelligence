@@ -22,7 +22,5 @@ htmlcov/
 *.pem
 *.key
 credentials.json
-
-reports/
 .venv/
 venv/
