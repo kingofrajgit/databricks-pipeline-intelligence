@@ -741,6 +741,10 @@ def _run_offline_validation(
         query_history=query_entries,
         history_provenance=history_prov if query_history_path else None,
     )
+    # Phase 4: M5E consumes rule_context, so the code text and flow graph
+    # must be visible there (minimal wiring for completeness evidence).
+    rule_context["code_snippet"] = code_text
+    rule_context["flow_graph"] = flow_graph
 
     context: dict[str, Any] = {
         "pipeline_name": contract.pipeline_name,

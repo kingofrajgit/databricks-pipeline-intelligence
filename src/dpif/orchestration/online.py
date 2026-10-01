@@ -706,6 +706,9 @@ class OnlineValidationOrchestrator:
             "mode": "live-api",
             "evidence_source": "live databricks",
             "connector_mode": "live",
+            # Phase 4: M5E completeness needs the code text + flow graph.
+            "code_snippet": code_text,
+            "flow_graph": flow_graph,
             "data_size_gb": (
                 data_profile.total_gb
                 if data_profile

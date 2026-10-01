@@ -5,6 +5,14 @@ See docs/PIPELINE_FLOW_GRAPH.md.
 """
 
 from dpif.flow.builder import build_pipeline_flow_graph
+from dpif.flow.completeness import (
+    CompletenessSignal,
+    CompletenessSignalKind,
+    StructuralCompleteness,
+    TargetReachability,
+    analyze_structural_completeness,
+    target_reachability,
+)
 from dpif.flow.correlation import correlate_sql_operations, normalize_query_history
 from dpif.flow.models import (
     CorrelationMethod,
@@ -22,6 +30,8 @@ from dpif.flow.models import (
 )
 
 __all__ = [
+    "CompletenessSignal",
+    "CompletenessSignalKind",
     "CorrelationMethod",
     "DatasetIdentity",
     "EvidenceState",
@@ -33,8 +43,12 @@ __all__ = [
     "OperationRuntimeCorrelation",
     "PipelineFlowGraph",
     "SourceLocation",
+    "StructuralCompleteness",
+    "TargetReachability",
     "VolumeObservation",
+    "analyze_structural_completeness",
     "build_pipeline_flow_graph",
     "correlate_sql_operations",
     "normalize_query_history",
+    "target_reachability",
 ]

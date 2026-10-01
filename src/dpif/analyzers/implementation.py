@@ -16,6 +16,7 @@ runtime evidence into implementation forensic findings across 9 dimensions:
 from __future__ import annotations
 
 import ast
+import re
 from typing import Any
 
 from dpif.code import flow as flow_mod
@@ -52,6 +53,87 @@ def _get_volume(context: dict[str, Any]) -> float | None:
     return None
 
 
+# Phase 4 lexical completeness markers. TODO/FIXME/HACK match
+# case-insensitively (acronyms rarely occur in prose); XXX stays
+# uppercase-only (lowercase "xxx" collides with placeholder content).
+_MARKER_RE = re.compile(r"(?i:\bTODO\b|\bFIXME\b|\bHACK\b)|\bXXX\b")
+
+
+def _docstring_lines(tree: ast.AST) -> set[int]:
+    """Line numbers inside module/class/function docstrings.
+
+    TODO-style words inside documentation are notes, not defects, so
+    marker scanning skips these ranges.
+    """
+    lines: set[int] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            if (
+                node.body
+                and isinstance(node.body[0], ast.Expr)
+                and isinstance(node.body[0].value, ast.Constant)
+                and isinstance(node.body[0].value.value, str)
+            ):
+                first = node.body[0]
+                lines.update(range(first.lineno, (first.end_lineno or first.lineno) + 1))
+    return lines
+
+
+def _stub_kind(node: ast.FunctionDef | ast.AsyncFunctionDef) -> str | None:
+    """Classify ``def`` bodies that are bare implementation stubs.
+
+    Returns "pass" / "ellipsis" / "return-none", or None when the body
+    does real work. Docstrings are ignored when judging emptiness.
+    """
+    body = [
+        stmt
+        for stmt in node.body
+        if not (
+            isinstance(stmt, ast.Expr)
+            and isinstance(stmt.value, ast.Constant)
+            and isinstance(stmt.value.value, str)
+        )
+    ]
+    if len(body) != 1:
+        return None
+    sole = body[0]
+    if isinstance(sole, ast.Pass):
+        return "pass"
+    if (
+        isinstance(sole, ast.Expr)
+        and isinstance(sole.value, ast.Constant)
+        and sole.value.value is Ellipsis
+    ):
+        return "ellipsis"
+    if (
+        isinstance(sole, ast.Return)
+        and isinstance(sole.value, ast.Constant)
+        and sole.value.value is None
+    ):
+        return "return-none"
+    return None
+
+
+def _is_abstract_or_overload(node: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
+    """Allowlist: abstract methods, overloads, and protocol stubs are by design."""
+    for dec in node.decorator_list:
+        name = ""
+        if isinstance(dec, ast.Name):
+            name = dec.id
+        elif isinstance(dec, ast.Attribute):
+            name = dec.attr
+        elif isinstance(dec, ast.Call):
+            func = dec.func
+            if isinstance(func, ast.Name):
+                name = func.id
+            elif isinstance(func, ast.Attribute):
+                name = func.attr
+        lowered = name.lower()
+        if "abstract" in lowered or "overload" in lowered:
+            return True
+    return False
+
+
 def _get_provenance(context: dict[str, Any]) -> EvidenceProvenanceKind:
     ev_src = str(context.get("evidence_source") or "").lower()
     coll_method = str(context.get("collection_method") or "").lower()
@@ -76,7 +158,13 @@ class DeveloperImplementationAnalyzer:
         self.context = context or {}
         self.provenance = _get_provenance(self.context)
         self.volume_gb = _get_volume(self.context)
-        self.raw_source = getattr(code_analysis, "_raw_source", "") or ""
+        # Phase 4: _raw_source is never populated by the parser, so fall
+        # back to the code text carried by both offline and online contexts.
+        # Without this, lexical completeness scanning is silently dead.
+        self.raw_source = (
+            getattr(code_analysis, "_raw_source", "")
+            or str(self.context.get("code_snippet") or "")
+        )
 
     def analyze(self) -> ImplementationForensicsResult:
         pipeline_name = str(self.context.get("pipeline_name", "unknown_pipeline"))
@@ -1068,43 +1156,89 @@ class DeveloperImplementationAnalyzer:
         findings: list[ForensicFinding] = []
         source_text = self.raw_source
 
-        try:
-            tree = ast.parse(source_text, filename=self.code.source_file)
-        except Exception:
+        # Phase 4 parse-failure honesty: a broken file is UNKNOWN, never PASS.
+        if getattr(self.code, "parse_error", None):
+            findings.append(
+                ForensicFinding(
+                    finding_id="IMP-COMP-000:parse",
+                    rule_id="IMP-COMP-000",
+                    dimension=ImplementationDimension.IMPLEMENTATION_COMPLETENESS,
+                    title="Implementation Parse Failure — Completeness Unknown",
+                    description="Source could not be parsed, so completeness cannot be judged.",
+                    status=CheckpointStatus.UNKNOWN,
+                    severity=Severity.INFO,
+                    observed={"parse_error": str(self.code.parse_error)},
+                    expected={"parseable_implementation": True},
+                    evidence=[f"Parse error: {self.code.parse_error}"],
+                    recommendation="Provide parseable implementation code for completeness analysis.",
+                    confidence=0.5,
+                    provenance=self.provenance,
+                    location=f"{self.code.source_file}:1",
+                )
+            )
             return findings
 
-        class CompletenessVisitor(ast.NodeVisitor):
-            def __init__(self) -> None:
-                self.todo_comments: list[int] = []
-                self.not_implemented_nodes: list[int] = []
+        tree: ast.AST | None = None
+        if source_text.strip():
+            try:
+                tree = ast.parse(source_text, filename=self.code.source_file)
+            except Exception:
+                tree = None
 
-            def visit_Raise(self, node: ast.Raise) -> None:
-                if (
-                    node.exc
-                    and isinstance(node.exc, ast.Call)
-                    and isinstance(node.exc.func, ast.Name)
-                ):
-                    if node.exc.func.id == "NotImplementedError":
-                        self.not_implemented_nodes.append(node.lineno)
-                elif (
-                    node.exc
-                    and isinstance(node.exc, ast.Name)
-                    and node.exc.id == "NotImplementedError"
-                ):
-                    self.not_implemented_nodes.append(node.lineno)
-                self.generic_visit(node)
+        todo_comments: list[int] = []
+        not_implemented_nodes: list[int] = []
+        stub_defs: list[tuple[int, str, str]] = []  # (line, name, kind)
+        if tree is not None:
+            doc_lines = _docstring_lines(tree)
 
-        visitor = CompletenessVisitor()
-        visitor.visit(tree)
+            class CompletenessVisitor(ast.NodeVisitor):
+                def visit_Raise(self, node: ast.Raise) -> None:
+                    exc = node.exc
+                    if isinstance(exc, ast.Call):
+                        func = exc.func
+                        if isinstance(func, ast.Name) and func.id == "NotImplementedError":
+                            not_implemented_nodes.append(node.lineno)
+                        elif (
+                            isinstance(func, ast.Attribute)
+                            and func.attr == "NotImplementedError"
+                        ):
+                            # e.g. raise builtins.NotImplementedError(...)
+                            not_implemented_nodes.append(node.lineno)
+                    elif isinstance(exc, ast.Name) and exc.id in (
+                        "NotImplementedError",
+                        "NotImplemented",
+                    ):
+                        not_implemented_nodes.append(node.lineno)
+                    elif (
+                        isinstance(exc, ast.Attribute)
+                        and exc.attr in ("NotImplementedError", "NotImplemented")
+                    ):
+                        # e.g. raise builtins.NotImplementedError
+                        not_implemented_nodes.append(node.lineno)
+                    self.generic_visit(node)
 
-        # Check for TODO / FIXME in comments or code
-        for idx, line in enumerate(source_text.splitlines(), 1):
-            if "#" in line:
+                def visit_FunctionDef(
+                    self, node: ast.FunctionDef | ast.AsyncFunctionDef
+                ) -> None:
+                    kind = _stub_kind(node)
+                    if kind and not _is_abstract_or_overload(node):
+                        stub_defs.append((node.lineno, node.name, kind))
+                    self.generic_visit(node)
+
+                visit_AsyncFunctionDef = visit_FunctionDef
+
+            CompletenessVisitor().visit(tree)
+
+            # Markers in `#` comments only (string/docstring content excluded),
+            # skipping documentation ranges.
+            for idx, line in enumerate(source_text.splitlines(), 1):
+                if idx in doc_lines or "#" not in line:
+                    continue
                 comment = line.split("#", 1)[1]
-                if "TODO" in comment or "FIXME" in comment or "XXX" in comment:
-                    visitor.todo_comments.append(idx)
+                if _MARKER_RE.search(comment):
+                    todo_comments.append(idx)
 
-        for line_num in visitor.not_implemented_nodes:
+        for line_num in not_implemented_nodes:
             loc = f"{self.code.source_file}:{line_num}"
             findings.append(
                 ForensicFinding(
@@ -1125,7 +1259,7 @@ class DeveloperImplementationAnalyzer:
                 )
             )
 
-        for line_num in visitor.todo_comments:
+        for line_num in todo_comments:
             loc = f"{self.code.source_file}:{line_num}"
             findings.append(
                 ForensicFinding(
@@ -1146,4 +1280,121 @@ class DeveloperImplementationAnalyzer:
                 )
             )
 
+        for line_num, func_name, kind in stub_defs:
+            loc = f"{self.code.source_file}:{line_num}"
+            rule = "IMP-COMP-003" if kind in ("pass", "ellipsis") else "IMP-COMP-004"
+            findings.append(
+                ForensicFinding(
+                    finding_id=f"{rule}:{line_num}",
+                    rule_id=rule,
+                    dimension=ImplementationDimension.IMPLEMENTATION_COMPLETENESS,
+                    title="Stub Function Body Detected"
+                    if rule == "IMP-COMP-003"
+                    else "Placeholder Return Detected",
+                    description=(
+                        f"Function '{func_name}' has a bare '{kind}' implementation stub."
+                        if rule == "IMP-COMP-003"
+                        else f"Function '{func_name}' only returns None (placeholder return)."
+                    ),
+                    status=CheckpointStatus.WARN,
+                    severity=Severity.LOW,
+                    observed={"line": line_num, "function": func_name, "stub_kind": kind},
+                    expected={"implemented_function_body": True},
+                    evidence=[f"Stub '{kind}' in function '{func_name}' at line {line_num}"],
+                    recommendation="Implement the function body or remove the stub prior to production release.",
+                    confidence=0.6,
+                    provenance=self.provenance,
+                    location=loc,
+                )
+            )
+
+        findings.extend(self._structural_completeness_findings())
+        findings.extend(self._unused_cte_findings())
+        return findings
+
+    def _structural_completeness_findings(self) -> list[ForensicFinding]:
+        """Phase 4: convert graph structural problems into completeness evidence.
+
+        Reads the shared ``flow_graph`` from context (present in both offline
+        and online rule contexts). No findings when the graph is absent or
+        cannot establish a defect — UNKNOWN stays UNKNOWN.
+        """
+        from dpif.flow.completeness import (
+            CompletenessSignalKind,
+            analyze_structural_completeness,
+        )
+
+        graph = self.context.get("flow_graph")
+        if graph is None or not hasattr(graph, "nodes"):
+            return []
+        result = analyze_structural_completeness(graph)
+        rule_by_kind = {
+            CompletenessSignalKind.DEAD_END_OPERATION: ("IMP-COMP-010", Severity.LOW, 0.6),
+            CompletenessSignalKind.UNUSED_DATASET: ("IMP-COMP-011", Severity.LOW, 0.6),
+            CompletenessSignalKind.DISCONNECTED_JOIN: ("IMP-COMP-012", Severity.LOW, 0.6),
+            CompletenessSignalKind.UNREACHABLE_TARGET: ("IMP-COMP-013", Severity.MEDIUM, 0.7),
+        }
+        findings: list[ForensicFinding] = []
+        for signal in result.signals:
+            rule_id, severity, confidence = rule_by_kind[signal.kind]
+            findings.append(
+                ForensicFinding(
+                    finding_id=f"{rule_id}:{signal.node_id}",
+                    rule_id=rule_id,
+                    dimension=ImplementationDimension.IMPLEMENTATION_COMPLETENESS,
+                    title="Structural Completeness Signal",
+                    description=signal.reason,
+                    status=CheckpointStatus.WARN,
+                    severity=severity,
+                    observed={
+                        "node_id": signal.node_id,
+                        "signal": signal.kind.value,
+                        "reachability_verdict": result.verdict.value,
+                    },
+                    expected={"connected_implementation": True},
+                    evidence=[f"{signal.kind.value} at {signal.node_id}: {signal.reason}"],
+                    recommendation="Connect the disconnected logic to the pipeline target or remove dead implementation.",
+                    confidence=confidence,
+                    provenance=self.provenance,
+                    location=f"{self.code.source_file}:{signal.node_id}",
+                )
+            )
+        return findings
+
+    def _unused_cte_findings(self) -> list[ForensicFinding]:
+        """Phase 4: flag provably unreferenced SQL CTEs (name-based, parser-backed)."""
+        sql_analysis = getattr(self.code, "sql_analysis", None)
+        if sql_analysis is None:
+            return []
+        if list(getattr(sql_analysis, "parse_errors", []) or []):
+            # Parser failure is UNKNOWN elsewhere (IMP-COMP-000 covers
+            # unparseable sources); never allege incompleteness from it.
+            return []
+        findings: list[ForensicFinding] = []
+        seen: set[str] = set()
+        for cte in list(getattr(sql_analysis, "ctes", []) or []):
+            name = str(getattr(cte, "name", "") or "")
+            if not name or name.lower() in seen:
+                continue
+            seen.add(name.lower())
+            if list(getattr(cte, "referenced_by", []) or []):
+                continue
+            findings.append(
+                ForensicFinding(
+                    finding_id=f"IMP-COMP-020:{name}",
+                    rule_id="IMP-COMP-020",
+                    dimension=ImplementationDimension.IMPLEMENTATION_COMPLETENESS,
+                    title="Unused SQL CTE Detected",
+                    description=f"CTE '{name}' is defined but never referenced by the query.",
+                    status=CheckpointStatus.WARN,
+                    severity=Severity.LOW,
+                    observed={"cte": name},
+                    expected={"consumed_cte": True},
+                    evidence=[f"Unused CTE '{name}'"],
+                    recommendation="Consume the CTE in the query or remove the dead definition.",
+                    confidence=0.65,
+                    provenance=self.provenance,
+                    location=f"{self.code.source_file}:{name}",
+                )
+            )
         return findings

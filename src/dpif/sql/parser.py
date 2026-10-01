@@ -602,11 +602,51 @@ class SQLParser:
 
     def _extract_ctes(self, node: exp.Expression) -> list[SQLCTE]:
         ctes: list[SQLCTE] = []
-        for cte in node.find_all(exp.CTE):
+        cte_list = list(node.find_all(exp.CTE))
+        if not cte_list:
+            return ctes
+        # Subtree membership per CTE definition (identity-based): a CTE name
+        # occurring only inside its own definition does not count as used.
+        # Recursive CTEs (WITH RECURSIVE) legitimately self-reference.
+        recursive = bool(node.args.get("recursive"))
+        own_ids: dict[int, set[int]] = {
+            id(cte): {id(t) for t in cte.this.find_all(exp.Table)} for cte in cte_list
+        }
+        all_cte_ids: set[int] = set().union(*own_ids.values())
+        for cte in cte_list:
+            name = cte.alias or ""
+            lowered = name.lower()
+            referrers: list[str] = []
+            for other in cte_list:
+                if other is cte:
+                    continue
+                other_names = {
+                    t.name.lower() for t in other.this.find_all(exp.Table) if t.name
+                }
+                if lowered and lowered in other_names:
+                    referrer = other.alias or ""
+                    if referrer and referrer not in referrers:
+                        referrers.append(referrer)
+            if lowered:
+                for table in node.find_all(exp.Table):
+                    if (
+                        table.name.lower() == lowered
+                        and id(table) not in all_cte_ids
+                        and "__main__" not in referrers
+                    ):
+                        referrers.append("__main__")
+            # Recursive self-reference is legitimate use, not a disconnect.
+            if not referrers and recursive and lowered:
+                self_names = {
+                    t.name.lower() for t in cte.this.find_all(exp.Table) if t.name
+                }
+                if lowered in self_names:
+                    referrers.append("__recursive__")
             ctes.append(
                 SQLCTE(
-                    name=cte.alias or "",
+                    name=name,
                     definition=cte.this.sql(dialect=self.dialect_str),
+                    referenced_by=referrers,
                     line=getattr(cte, "line", 0) or 0,
                     column=getattr(cte, "col", 0) or 0,
                 )
