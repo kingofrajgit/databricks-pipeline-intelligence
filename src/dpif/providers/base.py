@@ -32,6 +32,7 @@ class EvidenceCategory(StrEnum):
     TABLE_PROFILE = "table_profile"
     RUNTIME = "runtime"
     HISTORICAL_RUNS = "historical_runs"
+    QUERY_HISTORY = "query_history"
 
 
 class AcquisitionErrorCode(StrEnum):
@@ -204,6 +205,112 @@ def sanitize_job_payload(payload: Any, token: str | None = None) -> Any:
     elif isinstance(payload, str):
         return mask_sensitive_credentials(payload, token)
     return payload
+
+
+def _map_acquisition_error(
+    status_code: int | None, message: str = ""
+) -> AcquisitionErrorCode:
+    """Map a connector status code/message to a structured acquisition error."""
+    if "malformed json" in message.lower() or status_code == 200:
+        return AcquisitionErrorCode.MALFORMED_RESPONSE
+    if status_code == 401:
+        return AcquisitionErrorCode.AUTHENTICATION_FAILURE
+    if status_code == 403:
+        return AcquisitionErrorCode.AUTHORIZATION_FAILURE
+    if status_code == 404:
+        return AcquisitionErrorCode.RESOURCE_NOT_FOUND
+    if status_code == 429:
+        return AcquisitionErrorCode.RATE_LIMIT_EXCEEDED
+    if status_code == 408:
+        return AcquisitionErrorCode.TIMEOUT
+    if status_code in (502, 503, 504):
+        return AcquisitionErrorCode.API_UNAVAILABLE
+    return AcquisitionErrorCode.UNKNOWN_ERROR
+
+
+def fetch_query_history_item(
+    connector: DatabricksConnector,
+    limit: int = 25,
+    resource_id: str | None = None,
+) -> NormalizedEvidenceItem:
+    """Acquire one query-history evidence item (Phase 3 correlation).
+
+    Same conventions as ``acquire_pipeline_evidence`` categories: sanitized
+    payload, masked errors, structured ``AcquisitionError``. A valid empty
+    result (``[]``) stays available; retrieval failure yields
+    ``payload=None`` + ``is_available=False`` — never an empty success.
+    """
+    mode = connector.mode()
+    connector_mode = "live" if mode == "live-api" else mode
+    host = getattr(connector, "host", None)
+    token = getattr(connector, "_token", None)
+    prov = EvidenceProvenance(
+        source_type="LIVE_API" if connector_mode == "live" else "FIXTURE",
+        source_system="DATABRICKS",
+        category=EvidenceCategory.QUERY_HISTORY,
+        workspace_host=host,
+        resource_id=resource_id,
+        is_mock=connector_mode == "offline-fixture",
+    )
+    try:
+        res = connector.get_query_history(limit=limit)
+        if res is None:
+            return NormalizedEvidenceItem(
+                category=EvidenceCategory.QUERY_HISTORY,
+                provenance=prov,
+                payload=None,
+                is_available=False,
+                error=AcquisitionError(
+                    category=EvidenceCategory.QUERY_HISTORY,
+                    error_code=AcquisitionErrorCode.RESOURCE_NOT_FOUND,
+                    message=f"Query history not found: {resource_id}",
+                    status_code=404,
+                ),
+            )
+        if isinstance(res, dict) and isinstance(res.get("res"), list):
+            entries = res["res"]
+        elif isinstance(res, list):
+            entries = res
+        else:
+            raise DatabricksApiError(
+                f"Malformed response: invalid query-history shape ({resource_id})",
+                status_code=200,
+            )
+        return NormalizedEvidenceItem(
+            category=EvidenceCategory.QUERY_HISTORY,
+            provenance=prov,
+            payload=sanitize_job_payload(entries, token),
+            is_available=True,
+        )
+    except DatabricksApiError as e:
+        err_code = _map_acquisition_error(e.status_code, str(e))
+        acq_err = AcquisitionError(
+            category=EvidenceCategory.QUERY_HISTORY,
+            error_code=err_code,
+            message=mask_sensitive_credentials(str(e), token),
+            status_code=e.status_code,
+        )
+        return NormalizedEvidenceItem(
+            category=EvidenceCategory.QUERY_HISTORY,
+            provenance=prov,
+            payload=None,
+            is_available=False,
+            error=acq_err,
+        )
+    except Exception as e:
+        acq_err = AcquisitionError(
+            category=EvidenceCategory.QUERY_HISTORY,
+            error_code=AcquisitionErrorCode.UNKNOWN_ERROR,
+            message=mask_sensitive_credentials(f"Unexpected acquisition failure: {e}", token),
+            status_code=500,
+        )
+        return NormalizedEvidenceItem(
+            category=EvidenceCategory.QUERY_HISTORY,
+            provenance=prov,
+            payload=None,
+            is_available=False,
+            error=acq_err,
+        )
 
 
 
@@ -644,18 +751,4 @@ class DatabricksEvidenceProvider:
 
     @staticmethod
     def _map_status_code(status_code: int | None, message: str = "") -> AcquisitionErrorCode:
-        if "malformed json" in message.lower() or status_code == 200:
-            return AcquisitionErrorCode.MALFORMED_RESPONSE
-        if status_code == 401:
-            return AcquisitionErrorCode.AUTHENTICATION_FAILURE
-        if status_code == 403:
-            return AcquisitionErrorCode.AUTHORIZATION_FAILURE
-        if status_code == 404:
-            return AcquisitionErrorCode.RESOURCE_NOT_FOUND
-        if status_code == 429:
-            return AcquisitionErrorCode.RATE_LIMIT_EXCEEDED
-        if status_code == 408:
-            return AcquisitionErrorCode.TIMEOUT
-        if status_code in (502, 503, 504):
-            return AcquisitionErrorCode.API_UNAVAILABLE
-        return AcquisitionErrorCode.UNKNOWN_ERROR
+        return _map_acquisition_error(status_code, message)

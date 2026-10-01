@@ -177,3 +177,18 @@ class CorrelationResult(BaseModel):
     description: str = ""
     confidence: float = 0.8
     evidence: list[str] = Field(default_factory=list)
+
+
+class QueryHistoryEntry(BaseModel):
+    """One executed SQL statement from query history (Phase 3 correlation).
+
+    Normalized shape for Databricks ``sql/history/queries`` payloads and
+    offline fixtures. ``query_id`` is the authoritative runtime identifier;
+    entries without one can never anchor a KNOWN correlation.
+    """
+
+    query_id: str
+    statement_id: str | None = None
+    query_text: str | None = None
+    tables: list[str] = Field(default_factory=list)
+    status: str | None = None

@@ -106,7 +106,7 @@ def _format_volume(volume: VolumeObservation | None) -> str:
 
 
 def _append_flow_graph_section(lines: list[str], flow_graph: PipelineFlowGraph | None) -> None:
-    """Append the common pipeline flow graph summary (GAP-001 + Phase 2 volume)."""
+    """Append the common pipeline flow graph summary (GAP-001 + Phase 2 volume + Phase 3 correlation)."""
     lines.append("## Pipeline Flow Graph (GAP-001)")
     lines.append("")
     if flow_graph is None:
@@ -133,6 +133,19 @@ def _append_flow_graph_section(lines: list[str], flow_graph: PipelineFlowGraph |
             continue
         label = node.dataset.name if node.dataset and node.dataset.name != "UNKNOWN" else node.node_id
         lines.append(f"- **Volume [{node.kind.value} {label}]**: {_format_volume(node.volume)}")
+    # Phase 3: operation↔runtime correlation (additive, UNKNOWN by default).
+    correlations = getattr(flow_graph, "correlations", []) or []
+    known = [c for c in correlations if c.state.value == "KNOWN"]
+    lines.append(
+        f"- **Runtime Correlation**: {len(known)} KNOWN / {len(correlations)} recorded "
+        "(UNKNOWN by default)"
+    )
+    for corr in known:
+        qid = corr.runtime_query_id or "UNKNOWN"
+        lines.append(
+            f"  - `{corr.operation_node_id}` → query `{qid}` "
+            f"(`{corr.method.value}`, {corr.confidence.value})"
+        )
     lines.append("")
 
 

@@ -5,6 +5,8 @@ Parses SQL into structured models. Supports Databricks/Spark SQL dialect.
 
 from __future__ import annotations
 
+import hashlib
+import re
 from typing import Any
 
 import sqlglot
@@ -31,6 +33,47 @@ from dpif.sql.models import (
     SQLUnion,
     SQLWindow,
 )
+
+_STRING_LITERAL_RE = re.compile(r"'([^'\\]|\\.)*'")
+_COMMENT_RE = re.compile(r"/\*.*?\*/|--[^\n]*")
+_NUMBER_LITERAL_RE = re.compile(r"(?<![\w.])\d+(\.\d+)?(?![\w])")
+_WHITESPACE_RE = re.compile(r"\s+")
+
+
+def canonicalize_sql(sql: str, dialect: str = "databricks") -> str | None:
+    """Deterministic canonical form of a SQL statement (Phase 3 correlation).
+
+    Regenerates the statement through sqlglot (normalizing keyword case,
+    spacing, and comments), then lowercases, masks string/number literals,
+    and collapses whitespace. Two textually different but logically
+    identical statements share a canonical form; anything the parser
+    cannot establish returns ``None`` (UNKNOWN) instead of guessing.
+    Never raises: malformed SQL yields ``None``.
+    """
+    if not sql or not sql.strip():
+        return None
+    try:
+        trees = sqlglot.parse(sql, read=dialect, error_level=ErrorLevel.RAISE)
+        if not trees or trees[0] is None:
+            return None
+        regenerated = trees[0].sql(dialect=dialect)
+        lowered = regenerated.lower()
+        # Mask string literals first so comment-stripping never touches
+        # comment markers inside quoted text.
+        masked = _STRING_LITERAL_RE.sub("?", lowered)
+        masked = _COMMENT_RE.sub(" ", masked)
+        masked = _NUMBER_LITERAL_RE.sub("?", masked)
+        return _WHITESPACE_RE.sub(" ", masked).strip() or None
+    except Exception:
+        return None
+
+
+def sql_fingerprint(sql: str, dialect: str = "databricks") -> str | None:
+    """Deterministic sha256 fingerprint of canonical SQL, or ``None`` when unknown."""
+    canonical = canonicalize_sql(sql, dialect=dialect)
+    if not canonical:
+        return None
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 class SQLParser:
@@ -237,10 +280,16 @@ class SQLParser:
 
         complexity = self._calculate_complexity(node)
 
+        canonical = canonicalize_sql(sql_str, dialect=self.dialect_str)
+
         return SQLQuery(
             query_type=query_type,
             sql=sql_str,
             normalized_sql=sql_str,
+            canonical_sql=canonical or "",
+            fingerprint=(
+                hashlib.sha256(canonical.encode("utf-8")).hexdigest() if canonical else None
+            ),
             tables=tables,
             joins=joins,
             filters=filters,

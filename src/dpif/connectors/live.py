@@ -219,6 +219,22 @@ class LiveDatabricksConnector(DatabricksConnector):
             return None
         return self._request("GET", f"/api/2.0/sql/queries/{clean_id}")
 
+    def get_query_history(
+        self, limit: int = 25
+    ) -> dict[str, Any] | list[dict[str, Any]] | None:
+        """Fetch recent executed statements via /api/2.0/sql/history/queries.
+
+        Read-only, bounded (``max_results``), most-recent-first. Returns the
+        raw payload (``{"res": [...]}`` shape); the provider validates,
+        sanitizes, and distinguishes empty results from failures.
+        """
+        bounded = max(min(int(limit), 100), 1)
+        return self._request(
+            "GET",
+            "/api/2.0/sql/history/queries",
+            params={"max_results": bounded},
+        )
+
     def get_recent_runs(
         self, job_id: int | str, limit: int = 10
     ) -> dict[str, Any] | list[dict[str, Any]] | None:

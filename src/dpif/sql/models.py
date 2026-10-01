@@ -170,6 +170,8 @@ class SQLQuery(BaseModel):
     query_type: QueryType = QueryType.UNKNOWN
     sql: str
     normalized_sql: str = ""
+    canonical_sql: str = ""
+    fingerprint: str | None = None
     tables: list[SQLTableReference] = Field(default_factory=list)
     joins: list[SQLJoin] = Field(default_factory=list)
     filters: list[SQLFilter] = Field(default_factory=list)

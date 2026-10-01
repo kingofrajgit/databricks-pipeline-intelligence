@@ -28,6 +28,7 @@ from collections import defaultdict
 from dpif.code.flow import ACTION_TYPES
 from dpif.code.models import CodeAnalysis, Operation, OperationType
 from dpif.code.pyspark import SHUFFLE_OPS
+from dpif.flow.correlation import correlate_sql_operations
 from dpif.flow.models import (
     DatasetIdentity,
     EvidenceState,
@@ -41,6 +42,7 @@ from dpif.flow.models import (
 )
 from dpif.models import CollectionMethod, DataProfile, PipelineContract
 from dpif.models.implementation import EvidenceProvenanceKind
+from dpif.runtime.models import QueryHistoryEntry
 from dpif.scalability.engine import extract_baseline_volume
 from dpif.scalability.models import EvidenceProvenance as ScalabilityProvenance
 
@@ -256,6 +258,8 @@ class _GraphBuilder:
         raw_code: str,
         data_profile: DataProfile | None = None,
         runtime_run: object | None = None,
+        query_history: list[QueryHistoryEntry] | list[dict[str, object]] | None = None,
+        history_provenance: FlowProvenance | None = None,
     ) -> None:
         self.analysis = code_analysis
         self.contract = contract
@@ -265,6 +269,8 @@ class _GraphBuilder:
         self.raw_code = raw_code or ""
         self.data_profile = data_profile
         self.runtime_run = runtime_run
+        self.query_history = query_history
+        self.history_provenance = history_provenance
         self.nodes: list[FlowNode] = []
         self.edges: list[FlowEdge] = []
         self.source_ids: list[str] = []
@@ -330,12 +336,18 @@ class _GraphBuilder:
             self._build_dlt_sources()
         self._apply_contract_evidence()
         self._apply_volume_baselines()
+        correlations = correlate_sql_operations(
+            self.analysis,
+            self.query_history,  # type: ignore[arg-type]
+            history_provenance=self.history_provenance,
+        )
         return PipelineFlowGraph(
             pipeline_name=self.pipeline_name,
             nodes=self.nodes,
             edges=self.edges,
             source_ids=self.source_ids,
             target_ids=self.target_ids,
+            correlations=correlations,
         )
 
     # -- Python/PySpark path --------------------------------------------------
@@ -790,6 +802,8 @@ def build_pipeline_flow_graph(
     raw_code: str = "",
     data_profile: DataProfile | None = None,
     runtime_run: object | None = None,
+    query_history: list[QueryHistoryEntry] | list[dict[str, object]] | None = None,
+    history_provenance: FlowProvenance | None = None,
 ) -> PipelineFlowGraph:
     """Build the common pipeline flow graph from existing evidence.
 
@@ -801,6 +815,10 @@ def build_pipeline_flow_graph(
     Phase 2: ``data_profile`` / ``runtime_run`` feed SOURCE/TARGET pipeline
     volume baselines via ``extract_baseline_volume`` (same precedence both
     paths). When absent, node volumes stay ``None`` (UNKNOWN).
+
+    Phase 3: ``query_history`` feeds SQL operation↔runtime correlation
+    (UNKNOWN by default; KNOWN only via fingerprint + authoritative query
+    id). PySpark/DLT operations never receive records.
     """
     try:
         builder = _GraphBuilder(
@@ -810,6 +828,8 @@ def build_pipeline_flow_graph(
             raw_code=raw_code,
             data_profile=data_profile,
             runtime_run=runtime_run,
+            query_history=query_history,
+            history_provenance=history_provenance,
         )
         return builder.build()
     except Exception:  # pragma: no cover - defensive: graph must never break validation

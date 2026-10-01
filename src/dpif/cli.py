@@ -194,6 +194,12 @@ def _display_path(p: Path) -> str:
     help="Path to JSON file with historical execution runs",
 )
 @click.option(
+    "--query-history",
+    type=click.Path(exists=True),
+    default=None,
+    help="Query-history JSON fixture for SQL operation correlation",
+)
+@click.option(
     "--json",
     "json_output",
     is_flag=True,
@@ -211,6 +217,7 @@ def validate_contract(
     metadata_profile: str | None,
     runtime_run: str | None = None,
     historical_runs: str | None = None,
+    query_history: str | None = None,
     json_output: bool = False,
     workspace: str | None = None,
     token: str | None = None,
@@ -252,6 +259,7 @@ def validate_contract(
                     historical_runs,
                     json_output,
                     output_dir=effective_output_dir,
+                    query_history_path=query_history,
                 )
             else:
                 msg = "Error: Either --contract or --input is required for offline validation"
@@ -625,6 +633,7 @@ def _run_offline_validation(
     historical_runs_path: str | None = None,
     json_output: bool = False,
     output_dir: str = "reports",
+    query_history_path: str | None = None,
 ) -> None:
     contract = load_contract_file(contract_path)
     if environment:
@@ -697,7 +706,30 @@ def _run_offline_validation(
         if isinstance(raw_h, list):
             historical_objs = raw_h
 
-    from dpif.flow import build_pipeline_flow_graph
+    from dpif.flow import EvidenceState, FlowProvenance, build_pipeline_flow_graph
+    from dpif.flow.correlation import normalize_query_history
+    from dpif.models.implementation import EvidenceProvenanceKind
+
+    query_entries = None
+    if query_history_path:
+        with open(query_history_path, encoding="utf-8") as qf:
+            raw_qh = (
+                json.loads(qf.read())
+                if query_history_path.endswith(".json")
+                else yaml.safe_load(qf.read())
+            )
+        # None (unavailable) vs [] (valid empty) preserved by normalize.
+        query_entries = normalize_query_history(raw_qh)
+    history_prov = FlowProvenance(
+        kind=EvidenceProvenanceKind.FIXTURE,
+        state=EvidenceState.DERIVED,
+    )
+    if query_entries is None and query_history_path:
+        # Fixture present but unusable: keep provenance honest (UNKNOWN).
+        history_prov = FlowProvenance(
+            kind=EvidenceProvenanceKind.FIXTURE,
+            state=EvidenceState.UNKNOWN,
+        )
 
     flow_graph = build_pipeline_flow_graph(
         code_analysis=analysis,
@@ -706,6 +738,8 @@ def _run_offline_validation(
         raw_code=code_text,
         data_profile=profile,
         runtime_run=runtime_obj,
+        query_history=query_entries,
+        history_provenance=history_prov if query_history_path else None,
     )
 
     context: dict[str, Any] = {

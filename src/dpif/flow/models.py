@@ -9,16 +9,18 @@ Design rules (from docs/PIPELINE_DATA_FLOW_INTELLIGENCE_AUDIT.md):
 - UNKNOWN is preserved: dataset identity, locations and formats stay UNKNOWN
   when the evidence does not determine them.
 - Provenance reuses the existing M5E ``EvidenceProvenanceKind`` enum — no new
-  provenance vocabulary is introduced (GAP-007 consolidation is out of scope).
-- This phase does NOT model per-operation volumes, runtime observations,
-- partition states or cache nodes. Those are future consumers of the graph.
-+- Per-operation volumes are NOT modeled (no operation↔stage correlation
-+  exists yet): intermediate OPERATION/DATASET/SHUFFLE nodes keep
-+  ``volume=None`` (UNKNOWN). SOURCE/TARGET nodes may carry a pipeline
-+  volume baseline (``VolumeObservation``) with explicit provenance.
-+  Runtime observations, partition states and cache nodes remain future
-+  consumers of the graph.
- """
+-  provenance vocabulary is introduced (GAP-007 consolidation is out of scope).
+- Per-operation volumes are NOT modeled (no operation↔stage correlation
+-  exists yet): intermediate OPERATION/DATASET/SHUFFLE nodes keep
+-  ``volume=None`` (UNKNOWN). SOURCE/TARGET nodes may carry a pipeline
+-  volume baseline (``VolumeObservation``) with explicit provenance.
+-  Runtime observations, partition states and cache nodes remain future
+-  consumers of the graph.
+- Operation↔runtime correlation (Phase 3) lives in sidecar
+-  ``OperationRuntimeCorrelation`` records: UNKNOWN by default, KNOWN only
+-  via explicit evidence (SQL fingerprint + query-history identifiers).
+-  No per-operation volume attribution is derived from correlation.
+"""
 
 from __future__ import annotations
 
@@ -28,6 +30,7 @@ from pydantic import BaseModel, Field
 
 from dpif.code.models import OperationType
 from dpif.models.implementation import EvidenceProvenanceKind
+from dpif.models.sufficiency import ConfidenceLevel
 
 
 class FlowNodeKind(StrEnum):
@@ -206,6 +209,43 @@ class FlowGraphIssue(BaseModel):
     node_id: str | None = None
 
 
+class CorrelationMethod(StrEnum):
+    """Evidence basis of an operation↔runtime correlation (Phase 3).
+
+    Only methods with an authoritative identifier trail are admitted.
+    Positional/index/order/duration/rule-ID alignment is never a method.
+    """
+
+    SQL_FINGERPRINT = "SQL_FINGERPRINT"
+
+
+class OperationRuntimeCorrelation(BaseModel):
+    """Sidecar record linking a static operation to runtime evidence (Phase 3).
+
+    UNKNOWN BY DEFAULT: a record is created per SQL operation with
+    ``state=UNKNOWN`` and is upgraded to KNOWN only when an explicit,
+    traceable evidence path (canonical SQL fingerprint + exactly one
+    matching query-history entry carrying an authoritative query id)
+    establishes it. Multiple candidates, missing identifiers, missing
+    fingerprints, or unavailable history all stay UNKNOWN.
+
+    PySpark operations and DLT nodes have no runtime-joinable identifier
+    today and therefore never receive records (absence == UNKNOWN).
+
+    Confidence reuses ``ConfidenceLevel``; provenance reuses
+    ``FlowProvenance``. No per-operation volume is derived from correlation.
+    """
+
+    operation_node_id: str
+    runtime_query_id: str | None = None
+    runtime_statement_id: str | None = None
+    method: CorrelationMethod = CorrelationMethod.SQL_FINGERPRINT
+    state: EvidenceState = EvidenceState.UNKNOWN
+    confidence: ConfidenceLevel = ConfidenceLevel.INSUFFICIENT
+    evidence: dict[str, str] = Field(default_factory=dict)
+    provenance: FlowProvenance = Field(default_factory=FlowProvenance)
+
+
 class PipelineFlowGraph(BaseModel):
     """Directed pipeline data-flow graph common to offline and online validation."""
 
@@ -214,6 +254,7 @@ class PipelineFlowGraph(BaseModel):
     edges: list[FlowEdge] = Field(default_factory=list)
     source_ids: list[str] = Field(default_factory=list)
     target_ids: list[str] = Field(default_factory=list)
+    correlations: list[OperationRuntimeCorrelation] = Field(default_factory=list)
 
     # -- lookup helpers ----------------------------------------------------
     def node(self, node_id: str) -> FlowNode | None:

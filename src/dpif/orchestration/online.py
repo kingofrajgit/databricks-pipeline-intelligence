@@ -33,7 +33,8 @@ from dpif.discovery.synthesis import (
     synthesize_discovered_contract,
     synthesize_discovered_data_profile,
 )
-from dpif.flow import PipelineFlowGraph, build_pipeline_flow_graph
+from dpif.flow import EvidenceState, FlowProvenance, PipelineFlowGraph, build_pipeline_flow_graph
+from dpif.flow.correlation import normalize_query_history
 from dpif.models import (
     Checkpoint,
     CheckpointStatus,
@@ -41,7 +42,7 @@ from dpif.models import (
     PipelineContract,
 )
 from dpif.models.alignment import ThreeLayerAlignmentAssessment
-from dpif.models.implementation import ImplementationForensicsResult
+from dpif.models.implementation import EvidenceProvenanceKind, ImplementationForensicsResult
 from dpif.models.rerun import RerunAnalysisResult
 from dpif.models.sufficiency import EvidenceSufficiencyAssessment
 from dpif.models.synthesis import DecisionRiskSynthesisResult
@@ -51,6 +52,7 @@ from dpif.providers.base import (
     DatabricksEvidenceProvider,
     EvidenceCategory,
     NormalizedPipelineEvidence,
+    fetch_query_history_item,
     mask_sensitive_credentials,
     sanitize_job_payload,
 )
@@ -644,8 +646,50 @@ class OnlineValidationOrchestrator:
                 )
             )
 
+        # Phase 3: query-history evidence for SQL operation correlation.
+        # Retrieved ONLY when static SQL fingerprints exist (narrow scope —
+        # no platform-wide crawling). Unavailable/error stays UNKNOWN.
+        query_entries = None
+        sql_queries = (
+            list(analysis.sql_analysis.queries)
+            if (analysis is not None and analysis.sql_analysis is not None)
+            else []
+        )
+        if any(getattr(q, "fingerprint", None) for q in sql_queries):
+            qh_item = fetch_query_history_item(
+                self.connector, limit=25, resource_id=pipeline_name
+            )
+            if qh_item.is_available and isinstance(qh_item.payload, list):
+                summary["query_history"] = "LIVE"
+                query_entries = normalize_query_history(qh_item.payload)
+            else:
+                summary["query_history"] = (
+                    "ERROR" if qh_item.error else "UNAVAILABLE"
+                )
+            diagnostics.append(
+                EvidenceCategoryStatus(
+                    category="query_history",
+                    status=summary["query_history"],
+                    provenance=qh_item.provenance.source_type,
+                    resource_id=pipeline_name,
+                    error_code=qh_item.error.error_code.value if qh_item.error else None,
+                    error_message=qh_item.error.message if qh_item.error else None,
+                    details={"entries_count": len(query_entries or [])}
+                    if qh_item.is_available
+                    else {},
+                )
+            )
+            history_prov = FlowProvenance(
+                kind=EvidenceProvenanceKind.RUNTIME,
+                state=EvidenceState.KNOWN if qh_item.is_available else EvidenceState.UNKNOWN,
+                reference="live query history",
+            )
+        else:
+            history_prov = None
+
         # Common pipeline flow graph (GAP-001) — same builder as offline.
         # Phase 2: same SOURCE/TARGET volume baselines from live evidence.
+        # Phase 3: same SQL operation correlation from live query history.
         flow_graph = build_pipeline_flow_graph(
             code_analysis=analysis,
             contract=contract,
@@ -653,6 +697,8 @@ class OnlineValidationOrchestrator:
             raw_code=code_text,
             data_profile=data_profile,
             runtime_run=runtime_obj,
+            query_history=query_entries,
+            history_provenance=history_prov,
         )
 
         # 3. Downstream DPIF Intelligence Execution

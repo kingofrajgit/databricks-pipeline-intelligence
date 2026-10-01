@@ -63,5 +63,14 @@ class DatabricksConnector(ABC):
         """Return SQL query definition payload."""
         return None
 
+    def get_query_history(self, limit: int = 25) -> dict[str, Any] | list[dict[str, Any]] | None:
+        """Return recent SQL query-history entries for correlation (None when unavailable).
+
+        Narrowly scoped to executed-statement metadata (ids, text, tables);
+        never a platform-wide crawl. Retrieval failure must surface as an
+        exception (mapped to an error item), never as an empty result.
+        """
+        return None
+
     def mode(self) -> str:
         return "abstract"
