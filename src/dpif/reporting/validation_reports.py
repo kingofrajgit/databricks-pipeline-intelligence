@@ -19,7 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from dpif.flow import PipelineFlowGraph
+from dpif.flow import PipelineFlowGraph, VolumeObservation
 from dpif.models import Checkpoint, CheckpointStatus, PipelineContract, Score
 from dpif.models.alignment import ThreeLayerAlignmentAssessment
 from dpif.models.implementation import ImplementationForensicsResult
@@ -85,8 +85,28 @@ def sanitize_dict_credentials(data: Any) -> Any:
     return data
 
 
+def _format_volume(volume: VolumeObservation | None) -> str:
+    """One-line volume rendering: evidenced quantities or UNKNOWN (never 0)."""
+    if volume is None or not volume.is_known:
+        return "UNKNOWN (no volume evidence)"
+    parts: list[str] = []
+    if volume.input_bytes is not None:
+        parts.append(f"input={volume.input_bytes} B ({volume.input_bytes / 1024.0**3:.3f} GB)")
+    if volume.output_bytes is not None:
+        parts.append(f"output={volume.output_bytes} B ({volume.output_bytes / 1024.0**3:.3f} GB)")
+    if volume.input_rows is not None:
+        parts.append(f"input_rows={volume.input_rows}")
+    if volume.output_rows is not None:
+        parts.append(f"output_rows={volume.output_rows}")
+    if volume.file_count is not None:
+        parts.append(f"files={volume.file_count}")
+    kind = volume.provenance.kind.value if volume.provenance.kind else "UNKNOWN"
+    parts.append(f"provenance={kind}/{volume.provenance.state.value}")
+    return ", ".join(parts)
+
+
 def _append_flow_graph_section(lines: list[str], flow_graph: PipelineFlowGraph | None) -> None:
-    """Append the common pipeline flow graph summary (GAP-001) to a markdown report."""
+    """Append the common pipeline flow graph summary (GAP-001 + Phase 2 volume)."""
     lines.append("## Pipeline Flow Graph (GAP-001)")
     lines.append("")
     if flow_graph is None:
@@ -106,6 +126,13 @@ def _append_flow_graph_section(lines: list[str], flow_graph: PipelineFlowGraph |
             lines.append(f"  - `{issue.code}`: {issue.message}")
     else:
         lines.append("- **Structural Issues**: none")
+    # Phase 2: volume observations on SOURCE/TARGET baselines (additive).
+    for node_id in [*flow_graph.source_ids, *flow_graph.target_ids]:
+        node = flow_graph.node(node_id)
+        if node is None:
+            continue
+        label = node.dataset.name if node.dataset and node.dataset.name != "UNKNOWN" else node.node_id
+        lines.append(f"- **Volume [{node.kind.value} {label}]**: {_format_volume(node.volume)}")
     lines.append("")
 
 

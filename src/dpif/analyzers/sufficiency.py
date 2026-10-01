@@ -688,32 +688,56 @@ class EvidenceSufficiencyAnalyzer:
                 if getattr(runtime_data, "is_stale", False) or "stale" in str(getattr(runtime_data, "status", "")).lower():
                     freshness = EvidenceFreshness.STALE
 
-            dur = getattr(runtime_data, "duration_seconds", None) or getattr(runtime_data, "execution_time_seconds", None)
-            if dur is not None:
+            # Phase 2 zero-collapse hardening: a metric counts as available
+            # only when positively evidenced (> 0). Zero/missing attribute
+            # means UNKNOWN, never a successful measurement. Legacy attribute
+            # names are kept first; real RuntimeRun properties are the fallback.
+            # Non-numeric values (e.g. unset mock attributes) count as missing.
+            def _measured(*candidates: Any) -> bool:
+                return any(
+                    isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0
+                    for v in candidates
+                )
+
+            if _measured(
+                getattr(runtime_data, "duration_seconds", None),
+                getattr(runtime_data, "execution_time_seconds", None),
+            ):
                 available.append("execution_duration")
             else:
                 unavailable.append("execution_duration")
 
-            tc = getattr(runtime_data, "task_count", None) or getattr(runtime_data, "total_tasks", None)
-            if tc is not None:
+            if _measured(
+                getattr(runtime_data, "task_count", None),
+                getattr(runtime_data, "total_tasks", None),
+            ):
                 available.append("task_count")
             else:
                 unavailable.append("task_count")
 
-            br = getattr(runtime_data, "bytes_read", None) or getattr(runtime_data, "input_bytes", None)
-            if br is not None:
+            if _measured(
+                getattr(runtime_data, "bytes_read", None),
+                getattr(runtime_data, "input_bytes", None),
+                getattr(runtime_data, "total_input_bytes", None),
+            ):
                 available.append("bytes_read")
             else:
                 unavailable.append("bytes_read")
 
-            bw = getattr(runtime_data, "bytes_written", None) or getattr(runtime_data, "output_bytes", None)
-            if bw is not None:
+            if _measured(
+                getattr(runtime_data, "bytes_written", None),
+                getattr(runtime_data, "output_bytes", None),
+                getattr(runtime_data, "total_output_bytes", None),
+            ):
                 available.append("bytes_written")
             else:
                 unavailable.append("bytes_written")
 
-            spill = getattr(runtime_data, "memory_spill_bytes", None) or getattr(runtime_data, "spill_bytes", None)
-            if spill is not None:
+            if _measured(
+                getattr(runtime_data, "memory_spill_bytes", None),
+                getattr(runtime_data, "spill_bytes", None),
+                getattr(runtime_data, "total_spill_bytes", None),
+            ):
                 available.append("spill_metrics")
             else:
                 unavailable.append("spill_metrics")

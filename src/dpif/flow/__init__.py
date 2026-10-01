@@ -15,6 +15,7 @@ from dpif.flow.models import (
     FlowProvenance,
     PipelineFlowGraph,
     SourceLocation,
+    VolumeObservation,
 )
 
 __all__ = [
@@ -27,5 +28,6 @@ __all__ = [
     "FlowProvenance",
     "PipelineFlowGraph",
     "SourceLocation",
+    "VolumeObservation",
     "build_pipeline_flow_graph",
 ]

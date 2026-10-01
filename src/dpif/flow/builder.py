@@ -9,11 +9,15 @@ Evidence sources consumed (all existing, nothing re-parsed):
 - ``OperationType`` vocabulary and ``SHUFFLE_OPS`` (code.pyspark)
 - ``EvidenceProvenanceKind`` (models.implementation) for provenance
 - contract ``Source`` / ``Target`` declarations
+- pipeline volume baseline via ``extract_baseline_volume`` (scalability.engine;
+  same precedence offline and online: runtime → profile → contract)
 - raw code text ONLY for a minimal ``dlt.read`` / ``create_streaming_table``
   vocabulary the AST parser does not cover (DLT; see docs/PIPELINE_FLOW_GRAPH.md)
 
-UNKNOWN discipline: dataset identity, formats and source locations stay
-UNKNOWN when evidence does not determine them. Nothing is fabricated.
+UNKNOWN discipline: dataset identity, formats, source locations and volume
+observations stay UNKNOWN (``None``) when evidence does not determine them.
+Nothing is fabricated. Per-operation byte/row deltas are never estimated:
+only SOURCE/TARGET pipeline baselines are attached.
 """
 
 from __future__ import annotations
@@ -33,14 +37,19 @@ from dpif.flow.models import (
     FlowProvenance,
     PipelineFlowGraph,
     SourceLocation,
+    VolumeObservation,
 )
-from dpif.models import PipelineContract
+from dpif.models import CollectionMethod, DataProfile, PipelineContract
 from dpif.models.implementation import EvidenceProvenanceKind
+from dpif.scalability.engine import extract_baseline_volume
+from dpif.scalability.models import EvidenceProvenance as ScalabilityProvenance
 
 _FORMAT_VIAS = frozenset({"parquet", "csv", "json", "orc", "avro", "delta"})
 
 _SAVEAS_TABLE_RE = re.compile(r"""\.(?:saveAsTable|insertInto)\(\s*['"]([^'"]+)['"]""")
 _SAVE_PATH_RE = re.compile(r"""\.(?:save|parquet|csv|json|orc|avro)\(\s*['"]([^'"]+)['"]""")
+_TOTABLE_RE = re.compile(r"""\.toTable\(\s*['"]([^'"]+)['"]""")
+_START_PATH_RE = re.compile(r"""\.start\(\s*['"]([^'"]+)['"]""")
 _SQL_FROM_RE = re.compile(r"(?i)\bfrom\s+([a-zA-Z0-9_.]+)")
 _BARE_VAR_RE = re.compile(r"^([A-Za-z_]\w*)$")
 _BROADCAST_VAR_RE = re.compile(r"^(?:[A-Za-z_]\w*\.)?broadcast\(\s*([A-Za-z_]\w*)\s*\)$")
@@ -75,6 +84,64 @@ def _static(state: EvidenceState = EvidenceState.KNOWN) -> FlowProvenance:
 
 def _contract_prov(state: EvidenceState = EvidenceState.DERIVED) -> FlowProvenance:
     return FlowProvenance(kind=EvidenceProvenanceKind.CONTRACT, state=state)
+
+
+_GB_BYTES = 1024.0**3
+
+# Baseline provenance (scalability.engine) -> flow provenance (Phase 2).
+# RUNTIME/CONTRACT are directly evidenced (KNOWN); FIXTURE/METADATA are
+# representative or synthesized (DERIVED). UNKNOWN never yields a volume.
+_BASELINE_PROVENANCE: dict[ScalabilityProvenance, FlowProvenance] = {
+    ScalabilityProvenance.RUNTIME: FlowProvenance(
+        kind=EvidenceProvenanceKind.RUNTIME, state=EvidenceState.KNOWN
+    ),
+    ScalabilityProvenance.CONTRACT: FlowProvenance(
+        kind=EvidenceProvenanceKind.CONTRACT, state=EvidenceState.KNOWN
+    ),
+    ScalabilityProvenance.FIXTURE: FlowProvenance(
+        kind=EvidenceProvenanceKind.FIXTURE, state=EvidenceState.DERIVED
+    ),
+    ScalabilityProvenance.DATABRICKS_METADATA: FlowProvenance(
+        kind=EvidenceProvenanceKind.METADATA, state=EvidenceState.DERIVED
+    ),
+}
+
+
+def _baseline_source_volume(
+    baseline_gb: float | None,
+    baseline_prov: ScalabilityProvenance,
+    data_profile: DataProfile | None,
+) -> VolumeObservation | None:
+    """SOURCE pipeline baseline from ``extract_baseline_volume`` output.
+
+    Returns ``None`` (UNKNOWN) when the baseline is missing or non-positive.
+    Row/file counts attach only when positively evidenced (``> 0``); a
+    ``DataProfile`` zero is indistinguishable from missing and stays UNKNOWN.
+    File counts attach only for FIXTURE profiles, which carry real size
+    distributions (online synthesized placeholders are zero post-hardening).
+    """
+    if baseline_gb is None or baseline_gb <= 0:
+        return None
+    provenance = _BASELINE_PROVENANCE.get(baseline_prov)
+    if provenance is None:
+        return None
+    rows: int | None = None
+    files: int | None = None
+    if data_profile is not None:
+        record_count = data_profile.record_count or 0
+        if record_count > 0:
+            rows = int(record_count)
+        if (
+            data_profile.collection_method == CollectionMethod.FIXTURE
+            and (data_profile.file_count or 0) > 0
+        ):
+            files = int(data_profile.file_count)
+    return VolumeObservation(
+        input_bytes=int(baseline_gb * _GB_BYTES),
+        input_rows=rows,
+        file_count=files,
+        provenance=provenance,
+    )
 
 
 def _strip_quotes(text: str) -> str:
@@ -133,22 +200,23 @@ def _write_identity(op: Operation, raw_code: str = "") -> DatasetIdentity:
     """Dataset identity for a WRITE op from its recorded snippet (no fabrication).
 
     Falls back to the raw-code window around the statement when the parser
-    snippet was truncated before the terminal ``.saveAsTable`` / ``.save`` call.
+    snippet was truncated before the terminal ``.saveAsTable`` / ``.save`` /
+    ``.toTable`` / ``.start`` call.
     """
     via = str(op.arguments.get("via", "")).lower()
-    m = _SAVEAS_TABLE_RE.search(op.code)
+    m = _SAVEAS_TABLE_RE.search(op.code) or _TOTABLE_RE.search(op.code)
     if m:
         return DatasetIdentity(name=m.group(1), state=EvidenceState.KNOWN, kind="table", format="delta")
-    m = _SAVE_PATH_RE.search(op.code)
+    m = _SAVE_PATH_RE.search(op.code) or _START_PATH_RE.search(op.code)
     if m:
         fmt = via if via in _FORMAT_VIAS else None
         return DatasetIdentity(name=m.group(1), state=EvidenceState.KNOWN, kind="path", format=fmt)
     window = _code_window(raw_code, op.line)
     if window:
-        m = _SAVEAS_TABLE_RE.search(window)
+        m = _SAVEAS_TABLE_RE.search(window) or _TOTABLE_RE.search(window)
         if m:
             return DatasetIdentity(name=m.group(1), state=EvidenceState.KNOWN, kind="table", format="delta")
-        m = _SAVE_PATH_RE.search(window)
+        m = _SAVE_PATH_RE.search(window) or _START_PATH_RE.search(window)
         if m:
             fmt = via if via in _FORMAT_VIAS else None
             return DatasetIdentity(name=m.group(1), state=EvidenceState.KNOWN, kind="path", format=fmt)
@@ -186,6 +254,8 @@ class _GraphBuilder:
         contract: PipelineContract | None,
         pipeline_name: str,
         raw_code: str,
+        data_profile: DataProfile | None = None,
+        runtime_run: object | None = None,
     ) -> None:
         self.analysis = code_analysis
         self.contract = contract
@@ -193,6 +263,8 @@ class _GraphBuilder:
             getattr(contract, "pipeline_name", "") or "unknown" if contract else "unknown"
         )
         self.raw_code = raw_code or ""
+        self.data_profile = data_profile
+        self.runtime_run = runtime_run
         self.nodes: list[FlowNode] = []
         self.edges: list[FlowEdge] = []
         self.source_ids: list[str] = []
@@ -257,6 +329,7 @@ class _GraphBuilder:
         else:
             self._build_dlt_sources()
         self._apply_contract_evidence()
+        self._apply_volume_baselines()
         return PipelineFlowGraph(
             pipeline_name=self.pipeline_name,
             nodes=self.nodes,
@@ -668,6 +741,44 @@ class _GraphBuilder:
                 targets[0].dataset.state = EvidenceState.DERIVED
                 targets[0].provenance = _contract_prov()
 
+    # -- Volume baselines (Phase 2) ------------------------------------------------
+    def _apply_volume_baselines(self) -> None:
+        """Attach pipeline volume baselines to SOURCE/TARGET nodes (Phase 2).
+
+        SOURCE nodes share the pipeline input baseline from
+        ``extract_baseline_volume`` (runtime → profile → contract precedence).
+        TARGET nodes carry measured runtime output bytes only when stages were
+        actually observed (genuine zero preserved; missing stays ``None``).
+        Intermediate OPERATION/DATASET/SHUFFLE nodes are never touched:
+        per-operation volume is UNKNOWN without operation↔stage correlation.
+        """
+        baseline_gb, baseline_prov = extract_baseline_volume(
+            self.contract, self.data_profile, self.runtime_run
+        )
+        source_volume = _baseline_source_volume(baseline_gb, baseline_prov, self.data_profile)
+        if source_volume is not None:
+            for node in self.nodes_of_kind_local(FlowNodeKind.SOURCE):
+                if node.volume is None:
+                    node.volume = source_volume.model_copy(deep=True)
+
+        output_bytes: int | None = None
+        stages = getattr(self.runtime_run, "stages", None) if self.runtime_run is not None else None
+        if stages:
+            total_out = getattr(self.runtime_run, "total_output_bytes", None)
+            if total_out is not None:
+                output_bytes = int(total_out)
+        if output_bytes is not None:
+            for node in self.nodes_of_kind_local(FlowNodeKind.TARGET):
+                if node.volume is None:
+                    node.volume = VolumeObservation(
+                        output_bytes=output_bytes,
+                        provenance=FlowProvenance(
+                            kind=EvidenceProvenanceKind.RUNTIME,
+                            state=EvidenceState.KNOWN,
+                            reference="runtime total_output_bytes",
+                        ),
+                    )
+
     def nodes_of_kind_local(self, kind: FlowNodeKind) -> list[FlowNode]:
         return [n for n in self.nodes if n.kind == kind]
 
@@ -677,6 +788,8 @@ def build_pipeline_flow_graph(
     contract: PipelineContract | None = None,
     pipeline_name: str = "",
     raw_code: str = "",
+    data_profile: DataProfile | None = None,
+    runtime_run: object | None = None,
 ) -> PipelineFlowGraph:
     """Build the common pipeline flow graph from existing evidence.
 
@@ -684,6 +797,10 @@ def build_pipeline_flow_graph(
     validation (synthesized contract + Databricks-retrieved code). Never raises
     for analysis shapes it does not understand — it simply produces a smaller
     (honest) graph.
+
+    Phase 2: ``data_profile`` / ``runtime_run`` feed SOURCE/TARGET pipeline
+    volume baselines via ``extract_baseline_volume`` (same precedence both
+    paths). When absent, node volumes stay ``None`` (UNKNOWN).
     """
     try:
         builder = _GraphBuilder(
@@ -691,6 +808,8 @@ def build_pipeline_flow_graph(
             contract=contract,
             pipeline_name=pipeline_name,
             raw_code=raw_code,
+            data_profile=data_profile,
+            runtime_run=runtime_run,
         )
         return builder.build()
     except Exception:  # pragma: no cover - defensive: graph must never break validation

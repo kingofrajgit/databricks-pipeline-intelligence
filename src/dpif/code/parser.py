@@ -510,8 +510,11 @@ def _record_operations(source: str, tree: ast.AST, df_vars: list[str]) -> list[O
                     )
                 )
                 continue
-        # df.write... terminal writers
-        if "write" in attrs:
+        # df.write... / df.writeStream... terminal writers
+        # ("writeStream" chains terminate at .start(...) / .toTable(...);
+        # streaming-ness is preserved in via, volume stays UNKNOWN.)
+        is_stream_write = "writeStream" in attrs
+        if "write" in attrs or is_stream_write:
             if "coalesce" in attrs:
                 ops.append(
                     Operation(
@@ -533,11 +536,13 @@ def _record_operations(source: str, tree: ast.AST, df_vars: list[str]) -> list[O
                         code=snippet,
                     )
                 )
-            if outer in SPARK_WRITE_ATTRS or outer in WRITE_CHAIN_ATTRS:
+            if outer in SPARK_WRITE_ATTRS or outer in WRITE_CHAIN_ATTRS or (
+                is_stream_write and outer in ("start", "toTable")
+            ):
                 # record once at the terminal save call
                 if outer in ("save", "parquet", "csv", "json") or (
                     outer in SPARK_WRITE_ATTRS and outer not in ("write",)
-                ):
+                ) or (is_stream_write and outer in ("start", "toTable")):
                     ops.append(
                         Operation(
                             operation_type=OperationType.WRITE,

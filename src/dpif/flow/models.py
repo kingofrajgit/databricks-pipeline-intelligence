@@ -11,8 +11,14 @@ Design rules (from docs/PIPELINE_DATA_FLOW_INTELLIGENCE_AUDIT.md):
 - Provenance reuses the existing M5E ``EvidenceProvenanceKind`` enum — no new
   provenance vocabulary is introduced (GAP-007 consolidation is out of scope).
 - This phase does NOT model per-operation volumes, runtime observations,
-  partition states or cache nodes. Those are future consumers of the graph.
-"""
+- partition states or cache nodes. Those are future consumers of the graph.
++- Per-operation volumes are NOT modeled (no operation↔stage correlation
++  exists yet): intermediate OPERATION/DATASET/SHUFFLE nodes keep
++  ``volume=None`` (UNKNOWN). SOURCE/TARGET nodes may carry a pipeline
++  volume baseline (``VolumeObservation``) with explicit provenance.
++  Runtime observations, partition states and cache nodes remain future
++  consumers of the graph.
+ """
 
 from __future__ import annotations
 
@@ -89,6 +95,51 @@ class DatasetIdentity(BaseModel):
     format: str | None = None
 
 
+class VolumeObservation(BaseModel):
+    """Evidence-backed volume attached to a flow node (Phase 2, GAP-002).
+
+    Every numeric field is ``Optional`` and ``None`` means UNKNOWN — no
+    evidence was available. A genuinely measured zero stays ``0``; builders
+    must never coerce with ``or 0`` when populating these fields.
+
+    Provenance reuses ``FlowProvenance`` (``EvidenceProvenanceKind`` +
+    ``EvidenceState``); no new provenance vocabulary is introduced.
+    ``state`` distinguishes KNOWN (directly evidenced, e.g. runtime bytes
+    or declared contract volume) from DERIVED (representative/synthesized,
+    e.g. fixture metadata).
+
+    Only SOURCE/TARGET pipeline baselines are populated today; intermediate
+    OPERATION/DATASET/SHUFFLE nodes keep ``volume=None`` (UNKNOWN) because
+    no operation↔stage correlation exists yet.
+    """
+
+    input_bytes: int | None = None
+    output_bytes: int | None = None
+    input_rows: int | None = None
+    output_rows: int | None = None
+    file_count: int | None = None
+    provenance: FlowProvenance = Field(default_factory=FlowProvenance)
+
+    @property
+    def status(self) -> EvidenceState:
+        """KNOWN / DERIVED / UNKNOWN mirroring ``provenance.state``."""
+        return self.provenance.state
+
+    @property
+    def is_known(self) -> bool:
+        """Whether any numeric volume quantity is actually evidenced."""
+        return any(
+            v is not None
+            for v in (
+                self.input_bytes,
+                self.output_bytes,
+                self.input_rows,
+                self.output_rows,
+                self.file_count,
+            )
+        )
+
+
 class FlowNode(BaseModel):
     """One node of the pipeline flow graph.
 
@@ -98,6 +149,8 @@ class FlowNode(BaseModel):
       identity state is DERIVED for variables, UNKNOWN when unresolvable).
     - SHUFFLE nodes carry ``shuffle_cause`` (the operation type that induces it).
     - TARGET nodes carry ``dataset`` identity of the sink.
+    - SOURCE/TARGET nodes may carry ``volume`` (pipeline baseline); ``None``
+      means UNKNOWN — never ``0`` unless genuinely measured.
     """
 
     node_id: str
@@ -107,6 +160,7 @@ class FlowNode(BaseModel):
     dataset: DatasetIdentity | None = None
     location: SourceLocation | None = None
     shuffle_cause: OperationType | None = None
+    volume: VolumeObservation | None = None
     metadata: dict[str, object] = Field(default_factory=dict)
     provenance: FlowProvenance = Field(default_factory=FlowProvenance)
 

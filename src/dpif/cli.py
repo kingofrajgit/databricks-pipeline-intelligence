@@ -704,6 +704,8 @@ def _run_offline_validation(
         contract=contract,
         pipeline_name=contract.pipeline_name,
         raw_code=code_text,
+        data_profile=profile,
+        runtime_run=runtime_obj,
     )
 
     context: dict[str, Any] = {

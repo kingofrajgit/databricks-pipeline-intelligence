@@ -645,11 +645,14 @@ class OnlineValidationOrchestrator:
             )
 
         # Common pipeline flow graph (GAP-001) — same builder as offline.
+        # Phase 2: same SOURCE/TARGET volume baselines from live evidence.
         flow_graph = build_pipeline_flow_graph(
             code_analysis=analysis,
             contract=contract,
             pipeline_name=pipeline_name,
             raw_code=code_text,
+            data_profile=data_profile,
+            runtime_run=runtime_obj,
         )
 
         # 3. Downstream DPIF Intelligence Execution

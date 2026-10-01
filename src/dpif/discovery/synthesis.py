@@ -350,10 +350,10 @@ def synthesize_discovered_data_profile(
                 total_bytes = int(total_gb * (1024**3))
 
         recs = getattr(runtime_run, "records_read", None)
-        if recs is not None and isinstance(recs, (int, float)):
+        if recs is not None and isinstance(recs, (int, float)) and recs > 0:
+            # Only genuinely measured row counts. Task counts are NOT rows
+            # (Phase 2 zero-collapse hardening): missing stays 0/UNKNOWN.
             record_count = int(recs)
-        elif getattr(runtime_run, "total_tasks", 0) > 0:
-            record_count = getattr(runtime_run, "total_tasks", 0)
 
     # 2. From Unity Catalog table metadata
     if table_profile and isinstance(table_profile.get("columns"), list):
@@ -374,8 +374,10 @@ def synthesize_discovered_data_profile(
     return DataProfile(
         total_bytes=total_bytes,
         total_gb=total_gb,
-        file_count=1 if total_bytes > 0 else 0,
-        average_file_size_kb=round(total_bytes / 1024.0, 1) if total_bytes > 0 else 0.0,
+        # Phase 2 zero-collapse hardening: file counts/sizes are UNKNOWN
+        # unless measured. A single-file placeholder would fabricate evidence.
+        file_count=0,
+        average_file_size_kb=0.0,
         record_count=record_count,
         column_count=len(schema_cols),
         schema_columns=schema_cols,
