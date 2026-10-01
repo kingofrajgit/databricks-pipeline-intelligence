@@ -843,19 +843,30 @@ def cp023_sla(
         checkpoint_id="CP-023",
         name="SLA Validation",
         category="sla",
-        status=CheckpointStatus.PASS,
+        status=CheckpointStatus.UNKNOWN
+        if dur_sec <= 0
+        else CheckpointStatus.PASS,
         severity=Severity.INFO,
-        score=1.0,
+        score=0.0 if dur_sec <= 0 else 1.0,
         evidence=EvidenceRecord(
             rule_id="CP-023",
-            status=CheckpointStatus.PASS,
+            status=CheckpointStatus.UNKNOWN
+            if dur_sec <= 0
+            else CheckpointStatus.PASS,
             severity=Severity.INFO,
             observed={"actual_duration_seconds": dur_sec},
-            expected={"sla_configured": False},
-            evidence=["Runtime observed; no contractual SLA defined to compare against"],
-            recommendation="",
-            confidence=0.8,
-            method=AnalysisMethod.METADATA,
+            expected={"sla_configured": False, "duration_measured": dur_sec > 0},
+            evidence=[
+                "No runtime duration measured and no contractual SLA defined; "
+                "SLA compliance is unknown"
+                if dur_sec <= 0
+                else "Runtime observed; no contractual SLA defined to compare against"
+            ],
+            recommendation="Provide runtime execution evidence for SLA validation."
+            if dur_sec <= 0
+            else "",
+            confidence=0.0 if dur_sec <= 0 else 0.8,
+            method=AnalysisMethod.UNAVAILABLE if dur_sec <= 0 else AnalysisMethod.METADATA,
         ),
     )
 

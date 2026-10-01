@@ -183,8 +183,14 @@ class CheckpointEngine:
         elif any(f.status == CheckpointStatus.WARN for f in findings):
             checkpoint.status = CheckpointStatus.WARN
             checkpoint.severity = Severity.MEDIUM
-        else:
+        elif any(f.status == CheckpointStatus.PASS for f in findings):
             checkpoint.status = CheckpointStatus.PASS
+            checkpoint.severity = Severity.INFO
+        else:
+            # Phase 5 (G1): UNKNOWN evidence must not become PASS. When every
+            # finding is UNKNOWN (or another non PASS/WARN/FAIL status), the
+            # checkpoint stays UNKNOWN (severity INFO mirrors _unknown).
+            checkpoint.status = CheckpointStatus.UNKNOWN
             checkpoint.severity = Severity.INFO
 
         checkpoint.findings = findings
