@@ -6,6 +6,7 @@ is unavailable the checkpoint returns UNKNOWN — never PASS.
 
 from __future__ import annotations
 
+import ast
 import re
 from typing import Any
 
@@ -253,6 +254,30 @@ def cp009_cluster(cluster_config: dict[str, Any] | None) -> Checkpoint:
         return _unknown(
             "CP-009", "Cluster Validation", "cluster", "No cluster configuration available."
         )
+    # Phase 6 (B1): an arbitrary non-empty mapping is not cluster evidence.
+    # PASS requires at least one meaningful cluster field (worker sizing,
+    # node type, runtime version, policy/pool identity, or spark config).
+    _meaningful_cluster_keys = (
+        "num_workers",
+        "worker_count",
+        "autoscale",
+        "node_type",
+        "node_type_id",
+        "driver_node_type_id",
+        "spark_version",
+        "policy_id",
+        "instance_pool_id",
+        "cluster_id",
+        "spark_conf",
+    )
+    if not any(cluster_config.get(k) for k in _meaningful_cluster_keys):
+        return _unknown(
+            "CP-009",
+            "Cluster Validation",
+            "cluster",
+            "Cluster configuration present but no meaningful cluster evidence "
+            "(node type, spark version, worker count, policy/pool, or spark config).",
+        )
     workers = cluster_config.get("num_workers", cluster_config.get("worker_count"))
     if workers is None and cluster_config.get("autoscale"):
         workers = cluster_config["autoscale"].get("max_workers")
@@ -305,6 +330,38 @@ def cp010_scalability(
             "available for scalability analysis.",
         )
 
+    # Phase 6 (B1): object presence alone is not volume evidence. At least
+    # one positive volume signal (contract expected/peak, profile total, or
+    # measured runtime bytes) is required; all-None/all-zero stays UNKNOWN.
+    def _positive_volume(value: Any) -> bool:
+        return isinstance(value, (int, float)) and value > 0
+
+    _expected_gb = contract.expected_daily_volume_gb if contract else None
+    _peak_gb = contract.peak_daily_volume_gb if contract else None
+    _profile_gb = data_profile.total_gb if data_profile else None
+    _has_volume = (
+        _positive_volume(_expected_gb) or _positive_volume(_peak_gb) or _positive_volume(_profile_gb)
+    )
+    if not _has_volume:
+        try:
+            _rt_in = getattr(runtime_data, "total_input_bytes", None)
+            _rt_out = getattr(runtime_data, "total_output_bytes", None)
+            if isinstance(runtime_data, dict):
+                _stages = runtime_data.get("stages") or []
+                _rt_in = sum(int(s.get("input_bytes") or 0) for s in _stages if isinstance(s, dict))
+                _rt_out = sum(int(s.get("output_bytes") or 0) for s in _stages if isinstance(s, dict))
+            _has_volume = _positive_volume(_rt_in) or _positive_volume(_rt_out)
+        except (TypeError, ValueError, AttributeError):
+            _has_volume = False
+    if not _has_volume:
+        return _unknown(
+            "CP-010",
+            "Scalability Validation",
+            "scalability",
+            "Contract/profile/runtime present but no positive volume evidence "
+            "(expected/peak/profile bytes or measured runtime bytes).",
+        )
+
     # Initial evaluable skeleton; CheckpointEngine evaluates SCALABILITY-* rules
     return Checkpoint(
         checkpoint_id="CP-010",
@@ -338,6 +395,28 @@ def cp011_job(job_config: dict[str, Any] | None) -> Checkpoint:
     notes = []
     settings = job_config.get("settings", job_config)
     tasks = settings.get("tasks", []) if isinstance(settings, dict) else []
+    # Phase 6 (B1): an arbitrary mapping without any of the fields this
+    # checkpoint evaluates (tasks, schedule, retry or timeout evidence) is
+    # not job-configuration evidence. Reliability-only configs (retries +
+    # timeout, as synthesized offline) still proceed to the checks below.
+    _schedule = settings.get("schedule") if isinstance(settings, dict) else None
+    _has_job_signal = (
+        bool(tasks)
+        or bool(_schedule)
+        or bool(job_config.get("schedule"))
+        or "max_retries" in job_config
+        or "timeout_seconds" in job_config
+        or "retry_count" in job_config
+        or "timeout_minutes" in job_config
+        or (isinstance(settings, dict) and ("max_retries" in settings or "timeout_seconds" in settings))
+    )
+    if not _has_job_signal:
+        return _unknown(
+            "CP-011",
+            "Job Validation",
+            "job",
+            "Job configuration present but no task, schedule, retry, or timeout evidence available.",
+        )
     max_retries = int(job_config.get("max_retries", 0) or 0)
     if isinstance(settings, dict):
         max_retries = max(max_retries, int(settings.get("max_retries", 0) or 0))
@@ -346,7 +425,7 @@ def cp011_job(job_config: dict[str, Any] | None) -> Checkpoint:
         if task_retries:
             max_retries = max(max_retries, max(task_retries))
 
-    timeout_sec = int(job_config.get("timeout_seconds", 1) or 0)
+    timeout_sec = int(job_config.get("timeout_seconds", 0) or 0)
     if isinstance(settings, dict) and "timeout_seconds" in settings:
         timeout_sec = max(timeout_sec, int(settings.get("timeout_seconds", 0) or 0))
     if tasks:
@@ -470,7 +549,29 @@ def cp013_error_handling(code_text: str = "") -> Checkpoint:
             "reliability",
             "No code available to assess error handling.",
         )
-    has_try = "try:" in code_text and "except" in code_text
+    # Phase 6 (B1): the substrings "try:"/"except" alone (e.g. inside a
+    # comment) do not prove exception safety. A PASS requires a parsed
+    # try/except handler; textual mention without a parsed handler is
+    # insufficient evidence (UNKNOWN), while code with no mention at all
+    # remains a genuine negative (WARN).
+    _mentions_try = "try:" in code_text and "except" in code_text
+    if _mentions_try:
+        try:
+            _tree = ast.parse(code_text)
+            _verified = any(
+                isinstance(_node, ast.Try) and _node.handlers for _node in ast.walk(_tree)
+            )
+        except (SyntaxError, ValueError):
+            _verified = False
+        if not _verified:
+            return _unknown(
+                "CP-013",
+                "Error Handling Validation",
+                "reliability",
+                "Code mentions try/except textually but no parsed exception handler "
+                "was found; error-handling evidence unavailable.",
+            )
+    has_try = _mentions_try
     status = CheckpointStatus.PASS if has_try else CheckpointStatus.WARN
     return Checkpoint(
         checkpoint_id="CP-013",
@@ -539,7 +640,30 @@ def cp015_restartability(
             "No checkpoint/restart metadata available.",
         )
     text = f"{job_config or {}} {code_text}".lower()
-    has_ckpt = "checkpoint" in text or "checkpointlocation" in text.replace(" ", "")
+    _nospace = text.replace(" ", "")
+    # Phase 6 (B1): the bare word "checkpoint" in prose (e.g. a TODO comment)
+    # does not prove checkpoint lifecycle correctness. PASS requires a
+    # checkpoint location/restart signal; a bare mention is insufficient
+    # evidence (UNKNOWN); no mention at all remains a genuine negative (WARN).
+    _strong_ckpt = (
+        "checkpointlocation" in _nospace
+        or "checkpoint_location" in text
+        or "checkpoint_path" in text
+        or "checkpoint_dir" in text
+        or (("restart" in text or "recover" in text) and "checkpoint" in text)
+    )
+    if "checkpoint" not in text:
+        has_ckpt = False
+    elif _strong_ckpt:
+        has_ckpt = True
+    else:
+        return _unknown(
+            "CP-015",
+            "Restartability Validation",
+            "reliability",
+            "The word 'checkpoint' appears but no checkpoint location or restart "
+            "evidence was found; restartability evidence unavailable.",
+        )
     status = CheckpointStatus.PASS if has_ckpt else CheckpointStatus.WARN
     return Checkpoint(
         checkpoint_id="CP-015",
@@ -568,7 +692,19 @@ def cp015_restartability(
 def cp016_idempotency(contract: PipelineContract | None) -> Checkpoint:
     if contract is None:
         return _unknown("CP-016", "Idempotency Validation", "reliability", "No contract available.")
-    ok = bool(contract.reliability.idempotent)
+    # Phase 6 (B1): the model default (idempotent=True) is not evidence.
+    # PASS/WARN require explicitly provided idempotency evidence; a bare
+    # default-constructed reliability section stays UNKNOWN. (Synthesis and
+    # loader defaults are out of scope for this phase.)
+    _reliability = getattr(contract, "reliability", None)
+    if _reliability is None or "idempotent" not in _reliability.model_fields_set:
+        return _unknown(
+            "CP-016",
+            "Idempotency Validation",
+            "reliability",
+            "No explicit idempotency evidence in the contract reliability section.",
+        )
+    ok = bool(_reliability.idempotent)
     return Checkpoint(
         checkpoint_id="CP-016",
         name="Idempotency Validation",
@@ -679,6 +815,18 @@ def cp021_governance(contract: PipelineContract | None) -> Checkpoint:
                 method=AnalysisMethod.METADATA,
             ),
         )
+    # Phase 6 (B1): owner presence alone does not prove governance/catalog
+    # completeness. A PASS requires catalog evidence on the target; an owner
+    # without any catalog stays UNKNOWN (never a silent PASS).
+    _catalog = getattr(getattr(contract, "target", None), "catalog", "") or ""
+    if not str(_catalog).strip():
+        return _unknown(
+            "CP-021",
+            "Governance Validation",
+            "governance",
+            "Owner is set but no Unity Catalog (target catalog) evidence available; "
+            "governance completeness unknown.",
+        )
     return Checkpoint(
         checkpoint_id="CP-021",
         name="Governance Validation",
@@ -708,6 +856,24 @@ def cp022_data_quality(profile: DataProfile | None) -> Checkpoint:
             "data-quality",
             "No data profile available for quality checks.",
         )
+    # Phase 6 (B1): volume/file presence alone does not prove data-quality
+    # configuration. PASS requires data-shape/quality evidence (records,
+    # columns, or quality indicators); a volume-only profile stays UNKNOWN.
+    _has_quality_evidence = (
+        (profile.record_count or 0) > 0
+        or (profile.column_count or 0) > 0
+        or bool(profile.schema_columns)
+        or bool(profile.null_distribution)
+        or bool(profile.duplicate_indicators)
+    )
+    if not _has_quality_evidence:
+        return _unknown(
+            "CP-022",
+            "Data Quality Validation",
+            "data-quality",
+            "Profile has volume/file metadata but no data-shape or quality "
+            "evidence (records, columns, null/duplicate indicators).",
+        )
     return Checkpoint(
         checkpoint_id="CP-022",
         name="Data Quality Validation",
@@ -730,13 +896,35 @@ def cp022_data_quality(profile: DataProfile | None) -> Checkpoint:
 
 
 def cp008_performance(runtime_data: Any | None = None) -> Checkpoint:
-    """Skeleton — the engine executes performance rules against runtime_run."""
+    """Skeleton — the engine executes performance rules against runtime_run.
+
+    Phase 6 (B1): a runtime object alone does not prove runtime quality.
+    PASS requires measured evidence (positive duration or stage telemetry);
+    an object without either stays UNKNOWN.
+    """
     if runtime_data is None:
         return _unknown(
             "CP-008",
             "Performance Validation",
             "performance",
             "No runtime execution metrics or event log available for performance validation.",
+        )
+    _duration: Any = getattr(runtime_data, "duration_seconds", None)
+    _stages: Any = getattr(runtime_data, "stages", None)
+    if isinstance(runtime_data, dict):
+        _duration = runtime_data.get("duration_seconds", _duration)
+        _stages = runtime_data.get("stages", _stages)
+    try:
+        _duration_val = float(_duration) if _duration is not None else 0.0
+    except (TypeError, ValueError):
+        _duration_val = 0.0
+    _has_measured = _duration_val > 0 or (isinstance(_stages, list) and len(_stages) > 0)
+    if not _has_measured:
+        return _unknown(
+            "CP-008",
+            "Performance Validation",
+            "performance",
+            "Runtime evidence present but no measured duration or stage telemetry available.",
         )
     return Checkpoint(
         checkpoint_id="CP-008",
@@ -749,7 +937,11 @@ def cp008_performance(runtime_data: Any | None = None) -> Checkpoint:
             rule_id="CP-008",
             status=CheckpointStatus.PASS,
             severity=Severity.INFO,
-            observed={"runtime_available": True},
+            observed={
+                "runtime_available": True,
+                "duration_seconds": _duration_val,
+                "stage_count": len(_stages) if isinstance(_stages, list) else 0,
+            },
             expected={"runtime_evidence": True},
             evidence=["runtime execution evidence"],
             recommendation="",

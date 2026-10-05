@@ -695,7 +695,7 @@ def _run_offline_validation(
         norm_rt = normalize_runtime_payload(raw_rt)
         runtime_obj = norm_rt if isinstance(norm_rt, RuntimeRun) else RuntimeRun(**norm_rt)
 
-    historical_objs: list[Any] = []
+    historical_objs: list[Any] | None = None
     if historical_runs_path:
         with open(historical_runs_path, encoding="utf-8") as hf:
             raw_h = (
@@ -703,6 +703,8 @@ def _run_offline_validation(
                 if historical_runs_path.endswith(".json")
                 else yaml.safe_load(hf.read())
             )
+        # Phase 6 (B1): preserve None-vs-[] like online. A missing file
+        # means unavailable (None); a valid empty list stays [].
         if isinstance(raw_h, list):
             historical_objs = raw_h
 
@@ -1394,7 +1396,7 @@ def _display_scalability_section(
     contract: Any,
     profile: Any,
     runtime_obj: Any,
-    historical_runs: list[Any],
+    historical_runs: list[Any] | None,
 ) -> None:
     from dpif.scalability.engine import analyze_historical_trends, generate_scenarios
 

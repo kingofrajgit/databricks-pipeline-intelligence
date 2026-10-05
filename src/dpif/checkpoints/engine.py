@@ -20,6 +20,19 @@ from dpif.models import (
 logger = logging.getLogger(__name__)
 
 
+# Phase 6 (B1): checkpoint categories with rule coverage, matching the
+# `category:` fields of rules/*/*.yaml (source, data, code, cluster, job,
+# performance, scalability). Only these checkpoints depend on rule
+# evaluation; builder verdicts in any other category (pipeline, reliability,
+# cost, security, governance, data-quality, sla, readiness) are
+# self-contained and demonstrably unaffected by rule loading. A test in
+# tests/unit/test_missing_evidence_honesty.py locks this set against the
+# actually loaded rules so it cannot drift silently.
+_RULE_COVERED_CATEGORIES: frozenset[str] = frozenset(
+    {"source", "data", "code", "cluster", "job", "performance", "scalability"}
+)
+
+
 class CheckpointEngine:
     """Engine that manages checkpoint execution, dependency resolution, and scoring."""
 
@@ -27,6 +40,10 @@ class CheckpointEngine:
         self.checkpoints: dict[str, Checkpoint] = {}
         self.evidence_by_checkpoint: dict[str, EvidenceRecord] = {}
         self.findings_by_checkpoint: dict[str, list[Finding]] = {}
+        # Phase 6 (B1): tracks whether the last _get_applicable_rules call
+        # failed to load rules. A rules-load failure must never manufacture
+        # a clean PASS (see execute_checkpoint).
+        self._rules_load_failed: bool = False
 
     # -- registration ----------------------------------------------------
     def register_checkpoint(self, checkpoint: Checkpoint) -> None:
@@ -134,11 +151,48 @@ class CheckpointEngine:
                 )
 
         if not findings:
+            # Phase 6 (B1): rules unavailable — a PASS skeleton in a
+            # rule-covered category is unconfirmed and must not survive as a
+            # clean PASS. Builder verdicts in categories without rule
+            # coverage are self-contained evidence and are preserved as-is,
+            # as are genuine FAIL/WARN/UNKNOWN verdicts everywhere.
+            if (
+                self._rules_load_failed
+                and checkpoint.status == CheckpointStatus.PASS
+                and checkpoint.category in _RULE_COVERED_CATEGORIES
+            ):
+                reason = (
+                    "Rule set unavailable; checkpoint could not be evaluated "
+                    "(UNKNOWN, not PASS)."
+                )
+                logger.warning("Rules unavailable for checkpoint %s", cp_id)
+                checkpoint.status = CheckpointStatus.UNKNOWN
+                checkpoint.severity = Severity.INFO
+                checkpoint.assumptions = {
+                    **checkpoint.assumptions,
+                    "unknown-reason": reason,
+                }
+                self._update_checkpoint(checkpoint, context)
+                return checkpoint
             # No rule findings: preserve the builder's verdict (definitions
             # carry their own evidence). A code skeleton for actually-scanned,
             # clean code resolves to PASS; an explicitly UNKNOWN skeleton
             # (e.g. "no code available") stays UNKNOWN.
-            if (
+            if self._rules_load_failed and (
+                checkpoint.category == "code"
+                and checkpoint.status == CheckpointStatus.UNKNOWN
+                and "unknown-reason" not in checkpoint.assumptions
+            ):
+                # Phase 6 (B1): the anti-pattern scan never ran, so a
+                # clean-code PASS cannot be manufactured. Stay UNKNOWN.
+                checkpoint.assumptions = {
+                    **checkpoint.assumptions,
+                    "unknown-reason": (
+                        "Rule set unavailable; static anti-pattern scan could not run "
+                        "(UNKNOWN, not PASS)."
+                    ),
+                }
+            elif (
                 checkpoint.category == "code"
                 and checkpoint.status == CheckpointStatus.UNKNOWN
                 and "unknown-reason" not in checkpoint.assumptions
@@ -467,7 +521,11 @@ class CheckpointEngine:
             all_rules = load_rules()
         except Exception as e:  # pragma: no cover - defensive
             logger.error("Could not load rules: %s", e)
+            # Phase 6 (B1): record the failure so execute_checkpoint can
+            # preserve UNKNOWN instead of manufacturing a clean PASS.
+            self._rules_load_failed = True
             return []
+        self._rules_load_failed = False
         return [r for r in all_rules if r.category == category]
 
     def _prepare_rule_data(
