@@ -21,6 +21,7 @@ from dpif.checkpoints.definitions import build_all_checkpoints
 from dpif.checkpoints.engine import CheckpointEngine
 from dpif.config import get_settings
 from dpif.contract.loader import contract_cluster_job, load_contract_file
+from dpif.discovery.synthesis import extract_sources_from_code
 from dpif.error_handling import ConfigurationError, setup_logging
 from dpif.models import (
     AnalysisMethod,
@@ -800,6 +801,14 @@ def _run_offline_validation(
         # Phase 9 (P9-2): attribution-only per-task analyses. No consumer
         # reads this key; it exists for attribution metadata only.
         "task_analyses": task_analyses,
+        # Phase 9 (P9-3): authoritative N-source collection from fixture
+        # code (same helper as online; volumes NOT attributed here).
+        # No per-table profiles offline (single fixture profile); the key
+        # exists with an empty list for shape parity.
+        "discovered_sources": (
+            extract_sources_from_code(analysis, code_text) if analysis else []
+        ),
+        "table_profiles": [],
     }
 
     engine = CheckpointEngine()

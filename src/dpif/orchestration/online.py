@@ -30,6 +30,7 @@ from dpif.connectors.base import DatabricksConnector
 from dpif.connectors.live import LiveDatabricksConnector
 from dpif.contract.loader import load_contract_file
 from dpif.discovery.synthesis import (
+    extract_sources_from_code,
     synthesize_discovered_contract,
     synthesize_discovered_data_profile,
 )
@@ -63,6 +64,11 @@ from dpif.runtime.normalization import normalize_runtime_payload
 from dpif.scoring.engine import readiness_label, score_checkpoints
 
 logger = logging.getLogger(__name__)
+
+# Phase 9 (P9-3): bound on per-table profile fetches during multi-table
+# discovery. Each table is fetched independently; failures stay per-table
+# UNKNOWN and never fail validation.
+MAX_TABLE_PROFILES = 10
 
 
 class EvidenceCategoryStatus(BaseModel):
@@ -619,25 +625,36 @@ class OnlineValidationOrchestrator:
         )
 
         # If table profile wasn't directly requested, attempt discovery from parsed code
+        # Phase 9 (P9-3): discover ALL authoritative tables (no first-hit
+        # truncation). Each table is fetched independently (bounded); failures
+        # yield that table UNKNOWN, never fatal. The first successful payload
+        # stays the legacy singular table_profile_payload for existing
+        # downstream consumers; the full list travels as table_profiles for
+        # Phase 9 attribution. No volume is attributed here.
+        table_profiles: list[dict[str, Any]] = []
         if not table_profile_payload and analysis:
             import re
-            discovered_table_name = None
+            discovered_table_names: list[str] = []
             if hasattr(analysis, "operations"):
                 for op in analysis.operations:
                     if op.operation_type.value == "READ" and op.arguments.get("via") == "table":
                         cand = str(op.arguments.get("query", "")).strip(" '\"")
-                        if cand:
-                            discovered_table_name = cand
-                            break
-            if not discovered_table_name and code_text:
-                m_tbl = re.search(r"""(?i)spark(?:\.read)?\.table\(\s*['"]([a-zA-Z0-9_.]+)['"]\s*\)""", code_text)
-                if m_tbl:
-                    discovered_table_name = m_tbl.group(1)
+                        if cand and cand not in discovered_table_names:
+                            discovered_table_names.append(cand)
+            if not discovered_table_names and code_text:
+                for m_tbl in re.finditer(
+                    r"""(?i)spark(?:\.read)?\.table\(\s*['"]([a-zA-Z0-9_.]+)['"]\s*\)""",
+                    code_text,
+                ):
+                    if m_tbl.group(1) not in discovered_table_names:
+                        discovered_table_names.append(m_tbl.group(1))
 
-            if discovered_table_name:
+            for discovered_table_name in discovered_table_names[:MAX_TABLE_PROFILES]:
                 try:
-                    table_profile_payload = self.connector.get_table_profile(discovered_table_name)
-                    if table_profile_payload:
+                    fetched = self.connector.get_table_profile(discovered_table_name)
+                    table_profiles.append({"table": discovered_table_name, "profile": fetched})
+                    if fetched and table_profile_payload is None:
+                        table_profile_payload = fetched
                         diagnostics.append(
                             EvidenceCategoryStatus(
                                 category="table_profile",
@@ -648,6 +665,7 @@ class OnlineValidationOrchestrator:
                         )
                 except Exception as e:
                     logger.info("Could not fetch profile for discovered table %s: %s", discovered_table_name, e)
+                    table_profiles.append({"table": discovered_table_name, "profile": None})
 
         # Determine pipeline name
         if contract and contract.pipeline_name:
@@ -839,6 +857,15 @@ class OnlineValidationOrchestrator:
             # Phase 9 (P9-2): attribution-only per-task analyses. No consumer
             # reads this key; it exists for attribution metadata only.
             "task_analyses": task_analyses,
+            # Phase 9 (P9-3): authoritative N-source collection (all
+            # discovered READ/table sources, never collapsed) and per-table
+            # profiles. Volumes are NOT attributed here; every preserved
+            # source defaults to UNKNOWN. No consumer reads these keys yet;
+            # they exist for Phase 9 attribution.
+            "discovered_sources": (
+                extract_sources_from_code(analysis, code_text) if analysis else []
+            ),
+            "table_profiles": table_profiles,
         }
 
         # Checkpoints CP-001..CP-024

@@ -37,74 +37,29 @@ from dpif.runtime.models import RuntimeRun
 logger = logging.getLogger(__name__)
 
 
-def _extract_source_from_code(
-    code_analysis: CodeAnalysis | None,
-    raw_code: str = "",
+def _build_source(
+    source_path: str,
+    source_format_str: str,
+    code_text: str,
     table_profile: dict[str, Any] | None = None,
-) -> Source | None:
-    """Extract Source model from code AST, regex, and table profile evidence."""
-    source_path = ""
-    source_format_str = "unknown"
-    is_streaming = False
-    is_incremental = False
+    source_id: str = "discovered_source",
+    streaming_hint: bool = False,
+) -> Source:
+    """Classify and construct a ``Source`` from a discovered path (shared).
+
+    Pure move of the historical classification/construction logic so the
+    singular (legacy) and plural (authoritative, Phase 9) extractors share
+    identical type/format/mode/schema semantics.
+    """
     partitioning: list[str] = []
 
-    # 1. Search operations from AST
-    if code_analysis and code_analysis.operations:
-        for op in code_analysis.operations:
-            if op.operation_type == OperationType.READ:
-                via = str(op.arguments.get("via", ""))
-                query = str(op.arguments.get("query", ""))
-                if via in ("table", "sql") and query:
-                    clean_q = query.strip(" '\"")
-                    if clean_q and not source_path:
-                        source_path = clean_q
-                if "readStream" in op.code:
-                    is_streaming = True
-
-    # 2. Inspect raw code with regex if source_path not yet found
-    code_text = raw_code or (getattr(code_analysis, "source_file", "") if code_analysis else "")
-    if code_analysis and hasattr(code_analysis, "_raw_source"):
-        code_text = getattr(code_analysis, "_raw_source", "") or code_text
-
-    if not source_path and code_text:
-        # spark.table("name") or spark.read.table("name")
-        m_table = re.search(r"""(?i)spark(?:\.read)?\.table\(\s*['"]([a-zA-Z0-9_.]+)['"]\s*\)""", code_text)
-        if m_table:
-            source_path = m_table.group(1)
-            source_format_str = "delta"
-
-    if not source_path and code_text:
-        # spark.read.format("...").load("...")
-        m_load = re.search(
-            r"""(?i)spark(?:\.readStream|\.read)\.format\(\s*['"]([a-zA-Z0-9_]+)['"]\s*\)\.load\(\s*['"]([^'"]+)['"]\s*\)""",
-            code_text,
-        )
-        if m_load:
-            source_format_str = m_load.group(1).lower()
-            source_path = m_load.group(2)
-        else:
-            # spark.read.parquet("...") / csv / json
-            m_direct = re.search(
-                r"""(?i)spark(?:\.readStream|\.read)\.(parquet|csv|json|delta|orc|avro)\(\s*['"]([^'"]+)['"]\s*\)""",
-                code_text,
-            )
-            if m_direct:
-                source_format_str = m_direct.group(1).lower()
-                source_path = m_direct.group(2)
-
-    # If table profile provides table name and we still don't have source_path
-    if not source_path and table_profile and table_profile.get("name"):
-        source_path = str(table_profile["name"])
-        if table_profile.get("data_source_format"):
-            source_format_str = str(table_profile["data_source_format"]).lower()
-
-    if not source_path:
-        return None
-
-    # Check streaming & incremental markers
+    # Check streaming & incremental markers. ``streaming_hint`` preserves the
+    # historical per-operation readStream signal for callers whose code text
+    # may not contain the operation snippets (e.g. filename fallback).
+    is_streaming = streaming_hint
     if re.search(r"(?i)readStream", code_text):
         is_streaming = True
+    is_incremental = False
     if re.search(
         r"(?i)(date_sub|date_add|current_date|current_timestamp|updated_at|created_at|event_time|window)",
         code_text,
@@ -160,7 +115,7 @@ def _extract_source_from_code(
             schema_def = SchemaDefinition(columns=cols)
 
     return Source(
-        source_id="discovered_source",
+        source_id=source_id,
         type=src_type,
         name=source_path,
         path=source_path,
@@ -169,6 +124,172 @@ def _extract_source_from_code(
         ingestion_mode=mode,
         schema_definition=schema_def,
         partitioning=partitioning,
+    )
+
+
+def extract_sources_from_code(
+    code_analysis: CodeAnalysis | None,
+    raw_code: str = "",
+    table_profiles: dict[str, dict[str, Any]] | None = None,
+) -> list[Source]:
+    """Authoritative N-source collection (Phase 9, P9-3).
+
+    Preserves one entry per discovered READ/table source operation — never
+    collapsing N sources to the first. Entries carry no volume (UNKNOWN by
+    construction; volume attribution belongs to later phases). No
+    deduplication is applied: identical repeated reads remain separate
+    entries because no authoritative source-identity rule exists.
+    Regex fallbacks run only when AST operations yield nothing.
+    """
+    entries: list[tuple[str, str, bool]] = []
+
+    # 1. Every READ operation from the AST, in operation order.
+    if code_analysis and code_analysis.operations:
+        for op in code_analysis.operations:
+            if op.operation_type != OperationType.READ:
+                continue
+            via = str(op.arguments.get("via", ""))
+            query = str(op.arguments.get("query", ""))
+            op_streaming = "readStream" in op.code
+            if via in ("table", "sql") and query:
+                clean_q = query.strip(" '\"")
+                if clean_q:
+                    entries.append((clean_q, "unknown", op_streaming))
+                    continue
+            match = re.search(
+                r"""\.(load|parquet|csv|json|delta|orc|avro)\(\s*['"]([^'"]+)['"]\s*\)""",
+                op.code,
+            )
+            if match:
+                terminal, path = match.group(1).lower(), match.group(2)
+                if terminal == "load":
+                    fmt_match = re.search(
+                        r"""\.format\(\s*['"]([a-zA-Z0-9_]+)['"]\s*\)""", op.code
+                    )
+                    fmt = fmt_match.group(1).lower() if fmt_match else "unknown"
+                else:
+                    fmt = terminal
+                entries.append((path, fmt, op_streaming))
+
+    code_text = raw_code or (getattr(code_analysis, "source_file", "") if code_analysis else "")
+    if code_analysis and hasattr(code_analysis, "_raw_source"):
+        code_text = getattr(code_analysis, "_raw_source", "") or code_text
+
+    # 2. Raw-code regex fallbacks, only when AST yielded nothing.
+    # Streaming for these entries is classified inside _build_source from
+    # whole-text markers (identical to the legacy path).
+    if not entries and code_text:
+        for found in re.findall(
+            r"""(?i)spark(?:\.read)?\.table\(\s*['"]([a-zA-Z0-9_.]+)['"]\s*\)""", code_text
+        ):
+            entries.append((found, "delta", False))
+        for fmt, path in re.findall(
+            r"""(?i)spark(?:\.readStream|\.read)\.format\(\s*['"]([a-zA-Z0-9_]+)['"]\s*\)\.load\(\s*['"]([^'"]+)['"]\s*\)""",
+            code_text,
+        ):
+            entries.append((path, fmt.lower(), False))
+        for fmt, path in re.findall(
+            r"""(?i)spark(?:\.readStream|\.read)\.(parquet|csv|json|delta|orc|avro)\(\s*['"]([^'"]+)['"]\s*\)""",
+            code_text,
+        ):
+            entries.append((path, fmt.lower(), False))
+
+    profiles = table_profiles or {}
+    sources: list[Source] = []
+    for position, (path, fmt, op_streaming) in enumerate(entries):
+        profile = profiles.get(path)
+        if not isinstance(profile, dict):
+            profile = None
+        sources.append(
+            _build_source(
+                path,
+                fmt,
+                code_text,
+                table_profile=profile,
+                source_id=f"discovered_source_{position + 1}",
+                streaming_hint=op_streaming,
+            )
+        )
+    return sources
+
+
+def _extract_source_from_code(
+    code_analysis: CodeAnalysis | None,
+    raw_code: str = "",
+    table_profile: dict[str, Any] | None = None,
+) -> Source | None:
+    """Extract Source model from code AST, regex, and table profile evidence.
+
+    Phase 9 (P9-3): LEGACY COMPATIBILITY PROJECTION — first READ only. This
+    singular return exists solely so existing consumers (contract synthesis,
+    volume baselines, golden reports) keep working unchanged. It MUST NOT be
+    treated as the authoritative source collection and MUST NOT feed
+    per-operation volume attribution; use :func:`extract_sources_from_code`.
+    """
+    source_path = ""
+    source_format_str = "unknown"
+    op_streaming = False
+
+    # 1. Search operations from AST
+    if code_analysis and code_analysis.operations:
+        for op in code_analysis.operations:
+            if op.operation_type == OperationType.READ:
+                via = str(op.arguments.get("via", ""))
+                query = str(op.arguments.get("query", ""))
+                if via in ("table", "sql") and query:
+                    clean_q = query.strip(" '\"")
+                    if clean_q and not source_path:
+                        source_path = clean_q
+                if "readStream" in op.code:
+                    op_streaming = True
+
+    # 2. Inspect raw code with regex if source_path not yet found
+    code_text = raw_code or (getattr(code_analysis, "source_file", "") if code_analysis else "")
+    if code_analysis and hasattr(code_analysis, "_raw_source"):
+        code_text = getattr(code_analysis, "_raw_source", "") or code_text
+
+    if not source_path and code_text:
+        # spark.table("name") or spark.read.table("name")
+        m_table = re.search(r"""(?i)spark(?:\.read)?\.table\(\s*['"]([a-zA-Z0-9_.]+)['"]\s*\)""", code_text)
+        if m_table:
+            source_path = m_table.group(1)
+            source_format_str = "delta"
+
+    if not source_path and code_text:
+        # spark.read.format("...").load("...")
+        m_load = re.search(
+            r"""(?i)spark(?:\.readStream|\.read)\.format\(\s*['"]([a-zA-Z0-9_]+)['"]\s*\)\.load\(\s*['"]([^'"]+)['"]\s*\)""",
+            code_text,
+        )
+        if m_load:
+            source_format_str = m_load.group(1).lower()
+            source_path = m_load.group(2)
+        else:
+            # spark.read.parquet("...") / csv / json
+            m_direct = re.search(
+                r"""(?i)spark(?:\.readStream|\.read)\.(parquet|csv|json|delta|orc|avro)\(\s*['"]([^'"]+)['"]\s*\)""",
+                code_text,
+            )
+            if m_direct:
+                source_format_str = m_direct.group(1).lower()
+                source_path = m_direct.group(2)
+
+    # If table profile provides table name and we still don't have source_path
+    if not source_path and table_profile and table_profile.get("name"):
+        source_path = str(table_profile["name"])
+        if table_profile.get("data_source_format"):
+            source_format_str = str(table_profile["data_source_format"]).lower()
+
+    if not source_path:
+        return None
+
+    return _build_source(
+        source_path,
+        source_format_str,
+        code_text,
+        table_profile=table_profile,
+        source_id="discovered_source",
+        streaming_hint=op_streaming,
     )
 
 
