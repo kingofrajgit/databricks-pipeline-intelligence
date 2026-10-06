@@ -422,6 +422,81 @@ def test_pipeline_fetch_failure_marks_parent_unretrievable():
     assert topo["nb"]["coverage_state"] == "ANALYZED"
 
 
+# QA rework. Partial pipeline retrieval (2 libs ok, 1 lib failed) →
+# parent UNRETRIEVABLE (never ANALYZED on partial evidence), with
+# successful code refs preserved and the failed library identifiable.
+# The gap must reach M5H/M5I as incomplete evidence (UNKNOWN, not FAIL).
+def test_partial_pipeline_retrieval_marks_parent_unretrievable():
+    from dpif.connectors.live import DatabricksApiError
+
+    payload = _code_payload(
+        _provider(
+            [
+                {"task_key": "refresh_pipeline", "pipeline_task": {"pipeline_id": "pipe-p"}},
+                {"task_key": "nb", "notebook_task": {"notebook_path": "/etl/nb"}},
+            ],
+            workspace_export_map={
+                "/etl/nb": {"content": _b64("x = 1"), "file_type": "PYTHON"},
+                "/pipe/lib_a": {"content": _b64("a = 1"), "file_type": "PYTHON"},
+                "/pipe/lib_b": {"content": _b64("b = 2"), "file_type": "PYTHON"},
+                "/pipe/lib_c": DatabricksApiError("gone", status_code=404),
+            },
+            pipeline_map={
+                "pipe-p": {
+                    "spec": {
+                        "libraries": [
+                            {"notebook": {"path": "/pipe/lib_a"}},
+                            {"notebook": {"path": "/pipe/lib_b"}},
+                            {"notebook": {"path": "/pipe/lib_c"}},
+                        ]
+                    }
+                }
+            },
+        )
+    )
+    topo = _topology_by_key(payload)
+    parent = topo["refresh_pipeline"]
+    assert parent["coverage_state"] == "UNRETRIEVABLE"
+    # Successful code refs remain present.
+    assert "/pipe/lib_a" in parent["code_refs"]
+    assert "/pipe/lib_b" in parent["code_refs"]
+    # Failed library remains identifiable.
+    assert "/pipe/lib_c" in parent["detail"]
+    # Sibling task untouched; successfully retrieved libs still analyzed.
+    assert topo["nb"]["coverage_state"] == "ANALYZED"
+    assert "TASK: refresh_pipeline_nb_1" in payload["combined_code"]
+    assert "TASK: refresh_pipeline_nb_2" in payload["combined_code"]
+    summary = payload["coverage_summary"]
+    assert summary["unretrievable"] == 1
+    uncovered_keys = {u["task_key"] for u in summary["uncovered_tasks"]}
+    assert "refresh_pipeline" in uncovered_keys
+
+    # M5H must identify the pipeline task as uncovered (UNKNOWN/insufficient).
+    analysis = analyze_source("df = spark.read.table('a.t')", filename="etl.py")
+    topology = payload["task_topology"]
+    suff = EvidenceSufficiencyAnalyzer(analysis, context={"task_topology": topology}).analyze()
+    assert suff.domain_coverages["job"].decision_sufficient is False
+    task_dec = next(d for d in suff.decisions if d.decision_name == "TASK_COVERAGE")
+    assert task_dec.decision_status == "UNKNOWN"
+    assert task_dec.is_sufficient is False
+    assert any("refresh_pipeline" in m for m in task_dec.missing_evidence)
+
+    # M5I must not treat the task as fully validated.
+    from tests.unit.test_decision_synthesis import (
+        _make_clean_checkpoints,
+        _make_dummy_readiness,
+    )
+
+    analyzer = DecisionRiskSynthesisAnalyzer(
+        checkpoints=_make_clean_checkpoints(),
+        readiness=_make_dummy_readiness(),
+        evidence_sufficiency=suff,
+    )
+    result = analyzer.analyze()
+    assert any("refresh_pipeline" in m for m in result.missing_evidence)
+    assert result.decision_sufficiency is False
+
+
 # N. Offline/online alignment: offline fixture code yields an ANALYZED
 # coverage entry with the same state vocabulary (no silent paths offline).
 def test_offline_online_coverage_parity(tmp_path):

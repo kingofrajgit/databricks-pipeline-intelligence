@@ -973,9 +973,12 @@ class DatabricksEvidenceProvider:
                         f"task type '{task_type}' has no code retrieval path",
                     )
 
-            # Phase 8: fold synthetic pipeline-library outcomes back into the
-            # parent job-task record. A parent stays ANALYZED only if at
-            # least one library yielded code; failed libraries are named.
+            # Phase 8 (QA rework): fold synthetic pipeline-library outcomes
+            # back into the parent job-task record. A parent is ANALYZED only
+            # if every required library yielded code; ANY failed library
+            # makes the parent UNRETRIEVABLE (missing implementation evidence
+            # must never hide behind sibling successes). Successful code refs
+            # are always preserved; failed libraries stay identifiable.
             for entry in task_topology:
                 if entry.get("task_type") != "pipeline":
                     continue
@@ -985,21 +988,17 @@ class DatabricksEvidenceProvider:
                 retrieved = [o for o in outcomes if o["coverage_state"] == "ANALYZED"]
                 failed = [o for o in outcomes if o["coverage_state"] != "ANALYZED"]
                 entry["code_refs"] = [o["resource"] for o in retrieved if o["resource"]]
-                if retrieved and failed:
-                    entry["detail"] = (
-                        entry.get("detail", "")
-                        + f"; {len(failed)} librar"
-                        + ("y" if len(failed) == 1 else "ies")
-                        + " unretrievable: "
-                        + ", ".join(o["resource"] or o["task_key"] for o in failed)
-                    )
-                elif not retrieved:
+                if failed:
                     entry["coverage_state"] = "UNRETRIEVABLE"
                     entry["detail"] = (
                         entry.get("detail", "")
-                        + "; no pipeline library yielded code: "
+                        + f"; {len(failed)} of {len(outcomes)} pipeline librar"
+                        + ("y" if len(failed) == 1 else "ies")
+                        + " unretrievable: "
                         + ", ".join(
-                            o["detail"] or o["task_key"] for o in failed
+                            (o["resource"] or o["task_key"])
+                            + (f" ({o['detail']})" if o["detail"] else "")
+                            for o in failed
                         )
                     )
 
