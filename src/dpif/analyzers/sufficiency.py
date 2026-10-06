@@ -592,6 +592,30 @@ class EvidenceSufficiencyAnalyzer:
         if not sufficient:
             req_evidence.append("Job orchestration configuration (schedule, concurrency, timeout)")
 
+        # Phase 8: job task validation coverage. Tasks that were enumerated
+        # but never analyzed (UNSUPPORTED type or UNRETRIEVABLE code) are
+        # incomplete evidence — surfaced honestly, never a fabricated FAIL.
+        uncovered: list[dict[str, Any]] = []
+        try:
+            topology = (self.context or {}).get("task_topology") or []
+            if isinstance(topology, list):
+                uncovered = [
+                    t for t in topology
+                    if isinstance(t, dict) and t.get("coverage_state") != "ANALYZED"
+                ]
+        except Exception:
+            uncovered = []
+        if uncovered:
+            for task in uncovered:
+                task_key = str(task.get("task_key", "task"))
+                state = str(task.get("coverage_state", "UNKNOWN"))
+                unavailable.append(f"task_coverage:{task_key}")
+                req_evidence.append(
+                    f"Task validation coverage for '{task_key}' "
+                    f"[{state}]: {task.get('detail') or 'task code not analyzed'}"
+                )
+            sufficient = False
+
         return DomainEvidenceCoverage(
             domain="job",
             evidence_expected=expected,
@@ -1499,5 +1523,65 @@ class EvidenceSufficiencyAnalyzer:
                     rationale="Full evidence sufficiency established across static and runtime domains.",
                 )
             )
+
+        # 7. Task Coverage Decision (Phase 8): every enumerated job task must
+        # be accounted for. Uncovered tasks (UNSUPPORTED/UNRETRIEVABLE) are
+        # incomplete evidence (UNKNOWN, never FAIL); fully covered topologies
+        # add a passing decision with no missing evidence.
+        topology = (self.context or {}).get("task_topology") or []
+        if isinstance(topology, list) and topology:
+            uncovered_names: list[str] = []
+            for task in topology:
+                if (
+                    isinstance(task, dict)
+                    and task.get("coverage_state") != "ANALYZED"
+                ):
+                    uncovered_names.append(
+                        f"{task.get('task_key', 'task')} "
+                        f"[{task.get('coverage_state', 'UNKNOWN')}]"
+                    )
+            if uncovered_names:
+                decisions.append(
+                    DecisionSufficiencyRecord(
+                        decision_name="TASK_COVERAGE",
+                        domain="job",
+                        decision_status="UNKNOWN",
+                        is_sufficient=False,
+                        confidence=ConfidenceLevel.LOW,
+                        supporting_evidence=[],
+                        missing_evidence=[
+                            f"Task validation coverage for: {', '.join(uncovered_names)}"
+                        ],
+                        required_evidence=[
+                            "Code retrieval or explicit unsupported classification "
+                            f"for uncovered job tasks: {', '.join(uncovered_names)}"
+                        ],
+                        rationale=(
+                            "One or more job tasks were not analyzed; the job "
+                            "cannot be certified as fully validated."
+                        ),
+                    )
+                )
+            else:
+                decisions.append(
+                    DecisionSufficiencyRecord(
+                        decision_name="TASK_COVERAGE",
+                        domain="job",
+                        decision_status="PASS",
+                        is_sufficient=True,
+                        confidence=ConfidenceLevel.HIGH,
+                        supporting_evidence=[
+                            "All enumerated job tasks analyzed: "
+                            + ", ".join(
+                                str(t.get("task_key", "task"))
+                                for t in topology
+                                if isinstance(t, dict)
+                            )
+                        ],
+                        missing_evidence=[],
+                        required_evidence=[],
+                        rationale="Every discovered job task has analyzed code evidence.",
+                    )
+                )
 
         return decisions

@@ -447,6 +447,11 @@ class OnlineValidationOrchestrator:
         analysis = None
         code_filename = "pipeline.py"
         contract: PipelineContract | None = None
+        # Phase 8: per-task validation coverage (ANALYZED / UNSUPPORTED /
+        # UNRETRIEVABLE). Populated from the live CODE payload when present.
+        task_topology: list[dict[str, Any]] = []
+        coverage_summary: dict[str, Any] = {}
+        uncovered_tasks: list[dict[str, Any]] = []
 
         if contract_path:
             try:
@@ -500,16 +505,34 @@ class OnlineValidationOrchestrator:
         else:
             # Check acquired live code from Databricks tasks / workspace
             code_item = evidence.items.get(EvidenceCategory.CODE.value)
+            # Phase 8: per-task validation coverage travels with the code
+            # payload. Every enumerated job task must remain represented
+            # (ANALYZED / UNSUPPORTED / UNRETRIEVABLE) — never silent.
+            if code_item and isinstance(code_item.payload, dict):
+                task_topology = code_item.payload.get("task_topology", []) or []
+                coverage_summary = code_item.payload.get("coverage_summary", {}) or {}
+            uncovered_tasks = [
+                t for t in task_topology if t.get("coverage_state") != "ANALYZED"
+            ]
+            analyzed_tasks: list[dict[str, Any]] = [
+                t for t in task_topology if t.get("coverage_state") == "ANALYZED"
+            ]
             if code_item and code_item.is_available and isinstance(code_item.payload, dict):
                 discovered_tasks = code_item.payload.get("tasks", [])
                 primary_src = code_item.payload.get("primary_source_code", "")
                 primary_fname = code_item.payload.get("primary_filename", "pipeline.py")
                 combined = code_item.payload.get("combined_code", primary_src)
 
-                code_text = combined or primary_src
-                code_filename = primary_fname
-                analysis = analyze_code(code_text, filename=code_filename)
-                status_lbl = "PARTIAL" if (analysis and analysis.parse_error) else "LIVE"
+                if analyzed_tasks or combined or primary_src:
+                    code_text = combined or primary_src
+                    code_filename = primary_fname
+                    analysis = analyze_code(code_text, filename=code_filename)
+                    status_lbl = "PARTIAL" if (analysis and analysis.parse_error) else "LIVE"
+                else:
+                    # Phase 8: tasks enumerated but none yielded code.
+                    # Coverage is recorded in task_topology; code content
+                    # itself is UNAVAILABLE (UNKNOWN downstream, never PASS).
+                    status_lbl = "UNAVAILABLE"
                 summary["code"] = status_lbl
                 diagnostics.append(
                     EvidenceCategoryStatus(
@@ -517,7 +540,20 @@ class OnlineValidationOrchestrator:
                         status=status_lbl,
                         provenance=code_item.provenance.source_type,
                         resource_id=code_item.provenance.resource_id,
-                        details={"task_count": len(discovered_tasks)},
+                        details={
+                            "task_count": len(discovered_tasks),
+                            "tasks_analyzed": len(analyzed_tasks),
+                            "tasks_unsupported": len(
+                                [t for t in uncovered_tasks if t.get("coverage_state") == "UNSUPPORTED"]
+                            ),
+                            "tasks_unretrievable": len(
+                                [t for t in uncovered_tasks if t.get("coverage_state") == "UNRETRIEVABLE"]
+                            ),
+                            "uncovered_tasks": [
+                                f"{t.get('task_key')} [{t.get('coverage_state')}]"
+                                for t in uncovered_tasks
+                            ],
+                        },
                     )
                 )
             else:
@@ -758,6 +794,9 @@ class OnlineValidationOrchestrator:
             "flow_graph": flow_graph,
             "actual_environment": cluster_config,
             "workspace_cluster": cluster_config,
+            # Phase 8: job task topology + validation coverage for M5H/M5I.
+            "task_topology": task_topology,
+            "task_coverage_summary": coverage_summary,
         }
 
         # Checkpoints CP-001..CP-024

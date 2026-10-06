@@ -551,6 +551,66 @@ class DatabricksEvidenceProvider:
         def _acquire_code() -> dict[str, Any] | None:
             import base64
 
+            # Phase 8: explicit per-task validation coverage. Every enumerated
+            # job task receives a coverage state — ANALYZED (code retrieved),
+            # UNSUPPORTED (no retrieval path for the task type), or
+            # UNRETRIEVABLE (supported type, resolution/export failed) — so no
+            # task silently disappears from validation.
+            def _short_error(exc: Exception) -> str:
+                clean = mask_sensitive_credentials(str(exc), token)
+                return clean[:200] if len(clean) > 200 else clean
+
+            def _dep_keys(task: dict[str, Any]) -> list[str]:
+                deps = task.get("depends_on", [])
+                keys: list[str] = []
+                if isinstance(deps, list):
+                    for dep in deps:
+                        if isinstance(dep, dict) and dep.get("task_key"):
+                            keys.append(str(dep["task_key"]))
+                        elif isinstance(dep, str):
+                            keys.append(dep)
+                return keys
+
+            def _describe_task(task: dict[str, Any]) -> tuple[str, str]:
+                """Return (task_type label, resource reference) for any task dict."""
+                if "notebook_task" in task and isinstance(task["notebook_task"], dict):
+                    return "notebook", str(
+                        task["notebook_task"].get("notebook_path") or ""
+                    )
+                if "spark_python_task" in task and isinstance(
+                    task["spark_python_task"], dict
+                ):
+                    return "spark_python", str(
+                        task["spark_python_task"].get("python_file") or ""
+                    )
+                if "sql_task" in task and isinstance(task["sql_task"], dict):
+                    sql_task = task["sql_task"]
+                    query = sql_task.get("query", {})
+                    file = sql_task.get("file", {})
+                    ref = ""
+                    if isinstance(query, dict) and query.get("query_id"):
+                        ref = f"query://{query.get('query_id')}"
+                    elif isinstance(file, dict) and file.get("path"):
+                        ref = str(file.get("path"))
+                    return "sql", ref
+                if "pipeline_task" in task and isinstance(task["pipeline_task"], dict):
+                    return "pipeline", str(
+                        task["pipeline_task"].get("pipeline_id") or ""
+                    )
+                for key, label in (
+                    ("spark_jar_task", "spark_jar"),
+                    ("python_wheel_task", "python_wheel"),
+                    ("spark_submit_task", "spark_submit"),
+                    ("dashboard_task", "dashboard"),
+                    ("run_job_task", "run_job"),
+                    ("dbt_task", "dbt"),
+                    ("condition_task", "condition"),
+                    ("for_each_task", "for_each"),
+                ):
+                    if key in task:
+                        return label, ""
+                return "unknown", ""
+
             tasks: list[dict[str, Any]] = []
             job_item = evidence.items.get(EvidenceCategory.JOB.value)
             if job_item and job_item.is_available and isinstance(job_item.payload, dict):
@@ -560,11 +620,21 @@ class DatabricksEvidenceProvider:
                     if isinstance(raw_tasks, list):
                         tasks = [t for t in raw_tasks if isinstance(t, dict)]
 
+            task_topology: list[dict[str, Any]] = []
+            # Phase 8: pipeline_task resolution outcomes per parent task key.
+            pipeline_resolution: dict[str, dict[str, Any]] = {}
+
             # Check if any job tasks reference a pipeline_task
             pipeline_tasks_to_add: list[dict[str, Any]] = []
             for t in tasks:
                 if "pipeline_task" in t and isinstance(t["pipeline_task"], dict):
                     sub_pid = t["pipeline_task"].get("pipeline_id")
+                    parent_key = str(t.get("task_key", "task"))
+                    resolution: dict[str, Any] = {
+                        "resolved": 0,
+                        "unresolved_libs": 0,
+                        "error": "",
+                    }
                     if sub_pid:
                         try:
                             sub_pipe = self.connector.get_pipeline(sub_pid)
@@ -580,16 +650,26 @@ class DatabricksEvidenceProvider:
                                         if isinstance(lib, dict):
                                             if "notebook" in lib and isinstance(lib["notebook"], dict):
                                                 pipeline_tasks_to_add.append({
-                                                    "task_key": f"{t.get('task_key', 'task')}_nb_{i+1}",
+                                                    "task_key": f"{parent_key}_nb_{i+1}",
+                                                    "parent_task_key": parent_key,
                                                     "notebook_task": {"notebook_path": lib["notebook"].get("path")},
                                                 })
+                                                resolution["resolved"] += 1
                                             elif "file" in lib and isinstance(lib["file"], dict):
                                                 pipeline_tasks_to_add.append({
-                                                    "task_key": f"{t.get('task_key', 'task')}_file_{i+1}",
+                                                    "task_key": f"{parent_key}_file_{i+1}",
+                                                    "parent_task_key": parent_key,
                                                     "spark_python_task": {"python_file": lib["file"].get("path")},
                                                 })
+                                                resolution["resolved"] += 1
+                                            else:
+                                                resolution["unresolved_libs"] += 1
                         except Exception as e:
                             logger.info("Could not fetch sub-pipeline %s for code discovery: %s", sub_pid, e)
+                            resolution["error"] = _short_error(e)
+                    elif not sub_pid:
+                        resolution["error"] = "pipeline_task has no pipeline_id"
+                    pipeline_resolution[parent_key] = resolution
 
             tasks.extend(pipeline_tasks_to_add)
 
@@ -620,9 +700,76 @@ class DatabricksEvidenceProvider:
                 return None
 
             discovered_tasks: list[dict[str, Any]] = []
+            # Phase 8: per-lib retrieval outcomes for synthetic pipeline
+            # children, folded back into the parent topology record so the
+            # topology mirrors job tasks (not synthetic fragments).
+            child_outcomes: dict[str, list[dict[str, str]]] = {}
+
+            def _record_topology(
+                task: dict[str, Any],
+                coverage_state: str,
+                detail: str = "",
+                code_refs: list[str] | None = None,
+            ) -> None:
+                task_key = str(task.get("task_key", "task"))
+                task_type, resource = _describe_task(task)
+                if "parent_task_key" in task:
+                    child_outcomes.setdefault(str(task["parent_task_key"]), []).append(
+                        {
+                            "task_key": task_key,
+                            "coverage_state": coverage_state,
+                            "detail": detail,
+                            "resource": (code_refs or [""])[0],
+                        }
+                    )
+                    return
+                task_topology.append(
+                    {
+                        "task_key": task_key,
+                        "task_type": task_type,
+                        "depends_on": _dep_keys(task),
+                        "resource": resource,
+                        "coverage_state": coverage_state,
+                        "detail": detail,
+                        "code_refs": code_refs or [],
+                    }
+                )
 
             for task in tasks:
                 task_key = str(task.get("task_key", "task"))
+                # Raw pipeline_task parents resolve through library expansion;
+                # their coverage reflects the expansion outcome, never silence.
+                if (
+                    "pipeline_task" in task
+                    and isinstance(task["pipeline_task"], dict)
+                    and "parent_task_key" not in task
+                ):
+                    resolution = pipeline_resolution.get(task_key, {})
+                    if resolution.get("error"):
+                        _record_topology(
+                            task,
+                            "UNRETRIEVABLE",
+                            f"pipeline resolution failed: {resolution['error']}",
+                        )
+                    elif resolution.get("resolved", 0) > 0:
+                        detail = (
+                            f"resolved {resolution['resolved']} pipeline librar"
+                            f"{'y' if resolution['resolved'] == 1 else 'ies'}"
+                        )
+                        if resolution.get("unresolved_libs"):
+                            detail += (
+                                f"; {resolution['unresolved_libs']} librar"
+                                f"{'y' if resolution['unresolved_libs'] == 1 else 'ies'} "
+                                "without retrievable notebook/file (unsupported)"
+                            )
+                        _record_topology(task, "ANALYZED", detail)
+                    else:
+                        _record_topology(
+                            task,
+                            "UNRETRIEVABLE",
+                            "pipeline has no retrievable notebook/file libraries",
+                        )
+                    continue
                 # Notebook task
                 if "notebook_task" in task and isinstance(task["notebook_task"], dict):
                     nb_path = task["notebook_task"].get("notebook_path")
@@ -642,10 +789,31 @@ class DatabricksEvidenceProvider:
                                     "path": nb_path,
                                     "source_code": raw,
                                     "language": lang,
+                                    "coverage_state": "ANALYZED",
                                 })
+                                _record_topology(
+                                    task, "ANALYZED", f"notebook exported ({lang})", [nb_path]
+                                )
+                            else:
+                                _record_topology(
+                                    task,
+                                    "UNRETRIEVABLE",
+                                    "notebook export returned no content",
+                                    [nb_path],
+                                )
                         except DatabricksApiError as e:
                             if e.status_code in (401, 403):
                                 raise
+                            _record_topology(
+                                task,
+                                "UNRETRIEVABLE",
+                                f"notebook export failed: {_short_error(e)}",
+                                [nb_path],
+                            )
+                    else:
+                        _record_topology(
+                            task, "UNRETRIEVABLE", "notebook_task has no notebook_path"
+                        )
                 # Spark Python task
                 elif "spark_python_task" in task and isinstance(task["spark_python_task"], dict):
                     py_file = task["spark_python_task"].get("python_file")
@@ -673,10 +841,31 @@ class DatabricksEvidenceProvider:
                                     "path": py_file,
                                     "source_code": code_str,
                                     "language": "python",
+                                    "coverage_state": "ANALYZED",
                                 })
+                                _record_topology(
+                                    task, "ANALYZED", "python file retrieved", [py_file]
+                                )
+                            else:
+                                _record_topology(
+                                    task,
+                                    "UNRETRIEVABLE",
+                                    "python file retrieval returned no content",
+                                    [py_file],
+                                )
                         except DatabricksApiError as e:
                             if e.status_code in (401, 403):
                                 raise
+                            _record_topology(
+                                task,
+                                "UNRETRIEVABLE",
+                                f"python file retrieval failed: {_short_error(e)}",
+                                [py_file],
+                            )
+                    else:
+                        _record_topology(
+                            task, "UNRETRIEVABLE", "spark_python_task has no python_file"
+                        )
                 # SQL task
                 elif "sql_task" in task and isinstance(task["sql_task"], dict):
                     sql_task = task["sql_task"]
@@ -702,10 +891,37 @@ class DatabricksEvidenceProvider:
                                         "path": f"query://{query_id}",
                                         "source_code": sql_text,
                                         "language": "sql",
+                                        "coverage_state": "ANALYZED",
                                     })
+                                    _record_topology(
+                                        task,
+                                        "ANALYZED",
+                                        "sql query definition retrieved",
+                                        [f"query://{query_id}"],
+                                    )
+                                else:
+                                    _record_topology(
+                                        task,
+                                        "UNRETRIEVABLE",
+                                        "sql query definition empty",
+                                        [f"query://{query_id}"],
+                                    )
+                            else:
+                                _record_topology(
+                                    task,
+                                    "UNRETRIEVABLE",
+                                    "sql query retrieval returned no definition",
+                                    [f"query://{query_id}"],
+                                )
                         except DatabricksApiError as e:
                             if e.status_code in (401, 403):
                                 raise
+                            _record_topology(
+                                task,
+                                "UNRETRIEVABLE",
+                                f"sql query retrieval failed: {_short_error(e)}",
+                                [f"query://{query_id}"],
+                            )
                     elif file_path:
                         try:
                             res = self.connector.export_workspace_object(file_path, format="SOURCE")
@@ -720,21 +936,128 @@ class DatabricksEvidenceProvider:
                                     "path": file_path,
                                     "source_code": raw,
                                     "language": "sql",
+                                    "coverage_state": "ANALYZED",
                                 })
+                                _record_topology(
+                                    task, "ANALYZED", "sql file exported", [file_path]
+                                )
+                            else:
+                                _record_topology(
+                                    task,
+                                    "UNRETRIEVABLE",
+                                    "sql file export returned no content",
+                                    [file_path],
+                                )
                         except DatabricksApiError as e:
                             if e.status_code in (401, 403):
                                 raise
+                            _record_topology(
+                                task,
+                                "UNRETRIEVABLE",
+                                f"sql file export failed: {_short_error(e)}",
+                                [file_path],
+                            )
+                    else:
+                        _record_topology(
+                            task,
+                            "UNRETRIEVABLE",
+                            "sql_task has neither query_id nor file path",
+                        )
+                else:
+                    # Phase 8: explicit UNSUPPORTED record. A task that cannot
+                    # be analyzed must never silently disappear from validation.
+                    task_type, _resource = _describe_task(task)
+                    _record_topology(
+                        task,
+                        "UNSUPPORTED",
+                        f"task type '{task_type}' has no code retrieval path",
+                    )
 
-            if not discovered_tasks:
+            # Phase 8: fold synthetic pipeline-library outcomes back into the
+            # parent job-task record. A parent stays ANALYZED only if at
+            # least one library yielded code; failed libraries are named.
+            for entry in task_topology:
+                if entry.get("task_type") != "pipeline":
+                    continue
+                outcomes = child_outcomes.get(entry["task_key"], [])
+                if not outcomes:
+                    continue
+                retrieved = [o for o in outcomes if o["coverage_state"] == "ANALYZED"]
+                failed = [o for o in outcomes if o["coverage_state"] != "ANALYZED"]
+                entry["code_refs"] = [o["resource"] for o in retrieved if o["resource"]]
+                if retrieved and failed:
+                    entry["detail"] = (
+                        entry.get("detail", "")
+                        + f"; {len(failed)} librar"
+                        + ("y" if len(failed) == 1 else "ies")
+                        + " unretrievable: "
+                        + ", ".join(o["resource"] or o["task_key"] for o in failed)
+                    )
+                elif not retrieved:
+                    entry["coverage_state"] = "UNRETRIEVABLE"
+                    entry["detail"] = (
+                        entry.get("detail", "")
+                        + "; no pipeline library yielded code: "
+                        + ", ".join(
+                            o["detail"] or o["task_key"] for o in failed
+                        )
+                    )
+
+            analyzed = [t for t in discovered_tasks if t.get("coverage_state") == "ANALYZED"]
+            uncovered = [t for t in task_topology if t.get("coverage_state") != "ANALYZED"]
+            coverage_summary = {
+                "total_discovered": len(task_topology),
+                "analyzed": len(
+                    [t for t in task_topology if t.get("coverage_state") == "ANALYZED"]
+                ),
+                "unsupported": len(
+                    [t for t in task_topology if t.get("coverage_state") == "UNSUPPORTED"]
+                ),
+                "unretrievable": len(
+                    [t for t in task_topology if t.get("coverage_state") == "UNRETRIEVABLE"]
+                ),
+                "analyzed_task_keys": [
+                    t["task_key"]
+                    for t in task_topology
+                    if t.get("coverage_state") == "ANALYZED"
+                ],
+                "uncovered_tasks": [
+                    {
+                        "task_key": t["task_key"],
+                        "task_type": t["task_type"],
+                        "coverage_state": t["coverage_state"],
+                        "detail": t.get("detail", ""),
+                    }
+                    for t in uncovered
+                ],
+            }
+
+            if not tasks:
                 return None
 
-            primary_task = discovered_tasks[0]
+            if not analyzed:
+                # Phase 8: tasks were enumerated but none yielded code.
+                # Preserve topology/coverage for downstream UNKNOWN handling
+                # instead of collapsing to "no code found".
+                return {
+                    "tasks": discovered_tasks,
+                    "task_topology": task_topology,
+                    "coverage_summary": coverage_summary,
+                    "primary_task_key": "",
+                    "primary_source_code": "",
+                    "primary_filename": "pipeline.py",
+                    "combined_code": "",
+                }
+
+            primary_task = analyzed[0]
             combined_code = "\n\n".join(
                 f"# --- TASK: {t['task_key']} ({t['path']}) ---\n{t['source_code']}"
-                for t in discovered_tasks
+                for t in analyzed
             )
             return {
                 "tasks": discovered_tasks,
+                "task_topology": task_topology,
+                "coverage_summary": coverage_summary,
                 "primary_task_key": primary_task["task_key"],
                 "primary_source_code": primary_task["source_code"],
                 "primary_filename": f"{primary_task['task_key']}.{'sql' if primary_task['language'] == 'sql' else 'py'}",

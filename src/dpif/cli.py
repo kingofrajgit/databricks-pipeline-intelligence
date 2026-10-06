@@ -764,6 +764,24 @@ def _run_offline_validation(
         "runtime_run": runtime_obj,
         "runtime_data": runtime_obj,
         "historical_runs": historical_objs,
+        # Phase 8: offline task-coverage parity with online. Fixture code is
+        # a single analyzed unit; absent code leaves no topology so the
+        # existing code-UNKNOWN paths behave exactly as before.
+        "task_topology": (
+            [
+                {
+                    "task_key": code_filename or "code",
+                    "task_type": "sql" if str(code_filename).endswith(".sql") else "python",
+                    "depends_on": [],
+                    "resource": code_filename or "",
+                    "coverage_state": "ANALYZED",
+                    "detail": "offline fixture code analyzed",
+                    "code_refs": [code_filename or ""],
+                }
+            ]
+            if code_text and code_text.strip()
+            else []
+        ),
     }
 
     engine = CheckpointEngine()

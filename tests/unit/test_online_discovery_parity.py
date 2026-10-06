@@ -232,7 +232,11 @@ def test_code_discovery_permission_denied_403():
 
 
 def test_code_discovery_resource_not_found_404():
-    """Test 404 missing notebook gracefully marks code as unavailable without erroring."""
+    """Test 404 missing notebook gracefully marks code as unavailable without erroring.
+
+    Phase 8: the enumerated task is preserved as UNRETRIEVABLE topology
+    (never silent); code content itself stays unavailable (UNKNOWN downstream).
+    """
     conn = MockDiscoveryConnector(
         job_payload={
             "job_id": 105,
@@ -248,8 +252,17 @@ def test_code_discovery_resource_not_found_404():
 
     code_item = evidence.items.get(EvidenceCategory.CODE.value)
     assert code_item is not None
-    assert code_item.is_available is False
-    assert code_item.error.error_code == AcquisitionErrorCode.RESOURCE_NOT_FOUND
+    payload = code_item.payload
+    assert payload is not None
+    topology = payload.get("task_topology", [])
+    assert len(topology) == 1
+    assert topology[0]["task_key"] == "deleted_task"
+    assert topology[0]["coverage_state"] == "UNRETRIEVABLE"
+    summary = payload.get("coverage_summary", {})
+    assert summary.get("total_discovered") == 1
+    assert summary.get("analyzed") == 0
+    assert summary.get("unretrievable") == 1
+    assert payload.get("combined_code", "") == ""
 
 
 def test_code_discovery_multi_task_heterogeneous():
