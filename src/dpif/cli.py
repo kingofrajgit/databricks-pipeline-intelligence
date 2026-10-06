@@ -733,8 +733,23 @@ def _run_offline_validation(
             state=EvidenceState.UNKNOWN,
         )
 
+    from dpif.code.parser import tag_operations_with_tasks
+
+    # Phase 9 (P9-2): attribution-only tagging for the flow graph. The single
+    # offline fixture file is an exact source-file boundary, so with code
+    # present every operation belongs to the single ANALYZED topology unit;
+    # with no code, nothing is tagged. The combined `analysis` stays the sole
+    # authority for checkpoints/rules/M5E/M5G and all decision inputs.
+    flow_analysis = analysis
+    task_analyses: dict[str, Any] = {}
+    if code_text and code_text.strip() and analysis is not None:
+        _offline_key = str(code_filename or "code")
+        task_analyses = {_offline_key: analysis}
+        attributed = analysis.model_copy(deep=True)
+        if tag_operations_with_tasks(attributed, [(_offline_key, 1)]) > 0:
+            flow_analysis = attributed
     flow_graph = build_pipeline_flow_graph(
-        code_analysis=analysis,
+        code_analysis=flow_analysis,
         contract=contract,
         pipeline_name=contract.pipeline_name,
         raw_code=code_text,
@@ -782,6 +797,9 @@ def _run_offline_validation(
             if code_text and code_text.strip()
             else []
         ),
+        # Phase 9 (P9-2): attribution-only per-task analyses. No consumer
+        # reads this key; it exists for attribution metadata only.
+        "task_analyses": task_analyses,
     }
 
     engine = CheckpointEngine()

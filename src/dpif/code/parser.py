@@ -831,3 +831,94 @@ def analyze_source(code: str, filename: str = "<code>") -> CodeAnalysis:
         max_nesting_depth=visitor.max_nesting,
         sql_analysis=embedded_sql,
     )
+
+
+# -- Phase 9 (P9-2): task attribution tagging --------------------------------
+# Attribution uses ONLY authoritative task boundaries:
+#   1. provider-generated task code reference (per-task entry path/filename),
+#   2. exact source-file boundary (whole single-file analysis),
+#   3. explicit provider task headers of the exact form emitted below.
+# Forbidden: line/order/timing/AST/variable proximity, ordering, "closest
+# task", or any other heuristic. No authoritative boundary -> task_key None.
+
+TASK_HEADER_RE = re.compile(r"^# --- TASK: (.+?) \(.*\) ---\s*$")
+
+
+def parse_task_boundaries(combined_code: str) -> list[tuple[str, int]]:
+    """Map provider task headers to 1-based start lines, in file order.
+
+    Returns ``[(task_key, start_line), ...]``. A task owns every line from
+    its header until the next header (or end of file); lines before the
+    first header belong to no task. Malformed headers are ignored (no
+    boundary is better than a guessed one).
+    """
+    boundaries: list[tuple[str, int]] = []
+    for lineno, line in enumerate((combined_code or "").splitlines(), start=1):
+        match = TASK_HEADER_RE.match(line)
+        if match:
+            task_key = match.group(1).strip()
+            if task_key:
+                boundaries.append((task_key, lineno))
+    return boundaries
+
+
+def tag_operations_with_tasks(
+    analysis: CodeAnalysis,
+    boundaries: list[tuple[str, int]] | None,
+) -> int:
+    """Assign ``task_key`` on operations covered by exactly one boundary range.
+
+    Positional containment in a provider-generated boundary is the only
+    signal used. Operations outside every range, or in overlapping ranges
+    (which providers must never emit), keep ``task_key=None`` (UNKNOWN).
+    Returns the number of operations tagged. The analysis object is mutated
+    in place; callers needing the untagged original must pass a copy.
+    """
+    if analysis is None or not boundaries:
+        return 0
+    tagged = 0
+    spans = [(key, start) for key, start in boundaries]
+    for op in analysis.operations:
+        owner: str | None = None
+        ambiguous = False
+        for index, (key, start) in enumerate(spans):
+            end = spans[index + 1][1] if index + 1 < len(spans) else None
+            if op.line >= start and (end is None or op.line < end):
+                if owner is None:
+                    owner = key
+                else:
+                    ambiguous = True
+                    break
+        if owner is not None and not ambiguous:
+            op.task_key = owner
+            tagged += 1
+    return tagged
+
+
+def analyze_tasks_for_attribution(
+    discovered_tasks: list[dict[str, Any]] | None,
+) -> dict[str, CodeAnalysis | None]:
+    """Run per-task ``analyze_source`` for attribution metadata ONLY.
+
+    Returns ``{task_key: CodeAnalysis | None}`` for entries that carry
+    retrievable code (ANALYZED entries with ``source_code``); retrieval
+    failures, unsupported entries (no code), and parse errors yield
+    ``None`` — never fabricated operations. Results must never feed
+    checkpoints, rules, M5E/M5G, or any decision input.
+    """
+    results: dict[str, CodeAnalysis | None] = {}
+    for task in discovered_tasks or []:
+        if not isinstance(task, dict):
+            continue
+        task_key = str(task.get("task_key", "task"))
+        code = task.get("source_code")
+        if not isinstance(code, str) or not code:
+            results[task_key] = None
+            continue
+        language = str(task.get("language", "python"))
+        filename = f"{task_key}.sql" if language == "sql" else f"{task_key}.py"
+        try:
+            results[task_key] = analyze_source(code, filename=filename)
+        except Exception:
+            results[task_key] = None
+    return results

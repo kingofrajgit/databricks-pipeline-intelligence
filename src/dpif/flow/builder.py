@@ -288,8 +288,13 @@ class _GraphBuilder:
         if is_target:
             self.target_ids.append(node.node_id)
 
-    def dataset_node(self, var: str, line: int) -> FlowNode:
-        """Get-or-create the DATASET node for a DataFrame variable."""
+    def dataset_node(self, var: str, line: int, task_key: str | None = None) -> FlowNode:
+        """Get-or-create the DATASET node for a DataFrame variable.
+
+        ``task_key`` is copied only when the caller supplies the authoritative
+        owning operation's key; otherwise the node stays unattributed
+        (UNKNOWN). Node identity is never derived from it.
+        """
         existing = self.ds_nodes.get(var)
         if existing is not None:
             node = self.node_by_id(existing)
@@ -303,6 +308,7 @@ class _GraphBuilder:
             location=SourceLocation(
                 file=self.analysis.source_file if self.analysis else None, line=line
             ),
+            task_key=task_key,
             provenance=_static(EvidenceState.DERIVED),
         )
         self.add_node(node)
@@ -393,6 +399,8 @@ class _GraphBuilder:
         loc = self.location(op)
 
         # Reads become SOURCE nodes (the read is the pipeline entry boundary).
+        # Phase 9 (P9-2): task_key is copied from the owning operation only;
+        # node identity, edges, and volumes are untouched.
         if op_type == OperationType.READ:
             node = FlowNode(
                 node_id=f"src:{op.line}:{op.column}",
@@ -400,6 +408,7 @@ class _GraphBuilder:
                 operation_type=OperationType.READ,
                 dataset=_read_identity(op, self.raw_code),
                 location=loc,
+                task_key=op.task_key,
                 metadata={"via": str(op.arguments.get("via", ""))},
                 provenance=_static(),
             )
@@ -420,6 +429,7 @@ class _GraphBuilder:
                 if var
                 else None,
                 location=loc,
+                task_key=op.task_key,
                 provenance=_static(),
             )
             self.add_node(op_node)
@@ -432,6 +442,7 @@ class _GraphBuilder:
                 kind=FlowNodeKind.TARGET,
                 dataset=_write_identity(op, self.raw_code),
                 location=loc,
+                task_key=op.task_key,
                 provenance=_static(),
             )
             self.add_node(target, is_target=True)
@@ -450,6 +461,7 @@ class _GraphBuilder:
             if var
             else None,
             location=loc,
+            task_key=op.task_key,
             metadata={"code": op.code} if op.code else {},
             provenance=_static(),
         )
@@ -482,6 +494,7 @@ class _GraphBuilder:
                     kind=FlowNodeKind.SHUFFLE,
                     shuffle_cause=op_type,
                     location=loc,
+                    task_key=op.task_key,
                     provenance=_static(EvidenceState.DERIVED),
                 )
                 self.add_node(shuffle)
@@ -497,7 +510,7 @@ class _GraphBuilder:
         assert self.analysis is not None
         for a in self.analysis.assignments:
             if a.line == op.line and a.source == "spark" and a.target:
-                ds = self.dataset_node(a.target, op.line)
+                ds = self.dataset_node(a.target, op.line, task_key=op.task_key)
                 self.edges.append(
                     FlowEdge(from_node=source_node_id, to_node=ds.node_id, dataset=a.target, provenance=_static())
                 )
@@ -538,7 +551,9 @@ class _GraphBuilder:
             producer_node_id = (
                 f"op:{producing.operation_type.value.lower()}:{producing.line}:{producing.column}"
             )
-        ds = self.dataset_node(target, getattr(assignment, "line", producing.line))
+        ds = self.dataset_node(
+            target, getattr(assignment, "line", producing.line), task_key=producing.task_key
+        )
         self.edges.append(
             FlowEdge(from_node=producer_node_id, to_node=ds.node_id, dataset=target, provenance=_static(EvidenceState.DERIVED))
         )

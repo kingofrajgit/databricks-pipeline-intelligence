@@ -452,6 +452,12 @@ class OnlineValidationOrchestrator:
         task_topology: list[dict[str, Any]] = []
         coverage_summary: dict[str, Any] = {}
         uncovered_tasks: list[dict[str, Any]] = []
+        # Phase 9 (P9-2): attribution-only task analyses (never consumed by
+        # checkpoints/rules/M5*) and the analysis object handed to the flow
+        # graph builder (tagged deep copy when attribution exists, else the
+        # combined analysis itself).
+        task_analyses: dict[str, Any] = {}
+        flow_analysis = analysis
 
         if contract_path:
             try:
@@ -505,9 +511,20 @@ class OnlineValidationOrchestrator:
         else:
             # Check acquired live code from Databricks tasks / workspace
             code_item = evidence.items.get(EvidenceCategory.CODE.value)
-            # Phase 8: per-task validation coverage travels with the code
-            # payload. Every enumerated job task must remain represented
-            # (ANALYZED / UNSUPPORTED / UNRETRIEVABLE) — never silent.
+        # Phase 8: per-task validation coverage travels with the code
+        # payload. Every enumerated job task must remain represented
+        # (ANALYZED / UNSUPPORTED / UNRETRIEVABLE) — never silent.
+            # Phase 9 (P9-2): attribution-only task analyses + a tagged deep copy
+            # for the flow graph. The combined `analysis` stays the sole
+            # authority for checkpoints/rules/M5E/M5G and all decision inputs.
+            from dpif.code.parser import (
+                analyze_tasks_for_attribution,
+                parse_task_boundaries,
+                tag_operations_with_tasks,
+            )
+
+            task_analyses = {}
+            flow_analysis = analysis
             if code_item and isinstance(code_item.payload, dict):
                 task_topology = code_item.payload.get("task_topology", []) or []
                 coverage_summary = code_item.payload.get("coverage_summary", {}) or {}
@@ -528,6 +545,24 @@ class OnlineValidationOrchestrator:
                     code_filename = primary_fname
                     analysis = analyze_code(code_text, filename=code_filename)
                     status_lbl = "PARTIAL" if (analysis and analysis.parse_error) else "LIVE"
+                    # Phase 9 (P9-2): attribution metadata only. Per-task
+                    # analyses never feed checkpoints/rules/M5*; only the
+                    # tagged deep copy below reaches the flow-graph builder.
+                    task_analyses = analyze_tasks_for_attribution(
+                        [
+                            t
+                            for t in discovered_tasks
+                            if t.get("coverage_state") == "ANALYZED"
+                        ]
+                    )
+                    if analysis is not None and any(
+                        v is not None for v in task_analyses.values()
+                    ):
+                        attributed = analysis.model_copy(deep=True)
+                        tag_operations_with_tasks(
+                            attributed, parse_task_boundaries(code_text)
+                        )
+                        flow_analysis = attributed
                 else:
                     # Phase 8: tasks enumerated but none yielded code.
                     # Coverage is recorded in task_topology; code content
@@ -726,8 +761,12 @@ class OnlineValidationOrchestrator:
         # Common pipeline flow graph (GAP-001) — same builder as offline.
         # Phase 2: same SOURCE/TARGET volume baselines from live evidence.
         # Phase 3: same SQL operation correlation from live query history.
+        # Phase 9 (P9-2): the builder receives the tagged deep copy when
+        # task attribution exists; otherwise the combined analysis itself.
+        if flow_analysis is None:
+            flow_analysis = analysis
         flow_graph = build_pipeline_flow_graph(
-            code_analysis=analysis,
+            code_analysis=flow_analysis,
             contract=contract,
             pipeline_name=pipeline_name,
             raw_code=code_text,
@@ -797,6 +836,9 @@ class OnlineValidationOrchestrator:
             # Phase 8: job task topology + validation coverage for M5H/M5I.
             "task_topology": task_topology,
             "task_coverage_summary": coverage_summary,
+            # Phase 9 (P9-2): attribution-only per-task analyses. No consumer
+            # reads this key; it exists for attribution metadata only.
+            "task_analyses": task_analyses,
         }
 
         # Checkpoints CP-001..CP-024
