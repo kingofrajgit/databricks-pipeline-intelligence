@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from dpif.models import Checkpoint, DataProfile, PipelineContract
+from dpif.models import Checkpoint, CheckpointStatus, DataProfile, PipelineContract
 from dpif.readiness.models import (
     CrossDomainRisk,
     ExpectedVsImplementedVsActual,
@@ -24,7 +24,15 @@ def synthesize_cross_domain_risks(
 ) -> list[CrossDomainRisk]:
     """Synthesize cross-domain risks across intelligence domains."""
     all_findings = [f for cp in checkpoints.values() for f in cp.findings]
-    rule_ids = {f.rule_id for f in all_findings}
+    # Phase 7: UNKNOWN findings are evidence gaps, not risk evidence. Only
+    # FAIL/WARN findings constitute positive risk evidence for XDOM triggers;
+    # an UNKNOWN result (e.g. SCALABILITY-007 without runtime telemetry) must
+    # never by itself trigger an active operational risk.
+    active_rule_ids = {
+        f.rule_id
+        for f in all_findings
+        if f.status in (CheckpointStatus.FAIL, CheckpointStatus.WARN)
+    }
 
     risks: list[CrossDomainRisk] = []
     vol = 0.0
@@ -35,7 +43,7 @@ def synthesize_cross_domain_risks(
 
     # 1. Driver Scalability Risk: Code collect + Large volume
     has_collect = any(
-        r in rule_ids for r in ("CODE-PYSPARK-006", "CODE-PYSPARK-007", "SCALABILITY-006")
+        r in active_rule_ids for r in ("CODE-PYSPARK-006", "CODE-PYSPARK-007", "SCALABILITY-006")
     )
     if has_collect and vol >= 50.0:
         risks.append(
@@ -60,7 +68,7 @@ def synthesize_cross_domain_risks(
 
     # 2. Cartesian Cross-Join Scaling Risk
     has_cross = any(
-        r in rule_ids for r in ("CODE-PYSPARK-005", "CODE-SQL-002", "SCALABILITY-008")
+        r in active_rule_ids for r in ("CODE-PYSPARK-005", "CODE-SQL-002", "SCALABILITY-008")
     )
     if has_cross and vol >= 10.0:
         risks.append(
@@ -84,31 +92,64 @@ def synthesize_cross_domain_risks(
         )
 
     # 3. Network Shuffle Explosion
-    has_high_shuffle = any(
-        r in rule_ids for r in ("RUNTIME-PERF-002", "RUNTIME-PERF-003", "SCALABILITY-007")
-    )
+    # Phase 7: only evidence-backed (FAIL/WARN) shuffle findings trigger.
+    # An UNKNOWN SCALABILITY-007 (no runtime telemetry) is an evidence gap
+    # and stays visible via the checkpoint finding + M5H insufficiency — it
+    # must not become a HIGH runtime risk here.
+    shuffle_triggers = [
+        f
+        for f in all_findings
+        if f.rule_id in ("RUNTIME-PERF-002", "RUNTIME-PERF-003", "SCALABILITY-007")
+        and f.status in (CheckpointStatus.FAIL, CheckpointStatus.WARN)
+    ]
+    has_high_shuffle = len(shuffle_triggers) > 0
     if has_high_shuffle:
+        _observed_runtime = any(
+            f.rule_id in ("RUNTIME-PERF-002", "RUNTIME-PERF-003") for f in shuffle_triggers
+        )
+        _trigger_conf = max(
+            (float(f.evidence.confidence or 0.0) for f in shuffle_triggers),
+            default=0.0,
+        )
         risks.append(
             CrossDomainRisk(
                 risk_id="XDOM-003",
                 title="High Network Shuffle & Spill Risk",
                 severity="HIGH",
                 contributing_domains=["Performance", "Scalability"],
-                evidence_sources=["Runtime Telemetry", "Linear Projections"],
+                evidence_sources=[
+                    label
+                    for label, present in (
+                        ("Runtime Telemetry", _observed_runtime),
+                        (
+                            "Linear Projections",
+                            any(
+                                f.rule_id == "SCALABILITY-007" for f in shuffle_triggers
+                            ),
+                        ),
+                    )
+                    if present
+                ],
                 description=(
-                    "Observed or projected shuffle volume exceeds safe network thresholds, "
+                    "Observed shuffle volume exceeds safe network thresholds, "
+                    "causing executor memory spill to disk and stage stragglers."
+                    if _observed_runtime
+                    else "Projected shuffle volume exceeds safe network thresholds, "
                     "causing executor memory spill to disk and stage stragglers."
                 ),
                 recommendation=(
                     "Enable Adaptive Query Execution (AQE), co-partition datasets on join keys, "
                     "and avoid wide transformations before filtering."
                 ),
-                confidence=0.85,
+                # Phase 7: confidence derived from the triggering evidence
+                # (capped at the historical 0.85 ceiling), never fabricated
+                # for absent telemetry.
+                confidence=min(0.85, _trigger_conf),
             )
         )
 
     # 4. Cluster Autoscaling & Peak Headroom Constraint
-    has_peak_risk = any(r in rule_ids for r in ("SCALABILITY-002", "SCALABILITY-011"))
+    has_peak_risk = any(r in active_rule_ids for r in ("SCALABILITY-002", "SCALABILITY-011"))
     if has_peak_risk:
         risks.append(
             CrossDomainRisk(
@@ -130,7 +171,7 @@ def synthesize_cross_domain_risks(
         )
 
     # 5. Small File Proliferation under Workload Growth
-    has_small_files = any(r in rule_ids for r in ("DATA-001", "SCALABILITY-004"))
+    has_small_files = any(r in active_rule_ids for r in ("DATA-001", "SCALABILITY-004"))
     if has_small_files:
         risks.append(
             CrossDomainRisk(

@@ -313,6 +313,12 @@ class DecisionRiskSynthesisAnalyzer:
 
                 sev = Severity(xr.severity) if hasattr(Severity, xr.severity) else Severity.HIGH
                 cat = self._map_rule_to_category(xr.risk_id, xr.title)
+                # Phase 7: a blocker must be supported by evidence-backed
+                # severity. A cross-domain risk without demonstrated evidence
+                # confidence (e.g. UNKNOWN/absent telemetry, confidence 0.0)
+                # cannot become a blocking risk merely because its severity
+                # label says HIGH.
+                _xr_conf = float(getattr(xr, "confidence", 0.0) or 0.0)
                 risks.append(
                     SynthesizedRisk(
                         risk_id=risk_id,
@@ -322,7 +328,8 @@ class DecisionRiskSynthesisAnalyzer:
                         description=xr.description,
                         source_findings=[xr.risk_id],
                         affected_domains=xr.contributing_domains,
-                        blocking=(sev in (Severity.CRITICAL, Severity.HIGH)),
+                        blocking=(sev in (Severity.CRITICAL, Severity.HIGH))
+                        and _xr_conf >= 0.5,
                         consequence=xr.recommendation,
                         confidence=ConfidenceLevel.MEDIUM,
                         evidence_provenance=xr.evidence_sources[:2],
