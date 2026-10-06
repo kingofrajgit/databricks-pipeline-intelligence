@@ -48,7 +48,13 @@ class OperationType(StrEnum):
 
 
 class Operation(BaseModel):
-    """One detected operation with source location and call context."""
+    """One detected operation with source location and call context.
+
+    ``task_key`` is a Phase 9 attribution slot: the Databricks job task that
+    owns the code unit this operation was parsed from. ``None`` means the
+    operation is unattributed (UNKNOWN) — attribution requires an
+    authoritative task boundary, never proximity heuristics.
+    """
 
     operation_type: OperationType
     line: int
@@ -57,6 +63,7 @@ class Operation(BaseModel):
     code: str = ""
     arguments: dict[str, object] = Field(default_factory=dict)
     context: dict[str, object] = Field(default_factory=dict)
+    task_key: str | None = None
 
     def location(self, filename: str = "") -> str:
         prefix = f"{filename}:" if filename else ""

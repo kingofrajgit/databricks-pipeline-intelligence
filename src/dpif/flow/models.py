@@ -154,6 +154,9 @@ class FlowNode(BaseModel):
     - TARGET nodes carry ``dataset`` identity of the sink.
     - SOURCE/TARGET nodes may carry ``volume`` (pipeline baseline); ``None``
       means UNKNOWN — never ``0`` unless genuinely measured.
+    - ``task_key`` is a Phase 9 attribution slot: the Databricks job task that
+      owns the code unit the node was built from. ``None`` means unattributed
+      (UNKNOWN); attribution requires an authoritative task boundary.
     """
 
     node_id: str
@@ -164,6 +167,7 @@ class FlowNode(BaseModel):
     location: SourceLocation | None = None
     shuffle_cause: OperationType | None = None
     volume: VolumeObservation | None = None
+    task_key: str | None = None
     metadata: dict[str, object] = Field(default_factory=dict)
     provenance: FlowProvenance = Field(default_factory=FlowProvenance)
 
@@ -234,6 +238,11 @@ class OperationRuntimeCorrelation(BaseModel):
 
     Confidence reuses ``ConfidenceLevel``; provenance reuses
     ``FlowProvenance``. No per-operation volume is derived from correlation.
+
+    ``volume`` is a Phase 9 attribution slot: it may hold a volume only when
+    an exact, authoritative join (table name or ``query_id`` + fingerprint
+    with response-exposed byte/row measurements) establishes it. ``None``
+    means UNKNOWN — never a measured or inferred zero.
     """
 
     operation_node_id: str
@@ -244,6 +253,7 @@ class OperationRuntimeCorrelation(BaseModel):
     confidence: ConfidenceLevel = ConfidenceLevel.INSUFFICIENT
     evidence: dict[str, str] = Field(default_factory=dict)
     provenance: FlowProvenance = Field(default_factory=FlowProvenance)
+    volume: VolumeObservation | None = None
 
 
 class PipelineFlowGraph(BaseModel):

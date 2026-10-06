@@ -790,6 +790,11 @@ class DatabricksEvidenceProvider:
                                     "source_code": raw,
                                     "language": lang,
                                     "coverage_state": "ANALYZED",
+                                    # Phase 9: provider-generated parent linkage
+                                    # for pipeline-library expansion entries;
+                                    # None for real tasks and direct-pipeline
+                                    # fallback entries (no inference).
+                                    "parent_task_key": task.get("parent_task_key"),
                                 })
                                 _record_topology(
                                     task, "ANALYZED", f"notebook exported ({lang})", [nb_path]
@@ -842,6 +847,9 @@ class DatabricksEvidenceProvider:
                                     "source_code": code_str,
                                     "language": "python",
                                     "coverage_state": "ANALYZED",
+                                    # Phase 9: provider-generated parent linkage
+                                    # (see notebook branch above).
+                                    "parent_task_key": task.get("parent_task_key"),
                                 })
                                 _record_topology(
                                     task, "ANALYZED", "python file retrieved", [py_file]

@@ -30,7 +30,12 @@ class RuntimeTaskMetrics(BaseModel):
 
 
 class RuntimeTask(BaseModel):
-    """Execution details for an individual Spark task."""
+    """Execution details for an individual Spark task.
+
+    ``query_id`` is a Phase 9 attribution slot for the authoritative SQL
+    statement identifier when the task is known to execute exactly one
+    statement. ``None`` means unattributed (UNKNOWN) — never inferred.
+    """
 
     task_id: int | str
     stage_id: int
@@ -41,11 +46,17 @@ class RuntimeTask(BaseModel):
     failure_reason: str | None = None
     executor_id: str | None = None
     host: str | None = None
+    query_id: str | None = None
     evidence_source: str = "DATABRICKS_API"
 
 
 class RuntimeStage(BaseModel):
-    """Execution details and aggregated metrics for a Spark stage."""
+    """Execution details and aggregated metrics for a Spark stage.
+
+    ``tables`` / ``query_ids`` are Phase 9 attribution slots for authoritative
+    lineage (table names / statement identifiers observed for the stage).
+    Empty means unattributed (UNKNOWN) — never inferred from timing or order.
+    """
 
     stage_id: int
     name: str = ""
@@ -62,6 +73,8 @@ class RuntimeStage(BaseModel):
     jvm_gc_time_ms: int | None = None
     executor_run_time_ms: int | None = None
     tasks: list[RuntimeTask] = Field(default_factory=list)
+    tables: list[str] = Field(default_factory=list)
+    query_ids: list[str] = Field(default_factory=list)
     evidence_source: str = "DATABRICKS_API"
 
     @property
@@ -185,6 +198,11 @@ class QueryHistoryEntry(BaseModel):
     Normalized shape for Databricks ``sql/history/queries`` payloads and
     offline fixtures. ``query_id`` is the authoritative runtime identifier;
     entries without one can never anchor a KNOWN correlation.
+
+    ``read_bytes`` / ``written_bytes`` / ``rows`` are Phase 9 attribution
+    slots: carrier fields that may hold measurements the history response
+    already exposes. ``None`` means the measurement is unavailable (UNKNOWN)
+    — fields never create evidence and must never default to zero.
     """
 
     query_id: str
@@ -192,3 +210,6 @@ class QueryHistoryEntry(BaseModel):
     query_text: str | None = None
     tables: list[str] = Field(default_factory=list)
     status: str | None = None
+    read_bytes: int | None = None
+    written_bytes: int | None = None
+    rows: int | None = None

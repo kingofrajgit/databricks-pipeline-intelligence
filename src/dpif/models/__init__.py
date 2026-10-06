@@ -595,10 +595,16 @@ class Source(BaseModel):
 
 
 class DataProfile(BaseModel):
-    """Data profile collected from source."""
+    """Data profile collected from source.
+
+    ``source_name`` is a Phase 9 attribution slot identifying which source
+    (table name or path) this profile describes. ``None`` means the profile
+    is pipeline-level / unattributed — never inferred.
+    """
 
     model_config = ConfigDict(populate_by_name=True)
 
+    source_name: str | None = None
     total_bytes: int = 0
     total_gb: float = 0.0
     file_count: int = 0
@@ -633,6 +639,7 @@ class DataProfile(BaseModel):
 
     def to_dict(self) -> dict[str, Any]:
         return {
+            "source_name": self.source_name,
             "total_bytes": self.total_bytes,
             "total_gb": self.total_gb,
             "file_count": self.file_count,
