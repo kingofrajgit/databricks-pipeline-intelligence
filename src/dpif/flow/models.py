@@ -468,7 +468,13 @@ class PipelineFlowGraph(BaseModel):
                 on_path.add(cur)
                 stack.append((cur, True))
                 for nxt in adj.get(cur, []):
-                    if color.get(nxt, BLACK) == GRAY:
+                    # Phase 10 (P10-1): a successor is a cycle only when it
+                    # is on the CURRENT DFS path. A globally GRAY node from
+                    # an earlier early-returned search is already-visited
+                    # state, not cycle evidence — treating it as a cycle
+                    # raised ValueError on `path.index` (stale node not on
+                    # this path). Completed (BLACK) nodes are never on-path.
+                    if nxt in on_path:
                         return path[path.index(nxt):] + [nxt]
                     if color.get(nxt, BLACK) == WHITE:
                         stack.append((nxt, False))
