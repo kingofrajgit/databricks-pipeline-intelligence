@@ -202,6 +202,25 @@ class EvidenceSufficiencyAnalyzer:
                 "to establish conclusive rerun idempotency safety."
             )
 
+        # Phase 9 (P9-5): expose volume-attribution coverage informationally.
+        # Only shape-normalized here; no scoring, confidence, sufficiency,
+        # decision, or recommendation logic reads it.
+        raw_attribution = (self.context or {}).get("volume_attribution") or {}
+        volume_attribution: dict[str, Any] = {"attributed": {}, "unknown": 0, "total_sources": 0}
+        if isinstance(raw_attribution, dict):
+            attributed = raw_attribution.get("attributed")
+            volume_attribution["attributed"] = (
+                {str(k): int(v) for k, v in attributed.items()}
+                if isinstance(attributed, dict)
+                else {}
+            )
+            for key in ("unknown", "total_sources"):
+                value = raw_attribution.get(key)
+                if isinstance(value, bool):
+                    continue
+                if isinstance(value, (int, float)):
+                    volume_attribution[key] = int(value)
+
         return EvidenceSufficiencyAssessment(
             overall_confidence=overall_confidence,
             overall_decision_sufficiency=overall_sufficiency,
@@ -213,6 +232,7 @@ class EvidenceSufficiencyAnalyzer:
             decisions=decisions,
             critical_missing_evidence=critical_missing,
             actionable_recommendations=recommendations,
+            volume_attribution=volume_attribution,
         )
 
     # -------------------------------------------------------------------------

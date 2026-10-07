@@ -125,6 +125,11 @@ class EvidenceSufficiencyAssessment(BaseModel):
     decisions: list[DecisionSufficiencyRecord] = Field(default_factory=list)
     critical_missing_evidence: list[str] = Field(default_factory=list)
     actionable_recommendations: list[str] = Field(default_factory=list)
+    # Phase 9 (P9-5): per-source/per-operation volume attribution coverage
+    # as produced by flow attribution (node counts per evidence nature, never
+    # invented volumes). Informational only: no scoring, confidence, or
+    # sufficiency computation reads this field.
+    volume_attribution: dict[str, Any] = Field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -140,4 +145,5 @@ class EvidenceSufficiencyAssessment(BaseModel):
             "decisions": [d.to_dict() for d in self.decisions],
             "critical_missing_evidence": self.critical_missing_evidence,
             "actionable_recommendations": self.actionable_recommendations,
+            "volume_attribution": self.volume_attribution,
         }

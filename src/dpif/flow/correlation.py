@@ -40,6 +40,11 @@ def normalize_query_history(raw: Any) -> list[QueryHistoryEntry] | None:
     convention), or ``{"res": [...]}`` (Databricks history shape).
     Entries without a ``query_id`` are skipped: without an authoritative
     identifier they can never anchor a correlation. Never raises.
+
+    Phase 9 (P9-4/P9-5): already-exposed ``read_bytes`` / ``written_bytes``
+    / ``rows`` measurements are forwarded unchanged when present and
+    well-formed (non-negative ints); anything else stays ``None``
+    (UNKNOWN). Forwarding never creates evidence.
     """
     if raw is None:
         return None
@@ -68,6 +73,9 @@ def normalize_query_history(raw: Any) -> list[QueryHistoryEntry] | None:
                     query_text=item.get("query_text") or item.get("query") or item.get("sql"),
                     tables=[str(t) for t in tables] if isinstance(tables, list) else [],
                     status=item.get("status"),
+                    read_bytes=_optional_measure(item.get("read_bytes")),
+                    written_bytes=_optional_measure(item.get("written_bytes")),
+                    rows=_optional_measure(item.get("rows")),
                 )
             else:
                 continue
@@ -76,6 +84,19 @@ def normalize_query_history(raw: Any) -> list[QueryHistoryEntry] | None:
         except Exception:
             continue
     return entries
+
+
+def _optional_measure(value: Any) -> int | None:
+    """Return a well-formed byte/row measurement or ``None`` (UNKNOWN).
+
+    Only non-negative ints (excluding bools) pass through; malformed or
+    negative values can never become measurements.
+    """
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and value >= 0:
+        return value
+    return None
 
 
 def _entry_fingerprint(entry: QueryHistoryEntry) -> str | None:

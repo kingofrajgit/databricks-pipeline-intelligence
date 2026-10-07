@@ -1,0 +1,1 @@
+{"queries": [{"query_id": "q-bare-1", "statement_id": "s-bare-1", "query_text": "SELECT o.id, o.total FROM bronze.orders o", "tables": ["bronze.orders"], "status": "FINISHED"}]}

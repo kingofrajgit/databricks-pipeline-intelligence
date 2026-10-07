@@ -1,0 +1,1 @@
+{"queries": [{"query_id": "q-measured-1", "statement_id": "s-measured-1", "query_text": "SELECT o.id, o.total FROM bronze.orders o", "tables": ["bronze.orders"], "status": "FINISHED", "read_bytes": 52428800, "written_bytes": 1048576, "rows": 12000}]}

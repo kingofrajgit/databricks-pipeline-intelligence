@@ -473,6 +473,15 @@ class OnlineValidationOrchestrator:
             except Exception as e:
                 logger.warning("Could not load contract file %s: %s", contract_path, e)
 
+        # Phase 8/9-5: task topology/coverage is enumerated from live job
+        # tasks independently of which code artifact gets analyzed below, so
+        # the local-file, contract-snippet, and live-code branches share
+        # identical coverage semantics (offline/online parity).
+        _code_item = evidence.items.get(EvidenceCategory.CODE.value)
+        if _code_item is not None and isinstance(_code_item.payload, dict):
+            task_topology = _code_item.payload.get("task_topology", []) or []
+            coverage_summary = _code_item.payload.get("coverage_summary", {}) or {}
+
         if code_path and os.path.exists(code_path):
             try:
                 with open(code_path, encoding="utf-8") as cf:
@@ -531,9 +540,6 @@ class OnlineValidationOrchestrator:
 
             task_analyses = {}
             flow_analysis = analysis
-            if code_item and isinstance(code_item.payload, dict):
-                task_topology = code_item.payload.get("task_topology", []) or []
-                coverage_summary = code_item.payload.get("coverage_summary", {}) or {}
             uncovered_tasks = [
                 t for t in task_topology if t.get("coverage_state") != "ANALYZED"
             ]
