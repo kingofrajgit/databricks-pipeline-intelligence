@@ -777,7 +777,11 @@ def analyze_source(code: str, filename: str = "<code>") -> CodeAnalysis:
         from dpif.sql.parser import SQLParser
 
         sql_parser = SQLParser()
-        sql_res = sql_parser.parse(code, source_file=filename)
+        # Phase 10 (P10-2): provider TASK headers are authoritative task
+        # metadata, not SQL. Parse a sanitized copy (headers -> blank lines,
+        # line numbers preserved); the original blob stays authoritative for
+        # task attribution.
+        sql_res = sql_parser.parse(strip_task_headers_for_sql(code), source_file=filename)
         non_blank = [ln for ln in code.splitlines() if ln.strip()]
         return CodeAnalysis(
             source_file=filename,
@@ -793,7 +797,8 @@ def analyze_source(code: str, filename: str = "<code>") -> CodeAnalysis:
         from dpif.sql.parser import SQLParser
 
         sql_parser = SQLParser()
-        sql_res = sql_parser.parse(code, source_file=filename)
+        # Phase 10 (P10-2): same header sanitation as the .sql branch above.
+        sql_res = sql_parser.parse(strip_task_headers_for_sql(code), source_file=filename)
         if sql_res.analysis.queries and not sql_res.parse_errors:
             non_blank = [ln for ln in code.splitlines() if ln.strip()]
             return CodeAnalysis(
@@ -842,6 +847,28 @@ def analyze_source(code: str, filename: str = "<code>") -> CodeAnalysis:
 # task", or any other heuristic. No authoritative boundary -> task_key None.
 
 TASK_HEADER_RE = re.compile(r"^# --- TASK: (.+?) \(.*\) ---\s*$")
+
+
+def strip_task_headers_for_sql(code: str) -> str:
+    """Replace provider TASK header lines with blank lines (Phase 10, P10-2).
+
+    Used ONLY on a sanitized copy handed to ``SQLParser``: ``#`` is not a SQL
+    comment, so an authoritative provider header would otherwise fail SQL
+    parsing and hide genuine SQL. Blank-line replacement (never deletion)
+    preserves every subsequent line number, so flow locations, SQL ``line``
+    fields, and P9-2 task-boundary ranges stay aligned with the original
+    blob. Only lines matching the strict ``TASK_HEADER_RE`` are touched —
+    ``--``/``/* */`` comments, ``#`` inside string literals, and all other
+    content pass through byte-identical. The original text is never mutated
+    by this helper; callers must keep parsing the original for task
+    attribution.
+    """
+    stripped = "\n".join(
+        "" if TASK_HEADER_RE.match(line) else line for line in (code or "").splitlines()
+    )
+    if code and code.endswith("\n") and not stripped.endswith("\n"):
+        stripped += "\n"
+    return stripped
 
 
 def parse_task_boundaries(combined_code: str) -> list[tuple[str, int]]:
