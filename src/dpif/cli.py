@@ -758,7 +758,27 @@ def _run_offline_validation(
         runtime_run=runtime_obj,
         query_history=query_entries,
         history_provenance=history_prov if query_history_path else None,
+        volume_mode="attributed",
     )
+    # Phase 9 (P9-4): exact-only volume attribution on the offline graph.
+    # Never raises: on unexpected failure volumes stay UNKNOWN.
+    from dpif.flow.attribution import attribute_volumes
+
+    try:
+        offline_sources = (
+            extract_sources_from_code(analysis, code_text) if analysis else []
+        )
+        volume_attribution = attribute_volumes(
+            flow_graph,
+            sources=offline_sources,
+            contract_source=contract.source,
+            data_profiles=[profile] if profile else [],
+            query_entries=query_entries if isinstance(query_entries, list) else [],
+        )
+    except Exception as e:
+        logger.warning("Volume attribution failed; volumes stay UNKNOWN: %s", e)
+        offline_sources = []
+        volume_attribution = {"attributed": {}, "unknown": 0, "total_sources": 0}
     # Phase 4: M5E consumes rule_context, so the code text and flow graph
     # must be visible there (minimal wiring for completeness evidence).
     rule_context["code_snippet"] = code_text
@@ -805,10 +825,11 @@ def _run_offline_validation(
         # code (same helper as online; volumes NOT attributed here).
         # No per-table profiles offline (single fixture profile); the key
         # exists with an empty list for shape parity.
-        "discovered_sources": (
-            extract_sources_from_code(analysis, code_text) if analysis else []
-        ),
+        "discovered_sources": offline_sources,
         "table_profiles": [],
+        # Phase 9 (P9-4): exact-only volume attribution coverage
+        # (node counts per evidence nature; never invented volumes).
+        "volume_attribution": volume_attribution,
     }
 
     engine = CheckpointEngine()

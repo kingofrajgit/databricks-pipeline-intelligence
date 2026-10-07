@@ -781,6 +781,9 @@ class OnlineValidationOrchestrator:
         # Phase 3: same SQL operation correlation from live query history.
         # Phase 9 (P9-2): the builder receives the tagged deep copy when
         # task attribution exists; otherwise the combined analysis itself.
+        # Phase 9 (P9-4): attributed volume mode (no SOURCE fan-out) plus
+        # exact-only attribution. Never raises: on unexpected failure the
+        # graph keeps unattributed (UNKNOWN) volumes.
         if flow_analysis is None:
             flow_analysis = analysis
         flow_graph = build_pipeline_flow_graph(
@@ -792,7 +795,28 @@ class OnlineValidationOrchestrator:
             runtime_run=runtime_obj,
             query_history=query_entries,
             history_provenance=history_prov,
+            volume_mode="attributed",
         )
+        from dpif.flow.attribution import attribute_volumes
+
+        # Phase 9 (P9-3): authoritative N-source collection shared by the
+        # attribution call below and the context record.
+        discovered_sources = (
+            extract_sources_from_code(analysis, code_text) if analysis else []
+        )
+        try:
+            volume_attribution = attribute_volumes(
+                flow_graph,
+                sources=discovered_sources,
+                contract_source=contract.source if contract else None,
+                data_profiles=[data_profile] if data_profile else [],
+                query_entries=query_entries
+                if isinstance(query_entries, list)
+                else [],
+            )
+        except Exception as e:
+            logger.warning("Volume attribution failed; volumes stay UNKNOWN: %s", e)
+            volume_attribution = {"attributed": {}, "unknown": 0, "total_sources": 0}
 
         # 3. Downstream DPIF Intelligence Execution
         rule_context: dict[str, Any] = {
@@ -862,10 +886,11 @@ class OnlineValidationOrchestrator:
             # profiles. Volumes are NOT attributed here; every preserved
             # source defaults to UNKNOWN. No consumer reads these keys yet;
             # they exist for Phase 9 attribution.
-            "discovered_sources": (
-                extract_sources_from_code(analysis, code_text) if analysis else []
-            ),
+            "discovered_sources": discovered_sources,
             "table_profiles": table_profiles,
+            # Phase 9 (P9-4): exact-only volume attribution coverage
+            # (node counts per evidence nature; never invented volumes).
+            "volume_attribution": volume_attribution,
         }
 
         # Checkpoints CP-001..CP-024

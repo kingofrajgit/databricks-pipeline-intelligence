@@ -260,6 +260,7 @@ class _GraphBuilder:
         runtime_run: object | None = None,
         query_history: list[QueryHistoryEntry] | list[dict[str, object]] | None = None,
         history_provenance: FlowProvenance | None = None,
+        volume_mode: str = "pipeline",
     ) -> None:
         self.analysis = code_analysis
         self.contract = contract
@@ -271,6 +272,9 @@ class _GraphBuilder:
         self.runtime_run = runtime_run
         self.query_history = query_history
         self.history_provenance = history_provenance
+        # Phase 9 (P9-4): "pipeline" keeps legacy SOURCE fan-out;
+        # "attributed" skips it (UNKNOWN unless exact attribution attaches).
+        self.volume_mode = volume_mode
         self.nodes: list[FlowNode] = []
         self.edges: list[FlowEdge] = []
         self.source_ids: list[str] = []
@@ -341,7 +345,7 @@ class _GraphBuilder:
         else:
             self._build_dlt_sources()
         self._apply_contract_evidence()
-        self._apply_volume_baselines()
+        self._apply_volume_baselines(attribute_mode=(self.volume_mode == "attributed"))
         correlations = correlate_sql_operations(
             self.analysis,
             self.query_history,  # type: ignore[arg-type]
@@ -769,7 +773,7 @@ class _GraphBuilder:
                 targets[0].provenance = _contract_prov()
 
     # -- Volume baselines (Phase 2) ------------------------------------------------
-    def _apply_volume_baselines(self) -> None:
+    def _apply_volume_baselines(self, *, attribute_mode: bool = False) -> None:
         """Attach pipeline volume baselines to SOURCE/TARGET nodes (Phase 2).
 
         SOURCE nodes share the pipeline input baseline from
@@ -778,15 +782,22 @@ class _GraphBuilder:
         actually observed (genuine zero preserved; missing stays ``None``).
         Intermediate OPERATION/DATASET/SHUFFLE nodes are never touched:
         per-operation volume is UNKNOWN without operation↔stage correlation.
+
+        Phase 9 (P9-4): with ``attribute_mode=True`` the SOURCE fan-out is
+        skipped entirely — SOURCE nodes keep ``volume=None`` (UNKNOWN) unless
+        exact attribution (``flow.attribution.attribute_volumes``) attaches an
+        observation afterward. TARGET measured totals are unaffected (observed
+        pipeline evidence, not baseline copies).
         """
-        baseline_gb, baseline_prov = extract_baseline_volume(
-            self.contract, self.data_profile, self.runtime_run
-        )
-        source_volume = _baseline_source_volume(baseline_gb, baseline_prov, self.data_profile)
-        if source_volume is not None:
-            for node in self.nodes_of_kind_local(FlowNodeKind.SOURCE):
-                if node.volume is None:
-                    node.volume = source_volume.model_copy(deep=True)
+        if not attribute_mode:
+            baseline_gb, baseline_prov = extract_baseline_volume(
+                self.contract, self.data_profile, self.runtime_run
+            )
+            source_volume = _baseline_source_volume(baseline_gb, baseline_prov, self.data_profile)
+            if source_volume is not None:
+                for node in self.nodes_of_kind_local(FlowNodeKind.SOURCE):
+                    if node.volume is None:
+                        node.volume = source_volume.model_copy(deep=True)
 
         output_bytes: int | None = None
         stages = getattr(self.runtime_run, "stages", None) if self.runtime_run is not None else None
@@ -819,6 +830,7 @@ def build_pipeline_flow_graph(
     runtime_run: object | None = None,
     query_history: list[QueryHistoryEntry] | list[dict[str, object]] | None = None,
     history_provenance: FlowProvenance | None = None,
+    volume_mode: str = "pipeline",
 ) -> PipelineFlowGraph:
     """Build the common pipeline flow graph from existing evidence.
 
@@ -834,6 +846,11 @@ def build_pipeline_flow_graph(
     Phase 3: ``query_history`` feeds SQL operation↔runtime correlation
     (UNKNOWN by default; KNOWN only via fingerprint + authoritative query
     id). PySpark/DLT operations never receive records.
+
+    Phase 9 (P9-4): ``volume_mode="attributed"`` skips the SOURCE pipeline
+    fan-out (UNKNOWN unless ``flow.attribution.attribute_volumes`` attaches
+    an exact observation afterward); ``"pipeline"`` (default) keeps legacy
+    behavior byte-identical for existing consumers.
     """
     try:
         builder = _GraphBuilder(
@@ -845,6 +862,7 @@ def build_pipeline_flow_graph(
             runtime_run=runtime_run,
             query_history=query_history,
             history_provenance=history_provenance,
+            volume_mode=volume_mode,
         )
         return builder.build()
     except Exception:  # pragma: no cover - defensive: graph must never break validation
