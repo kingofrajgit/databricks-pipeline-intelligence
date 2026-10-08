@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+from pydantic import ValidationError
 
 from dpif.models import CollectionMethod, DataProfile, PipelineContract
 from dpif.scalability.models import (
@@ -15,6 +18,8 @@ from dpif.scalability.models import (
     ScalingBehavior,
     ScenarioType,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def extract_baseline_volume(
@@ -232,13 +237,31 @@ def project_metric_linear(
 def analyze_historical_trends(
     observations: list[ScalabilityObservation] | list[dict[str, Any]],
 ) -> list[ScalabilityTrend]:
-    """Empirically evaluate scaling behavior across 2 or more execution runs."""
+    """Empirically evaluate scaling behavior across 2 or more execution runs.
+
+    Phase 10 (P10-3/D3): each raw dict is validated individually. Elements
+    failing ``ScalabilityObservation`` validation (``ValidationError`` —
+    e.g. wrong-typed ``run_id``, missing ``volume_gb``/``duration_minutes``)
+    are unavailable evidence for that element and are skipped with a logged
+    warning; they never poison valid siblings and never become workload
+    findings here. Only unexpected non-validation errors propagate, so
+    genuine programming errors stay visible. Fewer than 2 usable observations
+    yields ``INSUFFICIENT_DATA`` (UNKNOWN downstream), never FAIL.
+    """
     obs_list: list[ScalabilityObservation] = []
     for o in observations:
         if isinstance(o, ScalabilityObservation):
             obs_list.append(o)
         elif isinstance(o, dict):
-            obs_list.append(ScalabilityObservation(**o))
+            try:
+                obs_list.append(ScalabilityObservation(**o))
+            except ValidationError as e:
+                logger.warning(
+                    "Skipping malformed historical observation "
+                    "(unavailable evidence, not a workload finding): %s",
+                    e,
+                )
+                continue
 
     obs_list = sorted(obs_list, key=lambda x: x.volume_gb)
 
