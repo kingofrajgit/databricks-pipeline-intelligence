@@ -219,3 +219,62 @@ def test_offline_online_semantic_parity():
 def test_no_header_only_blob_regression():
     assert strip_task_headers_for_sql("") == ""
     assert strip_task_headers_for_sql("# --- TASK: t (/a) ---") == ""
+
+
+# P10-2 rework: newline representation preservation (LF vs CRLF).
+def test_lf_header_free_input_byte_identical():
+    code = "SELECT *\nFROM t;\n-- comment\n"
+    assert strip_task_headers_for_sql(code) == code
+
+
+def test_crlf_header_free_input_byte_identical():
+    code = "SELECT *\r\nFROM t;\r\n-- comment\r\n"
+    assert strip_task_headers_for_sql(code) == code
+    assert "\r\n" in strip_task_headers_for_sql(code)
+    assert strip_task_headers_for_sql(code).count("\r\n") == 3
+
+
+def test_lf_header_becomes_blank_line():
+    stripped = strip_task_headers_for_sql(ENVELOPE)
+    lines = stripped.splitlines()
+    assert lines[0] == ""
+    assert len(stripped.splitlines()) == len(ENVELOPE.splitlines())
+    assert "SELECT *" in stripped
+
+
+def test_crlf_header_becomes_blank_line_crlf_remains():
+    blob = (
+        "# --- TASK: task_1 (example.sql) ---\r\n"
+        "\r\n"
+        "SELECT *\r\n"
+        "FROM catalog.schema.table;\r\n"
+    )
+    stripped = strip_task_headers_for_sql(blob)
+    assert stripped.splitlines(keepends=True)[0] == "\r\n"
+    assert stripped.count("\r\n") == blob.count("\r\n")
+    assert len(stripped.splitlines()) == len(blob.splitlines())
+    assert "SELECT *" in stripped
+    assert _queries(blob) and _queries(blob)[0].fingerprint == _queries(BARE)[0].fingerprint
+
+
+def test_multiple_crlf_headers():
+    blob = (
+        "# --- TASK: one (/a.sql) ---\r\n"
+        "SELECT id FROM bronze.orders;\r\n"
+        "\r\n"
+        "# --- TASK: two (/b.sql) ---\r\n"
+        "SELECT id FROM bronze.customers;\r\n"
+    )
+    stripped = strip_task_headers_for_sql(blob)
+    assert stripped.count("\r\n") == blob.count("\r\n")
+    assert len(stripped.splitlines()) == len(blob.splitlines())
+    queries = _queries(blob)
+    assert len(queries) == 2
+    assert [t.name for t in queries[0].tables] == ["orders"]
+    assert [t.name for t in queries[1].tables] == ["customers"]
+
+
+def test_hash_content_untouched_with_crlf():
+    body = "SELECT '#' AS hash, id FROM t;\r\n"
+    assert strip_task_headers_for_sql(body) == body
+    assert len(_queries(body)) == 1

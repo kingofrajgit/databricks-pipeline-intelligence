@@ -854,21 +854,29 @@ def strip_task_headers_for_sql(code: str) -> str:
 
     Used ONLY on a sanitized copy handed to ``SQLParser``: ``#`` is not a SQL
     comment, so an authoritative provider header would otherwise fail SQL
-    parsing and hide genuine SQL. Blank-line replacement (never deletion)
-    preserves every subsequent line number, so flow locations, SQL ``line``
-    fields, and P9-2 task-boundary ranges stay aligned with the original
-    blob. Only lines matching the strict ``TASK_HEADER_RE`` are touched —
-    ``--``/``/* */`` comments, ``#`` inside string literals, and all other
-    content pass through byte-identical. The original text is never mutated
-    by this helper; callers must keep parsing the original for task
-    attribution.
+    parsing and hide genuine SQL. Only lines matching the strict
+    ``TASK_HEADER_RE`` are blanked; everything else — including ``--`` /
+    ``/* */`` comments, ``#`` inside string literals, and all other content
+    — passes through byte-identical.
+
+    Newline representation is preserved per line (LF stays LF, CRLF stays
+    CRLF): matching is performed against the line body with its original
+    terminator re-attached, so total line count and all non-header bytes are
+    unchanged. The original text is never mutated by this helper; callers
+    must keep parsing the original for task attribution.
     """
-    stripped = "\n".join(
-        "" if TASK_HEADER_RE.match(line) else line for line in (code or "").splitlines()
-    )
-    if code and code.endswith("\n") and not stripped.endswith("\n"):
-        stripped += "\n"
-    return stripped
+    if not code:
+        return code
+    parts: list[str] = []
+    for line in code.splitlines(keepends=True):
+        if line.endswith("\r\n"):
+            body, terminator = line[:-2], "\r\n"
+        elif line.endswith("\n") or line.endswith("\r"):
+            body, terminator = line[:-1], line[-1:]
+        else:
+            body, terminator = line, ""
+        parts.append(terminator if TASK_HEADER_RE.match(body) else line)
+    return "".join(parts)
 
 
 def parse_task_boundaries(combined_code: str) -> list[tuple[str, int]]:
