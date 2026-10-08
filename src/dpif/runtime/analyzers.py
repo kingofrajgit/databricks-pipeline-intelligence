@@ -560,6 +560,12 @@ def analyze_task_failures_and_retries(
 
     if failed_tasks <= max_failed_tasks and failed_stages == 0 and run.status.upper() == "SUCCESS":
         return []
+    if failed_tasks <= max_failed_tasks and failed_stages == 0 and run.status.upper() == "UNKNOWN":
+        # No measured failures and no interpretable status: insufficient
+        # evidence for a failure finding (UNKNOWN downstream via the
+        # checkpoint builder) — never an invented "0 failed tasks" claim.
+        # All other statuses keep their existing semantics exactly.
+        return []
 
     level = "CRITICAL" if failed_stages > 0 or run.status.upper() in ("FAILED", "ERROR") else "WARN"
 

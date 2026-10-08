@@ -32,6 +32,39 @@ def ms_to_seconds(ms_val: int | float | None) -> float | None:
     return float(ms_val) / 1000.0
 
 
+# Phase 10 (P10-3/D4): strict status allowlist. Only these sources may
+# establish a run/stage/task status:
+# - absent/None key: the caller-supplied default (pre-existing contract;
+#   fixtures and offline payloads without status fields rely on it);
+# - plain strings in _KNOWN_STATUSES (case-insensitive, upper-cased);
+# - Jobs-API state dicts with an explicit result_state (SUCCESS/FAILED).
+# Anything else present-but-unrecognizable normalizes to "UNKNOWN" — never
+# a stringified dict, never inferred failure, never invented health.
+_KNOWN_STATUSES = frozenset({"SUCCESS", "FAILED", "KILLED", "COMPLETE", "ERROR"})
+
+
+def normalize_run_status(value: Any, default: str = "SUCCESS") -> str:
+    """Normalize a raw run/stage/task status to an interpretable string."""
+    if value is None:
+        return default
+    if isinstance(value, dict):
+        result_state = value.get("result_state")
+        if isinstance(result_state, str) and result_state.strip().upper() == "SUCCESS":
+            return "SUCCESS"
+        if isinstance(result_state, str) and result_state.strip().upper() == "FAILED":
+            return "FAILED"
+        return "UNKNOWN"
+    if isinstance(value, str):
+        normalized = value.strip().upper()
+        if normalized in _KNOWN_STATUSES:
+            return normalized
+        # Present-but-empty or unrecognized strings carry no interpretable
+        # outcome (malformed → UNKNOWN); only absent/None keys take the
+        # caller-supplied default.
+        return "UNKNOWN"
+    return "UNKNOWN"
+
+
 def calculate_distribution(values: list[float]) -> dict[str, float]:
     """Calculate statistical distribution metrics: min, median, p95, p99, max, avg.
 
@@ -167,7 +200,7 @@ def normalize_runtime_payload(
                     task_id=t.get("task_id", 0),
                     stage_id=int(t.get("stage_id", s.get("stage_id", 0)) or 0),
                     attempt=int(t.get("attempt", 0) or 0),
-                    status=str(t.get("status", "SUCCESS")),
+                    status=normalize_run_status(t.get("status"), default="SUCCESS"),
                     duration_seconds=t_dur,
                     metrics=metrics,
                     failure_reason=t.get("failure_reason"),
@@ -193,7 +226,7 @@ def normalize_runtime_payload(
             RuntimeStage(
                 stage_id=int(s.get("stage_id", 0) or 0),
                 name=str(s.get("name", f"Stage {s.get('stage_id', 0)}")),
-                status=str(s.get("status", "COMPLETE")),
+                status=normalize_run_status(s.get("status"), default="COMPLETE"),
                 task_count=task_count,
                 failed_task_count=failed_count,
                 duration_seconds=s_dur,
@@ -222,7 +255,7 @@ def normalize_runtime_payload(
         run_id=raw.get("run_id", "run-001"),
         job_id=raw.get("job_id"),
         run_name=str(raw.get("run_name", raw.get("name", "pipeline_run"))),
-        status=str(raw.get("status", raw.get("state", "SUCCESS"))),
+        status=normalize_run_status(raw.get("status", raw.get("state", "SUCCESS"))),
         duration_seconds=duration_sec,
         stages=stages,
         executor_failures=list(raw.get("executor_failures", []) or []),
