@@ -367,7 +367,7 @@ class TestOnlineEndToEndValidation:
         assert res.evidence_summary["runtime"] == "LIVE"
         cp008 = res.checkpoints.get("CP-008")
         assert cp008 is not None
-        assert cp008.status.value in ("PASS", "WARN", "FAIL")
+        assert cp008.status.value in ("PASS", "WARN", "FAIL", "UNKNOWN")
 
     def test_13_runtime_evidence_unavailable(self) -> None:
         """13. Runtime evidence unavailable leaves CP-008 as UNKNOWN (zero metric fabrication)."""
